@@ -13,7 +13,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.example.ohms.dto.request.MedicleExaminationRequest;
 import com.example.ohms.dto.response.ApiResponse;
-import com.example.ohms.dto.response.MedicineResponse;
 import com.example.ohms.dto.response.MedicleExaminationResponse;
 import com.example.ohms.service.MedicleExaminatoinSerivce;
 

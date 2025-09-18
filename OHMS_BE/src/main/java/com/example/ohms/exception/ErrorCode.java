@@ -40,9 +40,10 @@ OWNER_REUQEST_NOT_FOUND(1031,"Owner request not found",HttpStatus.BAD_REQUEST),
 NOTIFICAION_NOT_FOUND(1032,"Notificaction not found", HttpStatus.BAD_REQUEST),
 VALUE_ERROR(1032,"You have send this before, pls don't send twice", HttpStatus.BAD_REQUEST),
 MEDICINE_EXITEDS(1033,"Medicine existed",HttpStatus.BAD_REQUEST),
-MEDICINE_NOT_FOUND(1034,"Medicine not found",HttpStatus.BAD_REQUEST),
-SCHEDULE_NOT_FOUND(1035,"Schedule not found",HttpStatus.BAD_REQUEST),
-MEDICLE_NOT_FOUND(1036,"medicleExamination not found", HttpStatus.BAD_REQUEST),
+MEDICINE_NOT_FOUND(1034,"Medicine not found",HttpStatus.NOT_FOUND),
+SCHEDULE_NOT_FOUND(1035,"Schedule not found",HttpStatus.NOT_FOUND),
+MEDICLE_NOT_FOUND(1036,"medicleExamination not found", HttpStatus.NOT_FOUND),
+BILL_NOTFOUND(1037,"Bill not found", HttpStatus.NOT_FOUND),
    UNAUTHENTICATED(1009,"UNAUTHENTICATED ERROR!!",HttpStatus.BAD_REQUEST);
    
    private int code;

@@ -25,5 +25,5 @@ public class UserResponse{
    Set<RoleResponse> roles;
    // Set<String> reviews; // những cái mảng nó sẽ ẩn trong mapper và gán lại ở service
     Integer phone;
-   Set<MedicalSpecialty> medicalSpecialties;
+   Set<MedicalSpecialty> medicleSpecially;
 }

@@ -19,6 +19,8 @@ import lombok.experimental.FieldDefaults;
 
 // trong 1 cái bill thì có nhiều cái dịch vụ
 // dịch vụ thì tính mỗi khám
+// bill là tổng tiền của dịch vụ
+// còn cái kia là tính thuốc riêng
 @Data
 @Entity
 @AllArgsConstructor
@@ -28,13 +30,13 @@ import lombok.experimental.FieldDefaults;
 public class Bill {
    @Id
    @GeneratedValue(strategy = GenerationType.UUID)
-   String id;
+   String id; // hide
    @ManyToOne
-   User patient;
+   User patient; //hide, lấy trong api
 // trong 1 cái bill thì sẽ có nhiều cái medical_examination
    @OneToMany
    Set<MedicalExamination> medicalExamination;
-   int priceExamination;
+   Integer priceExamination; // hide luôn, vì cái này mình xử lí trong service
    // 1 cái là status nữa để check trạng thái thanh toán
-   PaymentStatus status;
+   PaymentStatus status; // để mặc định khi tạo, thanh toán xong thay đổi trạng thái
 }
