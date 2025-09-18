@@ -41,6 +41,7 @@ NOTIFICAION_NOT_FOUND(1032,"Notificaction not found", HttpStatus.BAD_REQUEST),
 VALUE_ERROR(1032,"You have send this before, pls don't send twice", HttpStatus.BAD_REQUEST),
 MEDICINE_EXITEDS(1033,"Medicine existed",HttpStatus.BAD_REQUEST),
 MEDICINE_NOT_FOUND(1034,"Medicine not found",HttpStatus.BAD_REQUEST),
+SCHEDULE_NOT_FOUND(1035,"Schedule not found",HttpStatus.BAD_REQUEST),
    UNAUTHENTICATED(1009,"UNAUTHENTICATED ERROR!!",HttpStatus.BAD_REQUEST);
    
    private int code;

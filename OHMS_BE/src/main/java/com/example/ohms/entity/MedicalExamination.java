@@ -12,6 +12,7 @@ import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
 // admin sẽ tạo service đi kèm với giá, khám xong doctor chọn service rồi thanh toán 90% còn lại + tiền thuốc
+//tạo dịch vụ khám 
 @Data
 @Entity
 @AllArgsConstructor

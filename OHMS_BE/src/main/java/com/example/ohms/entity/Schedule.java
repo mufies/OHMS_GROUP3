@@ -24,9 +24,9 @@ import lombok.experimental.FieldDefaults;
 public class Schedule {
    @Id
    @GeneratedValue(strategy = GenerationType.UUID)
-   String id;
+   String id; // hide
    @ManyToOne
-   User doctor;
+   User doctor; //ẩn doctor, thay thành ddoctor_id rồi set trong mapper
    LocalDate workDate;
    LocalTime startTime;
    LocalTime endTime;
