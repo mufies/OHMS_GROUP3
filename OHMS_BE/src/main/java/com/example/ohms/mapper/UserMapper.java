@@ -15,6 +15,8 @@ public interface UserMapper {
    @Mapping(target = "facebookId",ignore = true)
    @Mapping(target = "refreshtoken",ignore = true)
    @Mapping(target = "resetToken",ignore = true)
+   // identification, medicleSpecially, phone
+   @Mapping(target = "identification",ignore = true)
    User toUser(UserRequest userRequestDto);
    UserResponse toUserResponseDto(User user);
 }

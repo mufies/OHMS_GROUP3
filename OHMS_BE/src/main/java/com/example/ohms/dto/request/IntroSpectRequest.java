@@ -1,13 +1,15 @@
 package com.example.ohms.dto.request;
 
-import lombok.AllArgsConstructor;
+import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 @Data
-@NoArgsConstructor
-@AllArgsConstructor
+
 @Builder
+   @RequiredArgsConstructor
+   @FieldDefaults(level = AccessLevel.PRIVATE,makeFinal = true)
 public class IntroSpectRequest {
    String token;
 }
