@@ -65,7 +65,7 @@ public class UserService {
       if(avatar != null && !avatar.isEmpty()){
          user.setImageUrl(cloudinaryService.uploadFile(avatar));
       }
-      Role clientRole = roleRepository.findByName("CLIENT")
+      Role clientRole = roleRepository.findByName("PATIENT")
       .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
       user.setPassword(passwordEncoder.encode(userRequestDto.getPassword()));
       user.setRoles(Set.of(clientRole));
