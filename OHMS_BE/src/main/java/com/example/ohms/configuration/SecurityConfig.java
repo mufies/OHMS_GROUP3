@@ -30,7 +30,7 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level = AccessLevel.PRIVATE,makeFinal = true)
 @EnableMethodSecurity // thực tế thì đây là cách phân quyền được sử dụng phổ biển hơn trong các dự án
 public class SecurityConfig {
-    String [] PUBLIC={"/auth/**","/permission/**","/role/**","/users/**","/vehicle/**"};
+    String [] PUBLIC={"/auth/**","/permission/**","/role/**","/users/**","/medicine/**","/bill/**","/medical-examination/**"};
     String [] SWAGGEER_PUBLIC_ENDPOINT={"/v3/api-docs/**","/swagger-ui/**","/swagger-ui.html"};
         @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
