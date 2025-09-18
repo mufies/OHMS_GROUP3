@@ -10,7 +10,7 @@ import com.example.ohms.dto.response.MedicineResponse;
 import com.example.ohms.entity.Medicine;
 import com.example.ohms.exception.AppException;
 import com.example.ohms.exception.ErrorCode;
-import com.example.ohms.mapper.MedicleMapper;
+import com.example.ohms.mapper.MedicineMapper;
 import com.example.ohms.repository.MedicineRepository;
 
 import lombok.AccessLevel;
@@ -22,7 +22,7 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level =  AccessLevel.PRIVATE, makeFinal = true)
 
 public class MedicineService {
-   MedicleMapper medicleMapper;
+   MedicineMapper medicleMapper;
    MedicineRepository medicineRepository;
 // create
 // get

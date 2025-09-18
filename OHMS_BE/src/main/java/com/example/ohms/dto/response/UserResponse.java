@@ -1,6 +1,8 @@
 package com.example.ohms.dto.response;
 import java.util.Set;
 
+import com.example.ohms.enums.MedicalSpecialty;
+
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Size;
 import lombok.AccessLevel;
@@ -22,4 +24,6 @@ public class UserResponse{
    String email;
    Set<RoleResponse> roles;
    // Set<String> reviews; // những cái mảng nó sẽ ẩn trong mapper và gán lại ở service
+    Integer phone;
+   Set<MedicalSpecialty> medicalSpecialties;
 }

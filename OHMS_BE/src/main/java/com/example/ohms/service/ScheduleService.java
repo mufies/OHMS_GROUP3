@@ -25,7 +25,7 @@ public class ScheduleService {
    ScheduleRepository scheduleRepository;
    ScheduleMapper scheduleMapper;
    UserRepository userRepository;
-// tạo lịch mới, lấy id của thằng doctor để tạo;
+// tạo lịch mới
 public ScheduleResponse createSchedule(ScheduleRequest scheduleRequest,String doctorId){
    User user = userRepository.findById(doctorId).orElseThrow(()-> new AppException(ErrorCode.USER_NOT_FOUND));
    Schedule schedule =  scheduleMapper.toSchedule(scheduleRequest);
@@ -46,7 +46,6 @@ public ScheduleResponse updateSchedule(String scheduleId, ScheduleRequest schedu
    scheduleRepository.save(schedule);
    return scheduleMapper.toScheduleResponse(schedule);
 }
-// xóa lịch làm việc;
 // tí quay lại check relation trong bảng
 public Void deleteSchedule(String scheduleId){
    scheduleRepository.deleteById(scheduleId);

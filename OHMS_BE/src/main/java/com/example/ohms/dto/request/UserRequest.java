@@ -2,7 +2,9 @@ package com.example.ohms.dto.request;
 
   import java.util.Set;
 
-   import jakarta.validation.constraints.Email;
+import com.example.ohms.enums.MedicalSpecialty;
+
+import jakarta.validation.constraints.Email;
    import jakarta.validation.constraints.NotNull;
    import jakarta.validation.constraints.Size;
    import lombok.AccessLevel;
@@ -25,5 +27,8 @@ package com.example.ohms.dto.request;
       @Email(message = "EMAIL_NOT_VAILID")
       String email;
       Set<String> roles;
-      
+      //  làm thêm cái phone với cái chuyên ngành hẹp cho thằng bác sĩ
+      // 1 bác sĩ ccó thể có nhiều chuyên khoa hẹp
+      Integer phone;
+      Set<MedicalSpecialty> medicleSpecially;
    }

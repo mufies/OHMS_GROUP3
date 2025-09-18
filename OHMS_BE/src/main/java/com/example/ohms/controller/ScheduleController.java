@@ -2,10 +2,11 @@ package com.example.ohms.controller;
 
 import java.util.List;
 
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -43,12 +44,20 @@ public ApiResponse<List<ScheduleResponse>> getScheduleList(
    .results(scheduleService.getListScheduleForDoctor(doctorId))
    .build();
 }
-@PutMapping("/{scheduleId}")
+@PatchMapping("/{scheduleId}")
 public ApiResponse<ScheduleResponse> updateSchedule(@PathVariable("scheduleId") String scheduleId,
 @RequestBody ScheduleRequest scheduleRequest
 ){
    return ApiResponse.<ScheduleResponse>builder()
    .results(scheduleService.updateSchedule(scheduleId, scheduleRequest))
+   .build();
+}
+@DeleteMapping("/{scheduleId}")
+public ApiResponse<Void> deleteSchedule(@PathVariable("scheduleId") String scheduleId){
+   scheduleService.deleteSchedule(scheduleId);
+   return ApiResponse.<Void>builder()
+   .code(200)
+   .message("delete successful")
    .build();
 }
 }

@@ -2,6 +2,8 @@ package com.example.ohms.entity;
 
 import java.util.Set;
 
+import com.example.ohms.enums.PaymentStatus;
+
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -33,4 +35,6 @@ public class Bill {
    @OneToMany
    Set<MedicalExamination> medicalExamination;
    int priceExamination;
+   // 1 cái là status nữa để check trạng thái thanh toán
+   PaymentStatus status;
 }

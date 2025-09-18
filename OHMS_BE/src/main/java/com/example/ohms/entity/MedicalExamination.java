@@ -19,8 +19,10 @@ import lombok.experimental.FieldDefaults;
 @NoArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @Builder
+// tạo dịch vụ khám
+// mỗi dịch vụ khám lại có 1 cái giá riêng
 public class MedicalExamination {
-      @Id
+   @Id
    @GeneratedValue(strategy = GenerationType.UUID)
    String id;
    String name;

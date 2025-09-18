@@ -119,6 +119,13 @@ public ApiResponse<UserResponse> register(
         .build()
         ;
     }
+    @GetMapping("/getListDoctor")
+    public ApiResponse<List<UserResponse>> getListDoctor(){
+        return ApiResponse.<List<UserResponse>>builder()
+        .code(200)
+        .results(userService.getListDoctor())
+        .build();
+    }
     @DeleteMapping(value = "/deleteUser/{userId}")
     public ApiResponse<Void> deleteUser(
         @PathVariable("userId") String id

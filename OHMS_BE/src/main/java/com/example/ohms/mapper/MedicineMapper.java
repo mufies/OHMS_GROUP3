@@ -8,7 +8,7 @@ import com.example.ohms.dto.response.MedicineResponse;
 import com.example.ohms.entity.Medicine;
 
 @Mapper(componentModel = "spring")
-public interface MedicleMapper {
+public interface MedicineMapper {
    @Mapping(target = "id", ignore = true)
    Medicine toMedicine(MedicineRequest medicineRequest);
    MedicineResponse toMedicineResponse(Medicine medicine);

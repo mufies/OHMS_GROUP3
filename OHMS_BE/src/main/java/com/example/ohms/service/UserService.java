@@ -46,7 +46,7 @@ public class UserService {
    // update
    // delete
    // cái này để quyền admin
-
+   // làm lại user với bảng mới
    @PreAuthorize("hasRole('ADMIN')")
    public UserResponse createUser(UserRequest userRequestDto,MultipartFile avatar) throws IOException{
        User user = userMapper.toUser(userRequestDto);
@@ -55,6 +55,11 @@ public class UserService {
       }
       user.setPassword(passwordEncoder.encode(userRequestDto.getPassword()));
       var roles = roleRepository.findAllById(userRequestDto.getRoles()); //trường hợp không tìm thấy sẽ handle trong fe
+// check trong trường hợp có medicalSpecalities thì set cho user
+      if(userRequestDto.getMedicleSpecially() != null){
+         var specialities = new HashSet<>(userRequestDto.getMedicleSpecially());
+         user.setMedicleSpecially(specialities);
+      }
       user.setRoles(new HashSet<>(roles));
       userRepository.save(user);
       return userMapper.toUserResponseDto(user);
@@ -93,7 +98,14 @@ public class UserService {
       if(userRequestDto.getPassword() != null){
            user.setPassword(passwordEncoder.encode(userRequestDto.getPassword()));
       }
-      
+      // admin update user thì có nha
+      if(userRequestDto.getPhone() != null){
+         user.setPhone(userRequestDto.getPhone());
+      }
+      if(userRequestDto.getMedicleSpecially() != null){
+         var specialities = new HashSet<>(userRequestDto.getMedicleSpecially());
+         user.setMedicleSpecially(specialities);
+      }
       if(avatar != null && !avatar.isEmpty()){
          log.info("Avatar received: name={}, size={}", avatar.getOriginalFilename(), avatar.getSize());
     user.setImageUrl(cloudinaryService.uploadFile(avatar));
@@ -130,7 +142,12 @@ public class UserService {
       if(avatar != null && !avatar.isEmpty()){
          user.setImageUrl(cloudinaryService.uploadFile(avatar));
       }
+      if(userRequestDto.getPhone() != null){
+         user.setPhone(userRequestDto.getPhone());
+      }
 
+      // này đang làm hơi sai, user không có update role được user á
+      // fe làm thì ẩn cái này đi
       // lấy mảng role mới áp vào mảng cũ
         if (userRequestDto.getRoles() != null && !userRequestDto.getRoles().isEmpty()) {
         Set<Role> roles = userRequestDto.getRoles().stream()
@@ -188,4 +205,12 @@ public UserResponse getDetailUser(Authentication authentication) {
 
       return null;
    }
+// này sẽ lấy tất cả bác sĩ, xong filter chuyên ngành trong fe nha
+ public List<UserResponse> getListDoctor() {
+        return userRepository.findAll().stream()
+                .filter(user -> user.getRoles().stream()
+                        .anyMatch(role -> role.getName().equals("DOCTOR")))
+                .map(userMapper::toUserResponseDto)
+                .toList();
+    }
 }

@@ -42,6 +42,7 @@ VALUE_ERROR(1032,"You have send this before, pls don't send twice", HttpStatus.B
 MEDICINE_EXITEDS(1033,"Medicine existed",HttpStatus.BAD_REQUEST),
 MEDICINE_NOT_FOUND(1034,"Medicine not found",HttpStatus.BAD_REQUEST),
 SCHEDULE_NOT_FOUND(1035,"Schedule not found",HttpStatus.BAD_REQUEST),
+MEDICLE_NOT_FOUND(1036,"medicleExamination not found", HttpStatus.BAD_REQUEST),
    UNAUTHENTICATED(1009,"UNAUTHENTICATED ERROR!!",HttpStatus.BAD_REQUEST);
    
    private int code;
