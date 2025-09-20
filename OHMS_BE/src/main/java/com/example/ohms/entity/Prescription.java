@@ -1,26 +1,45 @@
 package com.example.ohms.entity;
 
-import java.util.List;
+import java.util.Set;
 
 import com.example.ohms.enums.PaymentStatus;
 
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.experimental.FieldDefaults;
 // đơn thuốc
 // tiền của đơn thuốc, tiền của dịch vụ là 2 cái khác nhau ấy
 // khám xong tổng sau
+@Data
+@Entity
+@AllArgsConstructor
+@NoArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE)
+@Builder
 public class Prescription {
 //1 bệnh nhân có 1 bác sĩ khám
-// 1 bác sĩ thì kê nhiều đơn   
-@ManyToOne  
-   User doctor;
+// 1 bác sĩ thì kê nhiều đơn 
+   @Id
+   @GeneratedValue(strategy = GenerationType.UUID)
+   String id;  
+   @ManyToOne  
+   User doctor; // get ở authen
 // id của mỗi lần khám là riêng biệt, nên đơn thuốc cũng là many one cho từng bệnh nhân
    @ManyToOne
-   User patientId;
+   User patient; // get
    // 1 đơn thuốc thì có nhiều thuốc
    @OneToMany
-   List<Medicine> medicine;
-   int amount;
+   Set<PrescriptionMedicine> medicinePrescription; // get
+   Integer amount; // hide
    // status để check cái trạng thái thanh toán
-   PaymentStatus status;
+   PaymentStatus status; //hide
 }

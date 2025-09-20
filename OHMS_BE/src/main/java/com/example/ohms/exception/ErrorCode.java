@@ -44,6 +44,7 @@ MEDICINE_NOT_FOUND(1034,"Medicine not found",HttpStatus.NOT_FOUND),
 SCHEDULE_NOT_FOUND(1035,"Schedule not found",HttpStatus.NOT_FOUND),
 MEDICLE_NOT_FOUND(1036,"medicleExamination not found", HttpStatus.NOT_FOUND),
 BILL_NOTFOUND(1037,"Bill not found", HttpStatus.NOT_FOUND),
+PRESCRIP_NOT_FOUND(1038,"Prescrip not found", HttpStatus.NOT_FOUND),
    UNAUTHENTICATED(1009,"UNAUTHENTICATED ERROR!!",HttpStatus.BAD_REQUEST);
    
    private int code;
