@@ -5,6 +5,8 @@ import java.util.Set;
 import com.example.ohms.entity.PrescriptionMedicine;
 import com.example.ohms.enums.PaymentStatus;
 
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Data;

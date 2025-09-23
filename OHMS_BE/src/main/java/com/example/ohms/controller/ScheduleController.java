@@ -26,7 +26,7 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class ScheduleController {
    ScheduleService scheduleService;
-// tạo lịch
+// tạo lịch làm việc
 @PostMapping("/{doctorId}")
 public ApiResponse<ScheduleResponse> createSchedule(@RequestBody ScheduleRequest scheduleRequest,
 @PathVariable("doctorId") String id){

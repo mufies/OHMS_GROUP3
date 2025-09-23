@@ -15,6 +15,7 @@ import lombok.experimental.FieldDefaults;
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class MedicineResponse {
+   String id;
    String name;
    int quantity;
    MedicineType type;

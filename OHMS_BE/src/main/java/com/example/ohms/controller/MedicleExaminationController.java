@@ -42,6 +42,7 @@ public class MedicleExaminationController {
       .results(medicleExaminatoinSerivce.getListMedicleExamination())
       .build();
    }
+   // xóa luôn để cuối cùng để check relation
    @DeleteMapping("/{id}")
    public ApiResponse<Void> deleteMedicleExamination(
       @PathVariable("id") String id

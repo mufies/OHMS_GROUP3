@@ -7,6 +7,7 @@ import java.text.ParseException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authorization.AuthorizationDeniedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -124,6 +125,14 @@ public ResponseEntity<ApiResponse> handleAccessDenied(RuntimeException exception
    @ExceptionHandler(value = DataIntegrityViolationException.class)
    ResponseEntity<ApiResponse> handlingExceptionHandlerExceptionResolver(DataIntegrityViolationException exception){
       ErrorCode errorCode = ErrorCode.VALUE_ERROR;
+      return ResponseEntity.status(errorCode.getStatusCode()).body(
+         ApiResponse.builder().code(errorCode.getCode()).message(errorCode.getMessage()).build()
+      );
+   }
+   // HttpRequestMethodNotSupportedException
+     @ExceptionHandler(value = HttpRequestMethodNotSupportedException.class)
+   ResponseEntity<ApiResponse> handlingHttpRequestMethodNotSupportedException(HttpRequestMethodNotSupportedException exception){
+      ErrorCode errorCode = ErrorCode.METHOD_NOT_ALLOW;
       return ResponseEntity.status(errorCode.getStatusCode()).body(
          ApiResponse.builder().code(errorCode.getCode()).message(errorCode.getMessage()).build()
       );

@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.example.ohms.dto.request.RoleRequest;
 import com.example.ohms.dto.response.ApiResponse;
 import com.example.ohms.dto.response.RoleResponse;
+import com.example.ohms.entity.Role;
 import com.example.ohms.service.RoleService;
 
 import lombok.AccessLevel;
@@ -42,6 +43,13 @@ public class RoleController {
       return ApiResponse.<List<RoleResponse>>builder()
       .code(200)
       .results(roleService.getAllRole())
+      .build();
+   }
+   @GetMapping("{roleId}") 
+   public ApiResponse<Role> getdatail(@PathVariable("roleId") String id){
+      return ApiResponse.<Role>builder()
+      .code(200)
+      .results(roleService.getdetail(id))
       .build();
    }
 }

@@ -4,6 +4,8 @@ package com.example.ohms.dto.request;
 
 import com.example.ohms.enums.MedicalSpecialty;
 
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.validation.constraints.Email;
    import jakarta.validation.constraints.NotNull;
    import jakarta.validation.constraints.Size;

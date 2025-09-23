@@ -1,7 +1,11 @@
 package com.example.ohms.service;
 
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.util.Date;
 import java.util.List;
 
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
 import com.example.ohms.dto.request.ScheduleRequest;
@@ -26,7 +30,15 @@ public class ScheduleService {
    ScheduleMapper scheduleMapper;
    UserRepository userRepository;
 // tạo lịch mới
+@PreAuthorize("hasRole('ADMIN')")
 public ScheduleResponse createSchedule(ScheduleRequest scheduleRequest,String doctorId){
+if (scheduleRequest.getWorkDate().isBefore(LocalDate.now())) {
+    throw new AppException(ErrorCode.DATE_NOT_VAILID);
+}
+// timf theo thằng bác sĩ, có ngày đó rồi thì không cho tạo vào ngày đó nữa
+   if(scheduleRepository.existsByDoctor_IdAndWorkDate(doctorId, scheduleRequest.getWorkDate())){
+      throw new AppException(ErrorCode.DATE_NOT_VAILID);
+   }
    User user = userRepository.findById(doctorId).orElseThrow(()-> new AppException(ErrorCode.USER_NOT_FOUND));
    Schedule schedule =  scheduleMapper.toSchedule(scheduleRequest);
    schedule.setDoctor(user);
@@ -40,9 +52,20 @@ public List<ScheduleResponse> getListScheduleForDoctor(String doctorId){
 // thay đổi lịch làm việc
 public ScheduleResponse updateSchedule(String scheduleId, ScheduleRequest scheduleRequest ){
    Schedule schedule = scheduleRepository.findById(scheduleId).orElseThrow(()-> new AppException(ErrorCode.SCHEDULE_NOT_FOUND));
-   schedule.setEndTime(scheduleRequest.getEndTime());
+   if (scheduleRequest.getWorkDate().isBefore(LocalDate.now())) {
+    throw new AppException(ErrorCode.DATE_NOT_VAILID);
+}
+   if(scheduleRequest.getEndTime() != null){
+ schedule.setEndTime(scheduleRequest.getEndTime());
+   }
+  if(scheduleRequest.getStartTime() != null){
    schedule.setStartTime(scheduleRequest.getStartTime());
-   schedule.setWorkDate(scheduleRequest.getWorkDate());
+  }
+   if(scheduleRequest.getWorkDate() != null){
+       schedule.setWorkDate(scheduleRequest.getWorkDate());
+   }
+   
+  
    scheduleRepository.save(schedule);
    return scheduleMapper.toScheduleResponse(schedule);
 }

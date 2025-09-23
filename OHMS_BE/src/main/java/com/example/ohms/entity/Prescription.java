@@ -5,6 +5,8 @@ import java.util.Set;
 import com.example.ohms.enums.PaymentStatus;
 
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -39,7 +41,8 @@ public class Prescription {
    // 1 đơn thuốc thì có nhiều thuốc
    @OneToMany
    Set<PrescriptionMedicine> medicinePrescription; // get
-   Integer amount; // hide
+   Integer amount; // hide tổng giá
    // status để check cái trạng thái thanh toán
+   @Enumerated(EnumType.STRING)
    PaymentStatus status; //hide
 }

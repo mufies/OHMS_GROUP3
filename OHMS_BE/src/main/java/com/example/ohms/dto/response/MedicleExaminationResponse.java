@@ -11,6 +11,7 @@ import lombok.experimental.FieldDefaults;
    @RequiredArgsConstructor
    @FieldDefaults(level = AccessLevel.PRIVATE,makeFinal = true)
 public class MedicleExaminationResponse {
+   String id;
    String name;
    int price;
 }

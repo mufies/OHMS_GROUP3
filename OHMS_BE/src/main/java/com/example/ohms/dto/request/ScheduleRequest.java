@@ -14,6 +14,6 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level = AccessLevel.PRIVATE,makeFinal = true)
 public class ScheduleRequest {
    LocalDate workDate;
-   LocalTime startTime;
+   LocalTime startTime; 
    LocalTime endTime;
 }

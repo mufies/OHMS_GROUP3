@@ -35,6 +35,7 @@ public MedicineResponse createMedicine(MedicineRequest medicineRequest) {
     if (medicineRepository.findByName(medicine.getName()).isPresent()) {
         throw new AppException(ErrorCode.MEDICINE_EXITEDS);
     }
+    
     medicineRepository.save(medicine);
     return medicleMapper.toMedicineResponse(medicine);
 }

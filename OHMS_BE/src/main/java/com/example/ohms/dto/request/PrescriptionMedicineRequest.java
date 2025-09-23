@@ -9,6 +9,7 @@ import lombok.experimental.FieldDefaults;
 @Builder
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE,makeFinal = true)
+// xử lí lại cái này 
 public class PrescriptionMedicineRequest {
    String medicineId;
    Integer amount;

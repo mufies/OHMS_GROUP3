@@ -5,6 +5,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -23,8 +24,10 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class PrescriptionController {
    PrescriptionService prescriptionService;
+   // bác sĩ mới kê đơn được
    @PostMapping("{patientId}")
-   public ApiResponse<PrescriptionResponse> createPrescription(Authentication aithAuthentication, @PathVariable("patientId") String id, PrescriptionRequest prescriptionRequest){
+   public ApiResponse<PrescriptionResponse> createPrescription(Authentication aithAuthentication, @PathVariable("patientId") String id,
+    @RequestBody PrescriptionRequest prescriptionRequest){
       return ApiResponse.<PrescriptionResponse>builder()
       .code(200)
       .results(prescriptionService.createPrescription(aithAuthentication, prescriptionRequest, id))

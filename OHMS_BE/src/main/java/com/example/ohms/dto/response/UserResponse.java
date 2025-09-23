@@ -3,6 +3,8 @@ import java.util.Set;
 
 import com.example.ohms.enums.MedicalSpecialty;
 
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Size;
 import lombok.AccessLevel;
