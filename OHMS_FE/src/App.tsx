@@ -13,8 +13,12 @@ import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 // import RegisterPage from "./page/Register.tsx";
 // import DashboardPage from "./page/Dashboard.tsx";
 // import PlaylistPage from "./page/Playlist.tsx";
-import Booking from "./page/Booking.tsx";
 
+import Booking from "./page/Booking.tsx";
+import DoctorDashboard from "./page/doctor/DoctorDashboard.tsx";
+import DoctorSchedule from "./page/doctor/DoctorSchedule.tsx";
+import DoctorChat from "./page/doctor/DoctorChat.tsx";
+// import DoctorCall from "./page/doctor/DoctorCall.tsx";
 function App() {
     return (
         <Router>
@@ -29,6 +33,12 @@ function App() {
                 {/*<Route path="/music" element={<DashboardPage />} />*/}
                 {/*<Route path="/register" element={<RegisterPage />} />*/}
                 {/*<Route path="/playlist/:id" element={<PlaylistPage />} />*/}
+                <Route path="/doctor/" element={<DoctorDashboard />} />
+                <Route path="/doctor/schedule" element={<DoctorSchedule />} />
+                <Route path="/doctor/chat" element={<DoctorChat />} />
+                {/*<Route path="/doctor/call" element={<DoctorCall />} />*/}
+                {/*<Route path="*" element={<HomePage />} />*/}
+
 
             </Routes>
             {/*</AuthProvider>*/}
