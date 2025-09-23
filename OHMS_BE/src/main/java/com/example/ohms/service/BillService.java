@@ -3,6 +3,7 @@ package com.example.ohms.service;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.HashSet;
 import java.util.List;
@@ -25,6 +26,7 @@ import com.example.ohms.repository.UserRepository;
 @Service
 @RequiredArgsConstructor
 @FieldDefaults(level =  AccessLevel.PRIVATE,makeFinal = true)
+@Slf4j
 public class BillService {
    BillMapper billMapper;
    BillRepository billRepository;
@@ -34,9 +36,10 @@ public class BillService {
 // view bill 
 // delete bill
    public BillResponse createBill(String patientsId, BillRequest billRequest){
+      log.info("aaaaaaaaaaaaa{}",billRequest);
       Bill bill = billMapper.toBill(billRequest);
       User patients = userRepository.findById(patientsId).orElseThrow(()-> new AppException(ErrorCode.USER_NOT_FOUND));
-      List<MedicalExamination> services = medicleExaminatioRepository.findAllByNameIn(billRequest.getMedicalExamination());
+      List<MedicalExamination> services = medicleExaminatioRepository.findAllByIdIn(billRequest.getMedicalExamination());
 
       // nếu không tìm thấy dịch vụ nào thì ném exception
       if (services.isEmpty()) {
@@ -58,6 +61,7 @@ public class BillService {
       return billRepository.findAll().stream().map(billMapper :: toBillResponse).toList();
    }
    // lấy bill của từng thằng patients
+   // vãi cặc có rồi tưởng chưa có
    public List<BillResponse> getBillByPatients(String patientId){
       return billRepository.findByPatient_Id(patientId).stream().map(billMapper :: toBillResponse).toList();
    }

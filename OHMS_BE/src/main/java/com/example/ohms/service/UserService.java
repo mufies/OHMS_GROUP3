@@ -3,11 +3,12 @@ package com.example.ohms.service;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.springframework.security.oauth2.jwt.Jwt;
-
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PostAuthorize;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -41,6 +42,8 @@ public class UserService {
    CloudinaryService cloudinaryService;
    PasswordEncoder passwordEncoder;
    MailService mailService;
+   @Autowired
+   RoleService roleService;
    // create
    // register 
    // update
@@ -48,22 +51,41 @@ public class UserService {
    // cái này để quyền admin
    // làm lại user với bảng mới
    @PreAuthorize("hasRole('ADMIN')")
-   public UserResponse createUser(UserRequest userRequestDto,MultipartFile avatar) throws IOException{
-       User user = userMapper.toUser(userRequestDto);
-      if(avatar != null && !avatar.isEmpty()){
-         user.setImageUrl(cloudinaryService.uploadFile(avatar));
-      }
-      user.setPassword(passwordEncoder.encode(userRequestDto.getPassword()));
-      var roles = roleRepository.findAllById(userRequestDto.getRoles()); //trường hợp không tìm thấy sẽ handle trong fe
-// check trong trường hợp có medicalSpecalities thì set cho user
-      if(userRequestDto.getMedicleSpecially() != null){
-         var specialities = new HashSet<>(userRequestDto.getMedicleSpecially());
-         user.setMedicleSpecially(specialities);
-      }
-      user.setRoles(new HashSet<>(roles));
-      userRepository.save(user);
-      return userMapper.toUserResponseDto(user);
-   }
+public UserResponse createUser(UserRequest userRequestDto, MultipartFile avatar) throws IOException {
+    log.info("aaaaaaaaa{}", userRequestDto);
+    User user = userMapper.toUser(userRequestDto);
+
+    if (userRepository.findByEmail(userRequestDto.getEmail()).isPresent()) {
+        throw new AppException(ErrorCode.USER_EXISTED);
+    }
+
+    if (avatar != null && !avatar.isEmpty()) {
+        user.setImageUrl(cloudinaryService.uploadFile(avatar));
+    }
+    user.setPassword(passwordEncoder.encode(userRequestDto.getPassword()));
+
+    log.info("Roles from request: {}", userRequestDto.getRoles());
+    Set<Role> roles = new HashSet<>();
+    for (String roleName : userRequestDto.getRoles()) {
+    Role role = roleService.getdetail(roleName); // Sử dụng getdetail để tận dụng context của RoleService
+    roles.add(role);
+    log.info("Found role: {}", roleName);
+}
+    log.info("Roles found in DB: {}", roles.stream().map(Role::getName).collect(Collectors.toList()));
+
+    if (roles.isEmpty()) {
+        log.error("No roles found for requested roles: {}", userRequestDto.getRoles());
+        throw new AppException(ErrorCode.ROLE_NOT_FOUND);
+    }
+
+    if (userRequestDto.getMedicleSpecially() != null) {
+        var specialities = new HashSet<>(userRequestDto.getMedicleSpecially());
+        user.setMedicleSpecially(specialities);
+    }
+    user.setRoles(roles);
+    userRepository.save(user);
+    return userMapper.toUserResponseDto(user);
+}
 // đăng kí thì auto là client
    public UserResponse registerUser( UserRequest userRequestDto,MultipartFile avatar) throws IOException{
          User user = userMapper.toUser(userRequestDto);
@@ -113,6 +135,7 @@ public class UserService {
       }
 
       // lấy mảng role mới áp vào mảng cũ
+      // check lại cái role
      if (userRequestDto.getRoles() != null) { // Chỉ kiểm tra null, không kiểm tra isEmpty
         Set<Role> roles = new HashSet<>();
         if (!userRequestDto.getRoles().isEmpty()) {

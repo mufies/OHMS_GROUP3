@@ -8,4 +8,5 @@ import com.example.ohms.entity.Bill;
 
 public  interface BillRepository extends JpaRepository<Bill,String> {
    List<Bill> findByPatient_Id(String id);
+   
 }

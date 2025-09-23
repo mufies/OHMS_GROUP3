@@ -5,6 +5,8 @@ import java.util.Set;
 import com.example.ohms.enums.PaymentStatus;
 
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -38,5 +40,6 @@ public class Bill {
    Set<MedicalExamination> medicalExamination;
    Integer priceExamination; // hide luôn, vì cái này mình xử lí trong service
    // 1 cái là status nữa để check trạng thái thanh toán
+   @Enumerated(EnumType.STRING)
    PaymentStatus status; // để mặc định khi tạo, thanh toán xong thay đổi trạng thái
 }

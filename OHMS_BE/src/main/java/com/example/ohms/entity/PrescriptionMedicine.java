@@ -1,10 +1,12 @@
 package com.example.ohms.entity;
 
+import java.util.Set;
+
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.ManyToMany;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -19,13 +21,17 @@ import lombok.experimental.FieldDefaults;
 @NoArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @Builder
+// mình đang tìm 1 set cái này 
 public class PrescriptionMedicine {
    @Id
    @GeneratedValue(strategy = GenerationType.UUID)
    String id;
 // lấy từng cái thuốc với số lượng ra
 // trỏ tới từng cái thuốc
-   @OneToMany
-   Medicine medicine;
-   Integer amount;
+// nhiều thuốc cho 1 cái đơn vị 
+   // @ManyToOne
+   // Prescription prescription; // cái này là nguyên do cho đệ quy
+   @ManyToOne 
+   Medicine medicine; // lấy id của thuốc
+   Integer amount; // lấy số lượng của id đó
 }

@@ -46,9 +46,9 @@ public class AuthenticationService {
       @NonFinal // đánh dấu nonfinal để nó không inject vào lombok ở trên
       protected static final String SIGNAL_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9";
 
-         public AuthenticationResponse loginUser(AuthenticationRequest authenticationRequest){
-
-         User user = userRepository.findByEmail(authenticationRequest.getEmail()).orElseThrow(()->new AppException(ErrorCode.USER_NOT_FOUND));
+      public AuthenticationResponse loginUser(AuthenticationRequest authenticationRequest){
+      log.error("aaaaaaaaaaaaaaaaaaaaaaa{}",authenticationRequest);
+      User user = userRepository.findByEmail(authenticationRequest.getEmail()).orElseThrow(()->new AppException(ErrorCode.USER_NOT_FOUND));
          boolean results = passwordEncoder.matches(authenticationRequest.getPassword(), user.getPassword());
         if (!results) {
     throw new AppException(ErrorCode.UNAUTHENTICATED);

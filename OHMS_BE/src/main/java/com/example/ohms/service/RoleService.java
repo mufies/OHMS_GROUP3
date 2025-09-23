@@ -48,5 +48,7 @@ public class RoleService {
       return roleRepository.findAll().stream().map(roleMapper :: toRoleResponse).toList();
    }
 
-
+   public Role getdetail(String id) {
+      return roleRepository.findByName(id).orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
+   }
 }

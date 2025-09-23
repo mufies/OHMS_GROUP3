@@ -8,4 +8,5 @@ import com.example.ohms.entity.Role;
 
 public interface RoleRepository extends JpaRepository<Role,String> {
 Optional<Role> findByName(String name);
+
 }

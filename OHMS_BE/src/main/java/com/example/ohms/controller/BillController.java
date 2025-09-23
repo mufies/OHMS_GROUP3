@@ -45,7 +45,7 @@ public class BillController {
       .results(billService.getListBill())
       .build();
    }
-   @PreAuthorize("hasRole('ADMIN')")
+   @PreAuthorize("hasRole('ADMIN') or hasRole('DOCTOR')")
    @GetMapping("/getBillByPatient/{patientId}")
    public ApiResponse<List<BillResponse>> getListBillByPatients(
       @PathVariable("patientId") String id
@@ -71,4 +71,5 @@ public class BillController {
       .results(billService.getBillId(id))
       .build();
    }
+
 }

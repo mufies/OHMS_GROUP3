@@ -14,6 +14,7 @@ import com.example.ohms.dto.response.ApiResponse;
 import com.example.ohms.dto.response.MedicineResponse;
 import com.example.ohms.service.MedicineService;
 
+import jakarta.validation.Valid;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -27,7 +28,7 @@ public class MedicineController {
 
    @PostMapping()
    public ApiResponse<MedicineResponse> createMedicine(
-      @RequestBody MedicineRequest medicineRequest
+      @Valid @RequestBody MedicineRequest medicineRequest
    ){
       return ApiResponse.<MedicineResponse>builder().
       code(200).
