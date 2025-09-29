@@ -1,5 +1,7 @@
 package com.example.ohms.entity;
 
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.Set;
 
 import com.example.ohms.enums.PaymentStatus;
@@ -30,19 +32,18 @@ import lombok.experimental.FieldDefaults;
 @NoArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @Builder
-public class Bill {
+public class Appointment {
    @Id
    @GeneratedValue(strategy = GenerationType.UUID)
    String id; // hide
    @ManyToOne
-   User patient; //hide, lấy trong api
-// trong 1 cái bill thì sẽ có nhiều cái medical_examination
+   User patient;
+   @ManyToOne
+   User doctor;
+// book khám gì ?
    @OneToMany
-   Set<MedicalExamination> medicalExamination;
-   Integer priceExamination; // hide luôn, vì cái này mình xử lí trong service
-   // 1 cái là status nữa để check trạng thái thanh toán
-   @OneToOne
-   Appointment appointment;
-   @Enumerated(EnumType.STRING)
-   PaymentStatus status; // để mặc định khi tạo, thanh toán xong thay đổi trạng thái
+   Set<MedicalExamination> medicalExamnination;
+   LocalDate workDate;
+   LocalTime startTime;
+   LocalTime endTime;
 }
