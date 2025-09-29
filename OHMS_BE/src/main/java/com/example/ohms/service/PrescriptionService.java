@@ -41,22 +41,6 @@ public class PrescriptionService {
     private UserRepository userRepository;
     private MedicineRepository medicineRepository;
     PrescriptionMedicineRepository prescriptionMedicineRepository; 
-// đọc code rồi thử request mẫu này nha  
-// chưa trừ số lượng thuốc trong kho,
-// sau khi làm thanh toán xong nhớ làm phần trừ thuốc trong kho khi thanh toán xong
-//  {
-//     "medicinePrescription": [
-//         {
-//             "medicineId": "med1",
-//             "amount": 10
-//         },
-//         {
-//             "medicineId": "med2",
-//             "amount": 5
-//         }
-//     ]
-// }
-// @PostAuthorize("hasRole('DOCTOR')")
 @PostAuthorize("hasRole('DOCTOR')")
 public PrescriptionResponse createPrescription(Authentication authentication, 
 PrescriptionRequest prescriptionRequest,

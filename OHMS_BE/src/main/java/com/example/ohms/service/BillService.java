@@ -39,6 +39,8 @@ public class BillService {
       log.info("aaaaaaaaaaaaa{}",billRequest);
       Bill bill = billMapper.toBill(billRequest);
       User patients = userRepository.findById(patientsId).orElseThrow(()-> new AppException(ErrorCode.USER_NOT_FOUND));
+      // nếu em làm tìm theo tên thì cứ thay cái này để findallname nha
+      // này đang findbyid để dễ xử lí hơn bên fe
       List<MedicalExamination> services = medicleExaminatioRepository.findAllByIdIn(billRequest.getMedicalExamination());
 
       // nếu không tìm thấy dịch vụ nào thì ném exception
@@ -61,7 +63,6 @@ public class BillService {
       return billRepository.findAll().stream().map(billMapper :: toBillResponse).toList();
    }
    // lấy bill của từng thằng patients
-   // vãi cặc có rồi tưởng chưa có
    public List<BillResponse> getBillByPatients(String patientId){
       return billRepository.findByPatient_Id(patientId).stream().map(billMapper :: toBillResponse).toList();
    }
