@@ -61,7 +61,7 @@ const DoctorChat = ({ currentUser, onClose }: DoctorChatProps) => {
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // WebSocket setup for real-time messaging
+  // Websocket setup before connect
   const webSocketUrl = 'http://localhost:8080/ws';
   const { connect, subscribe, send, unsubscribe } = useWebSocketService(
     webSocketUrl,
@@ -75,17 +75,14 @@ const DoctorChat = ({ currentUser, onClose }: DoctorChatProps) => {
     }
   );
 
-// Connect once on mount
+// Ket noi toi websocket mount
 useEffect(() => {
-  console.log('🔌 Connecting WebSocket on component mount');
   connect();
   return () => {
-    // Don't disconnect here - let the service manage connections
-    console.log('🔌 DoctorChat component unmounting');
   };
 }, [connect]);
 
-// Subscribe/unsubscribe when selected patient or chatRoom changes
+// sub toi cai chatroom muon chat
 useEffect(() => {
   if (selectedPatient && chatRooms.length > 0) {
     const currentRoom = chatRooms.find(room =>
@@ -94,12 +91,16 @@ useEffect(() => {
 
     if (!currentRoom) return;
 
-    console.log('📡 Setting up subscription for patient:', selectedPatient.username, 'Room:', currentRoom.roomChatID);
 
-    // Wait a bit for connection, then subscribe
+    //dang ki nhan tin nhan realtime tu 1 roomchat aka box chat voi bsi
     const subscribeTimer = setTimeout(() => {
       subscribe(`/topic/room/${currentRoom.roomChatID}`, (message) => {
         console.log('📨 Received WebSocket message in DoctorChat:', message);
+        
+        // Skip if this message is from the current user (avoid duplicates)
+        if (message.user?.id === currentUser.id) {
+          return;
+        }
         
         setMessages((prevMessages) => {
           const newMessage: Message = {
@@ -111,7 +112,6 @@ useEffect(() => {
             isRead: false
           };
           
-          console.log('📝 Processing WebSocket message in DoctorChat:', newMessage);
           
           // Add new message and sort by timestamp (oldest first)
           const updatedMessages = [...prevMessages, newMessage];
@@ -119,12 +119,11 @@ useEffect(() => {
             new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
           );
           
-          console.log('📋 Total messages after adding:', sortedMessages.length);
           return sortedMessages;
         });
       });
     }, 1000);
-
+    //out qua room khac thi disconnect
     return () => {
       clearTimeout(subscribeTimer);
       unsubscribe(`/topic/room/${currentRoom.roomChatID}`);
@@ -133,7 +132,7 @@ useEffect(() => {
 }, [selectedPatient, chatRooms, subscribe, unsubscribe]);
 
 
-  // Load existing messages when a patient is selected
+
   useEffect(() => {
     const loadExistingMessages = async () => {
       if (selectedPatient && chatRooms.length > 0) {
@@ -145,7 +144,7 @@ useEffect(() => {
           loadMessages(currentRoom.roomChatID);
         }
       } else {
-        // Clear messages when no patient is selected
+        //clear msg khi k chon patients
         setMessages([]);
       }
     };
@@ -282,7 +281,7 @@ useEffect(() => {
       isRead: false
     };
 
-    // Add message to local state immediately for better UX (sorted by timestamp)
+    //reset lai ui de update cai tn moi gui di
     setMessages(prev => {
       const updatedMessages = [...prev, message];
       return updatedMessages.sort((a, b) => 
@@ -290,25 +289,20 @@ useEffect(() => {
       );
     });
 
-    // Send message via WebSocket using your backend's ConversationRequest structure
     const conversationRequest = {
       message: newMessage.trim(),
       user: currentUser.id
     };
 
     try {
-      // Send to /app/chat/{roomId} as defined in your backend
+      // Send to /app/chat/{roomId} 
       const success = send(`/app/chat/${currentRoom.roomChatID}`, conversationRequest);
       if (success) {
-        console.log('✅ Message sent via WebSocket successfully:', conversationRequest);
       } else {
-        console.error('❌ Failed to send message via WebSocket');
-        // Remove the message from local state if sending failed
+        //khong gui duoc thi xoa khoi ui
         setMessages(prev => prev.filter(msg => msg.id !== message.id));
       }
     } catch (error) {
-      console.error('❌ Error sending message via WebSocket:', error);
-      // Remove the message from local state if sending failed
       setMessages(prev => prev.filter(msg => msg.id !== message.id));
     }
 
@@ -338,7 +332,6 @@ useEffect(() => {
 
   return (
     <div className="fixed inset-0 z-50 bg-white flex">
-      {/* Patients List Sidebar */}
       <div className="w-1/3 bg-gray-50 border-r border-gray-200 flex flex-col">
         <div className="p-4 border-b border-gray-200">
           <div className="flex justify-between items-center mb-4">
@@ -493,7 +486,6 @@ useEffect(() => {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Message Input */}
             <form onSubmit={handleSendMessage} className="p-4 border-t border-gray-200 bg-white">
               <div className="flex space-x-4">
                 <input

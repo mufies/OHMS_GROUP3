@@ -18,7 +18,7 @@ interface Message {
   isRead: boolean;
 }
 
-interface User {
+interface User { //Doctor
   id: string;
   username: string;
   email: string;
@@ -48,7 +48,7 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // WebSocket setup for real-time messaging
+  // WebSocket setup 
   const webSocketUrl = 'http://localhost:8080/ws';
   const { connect, subscribe, send, unsubscribe } = useWebSocketService(
     webSocketUrl,
@@ -69,18 +69,16 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
       );
       
       if (currentRoom) {
-        console.log('🔌 Setting up WebSocket for room:', currentRoom.roomChatID);
+          connect();
         
-        // Connect to WebSocket
-        connect();
-        
-        // Wait a bit for connection to establish, then subscribe
         const subscribeTimer = setTimeout(() => {
-          console.log('📡 Attempting to subscribe to room:', currentRoom.roomChatID);
           
-          // Subscribe to the specific room
+        
           subscribe(`/topic/room/${currentRoom.roomChatID}`, (message) => {
-            console.log('📨 Received WebSocket message in PatientChat:', message);
+            
+            if (message.user?.id === currentUser.id) {
+              return;
+            }
             
             setMessages((prevMessages) => {
               const newMessage: Message = {
@@ -94,7 +92,6 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
               
               console.log('📝 Processing WebSocket message:', newMessage);
               
-              // Add new message and sort by timestamp (oldest first)
               const updatedMessages = [...prevMessages, newMessage];
               const sortedMessages = updatedMessages.sort((a, b) => 
                 new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
@@ -115,11 +112,13 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
     }
   }, [selectedDoctor, chatRooms, currentUser.id, connect, subscribe, unsubscribe]);
 
+
+  //lay danh sach doctor ma duoc asign de tu van hoac da tu van truoc do co du lieu ve chat
   const fetchChatRooms = async () => {
     try {
       const token = localStorage.getItem('token');
 
-      
+    
       if (!token) {
         console.error('❌ No token found in localStorage');
         return;
@@ -134,16 +133,10 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
         }
       });
 
-      console.log('📦 API Response:', response);
-      console.log('📊 Response Data:', response.data);
-      console.log('📋 Response Results:', response.data?.results);
+
 
       if (response.data && response.data.results) {
-        console.log('✅ Setting chat rooms:', response.data.results);
         setChatRooms(response.data.results);
-        console.log(response.data.results);
-        
-        // Get unique doctors list from chat rooms
         const doctorsMap = new Map<string, User>();
 
         response.data.results.forEach((room: RoomChatResponse) => {
@@ -154,22 +147,17 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
                 username: user.username,
                 email: user.email,
                 isOnline: Math.random() > 0.5,
-                specialization: 'General Medicine'
+                specialization: ''
               });
             }
           });
         });
 
         const doctors = Array.from(doctorsMap.values());
-        console.log('👨‍⚕️ Final doctors list:', doctors);
-        console.log('📊 Setting available doctors, count:', doctors.length);
+
         setAvailableDoctors(doctors);
       } else {
-        console.log('❌ No data or results in response');
-        console.log('🔍 Response structure check:');
-        console.log('- response.data exists:', !!response.data);
-        console.log('- response.data.results exists:', !!response.data?.results);
-        console.log('- response.data.results length:', response.data?.results?.length);
+          console.log('0 data igs?');
       }
     } catch (error) {
       if (axios.isAxiosError(error)) {
@@ -235,16 +223,13 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
               );
               
               setMessages(sortedMessages);
-              console.log('Loaded existing messages (sorted):', sortedMessages);
             }
           } catch (error) {
             console.error('Error loading messages:', error);
-            // Fall back to empty messages if loading fails
             setMessages([]);
           }
         }
       } else {
-        // Clear messages when no doctor is selected
         setMessages([]);
       }
     };
@@ -256,7 +241,6 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
     e.preventDefault();
     if (!newMessage.trim() || !selectedDoctor) return;
 
-    // Find the current room ID
     const currentRoom = chatRooms.find(room => 
       room.user.some(user => user.id === selectedDoctor.id)
     );
@@ -266,7 +250,6 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
       return;
     }
 
-    // Create message for local display
     const message: Message = {
       id: Date.now().toString(),
       senderId: currentUser.id,
@@ -276,7 +259,7 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
       isRead: false
     };
 
-    // Add message to local state immediately for better UX (sorted by timestamp)
+    //reset lai ui de update cai tn moi gui di
     setMessages(prev => {
       const updatedMessages = [...prev, message];
       return updatedMessages.sort((a, b) => 
@@ -284,20 +267,20 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
       );
     });
 
-    // Send message via WebSocket using your backend's ConversationRequest structure
+    // dto
     const conversationRequest = {
       message: newMessage.trim(),
       user: currentUser.id
     };
 
     try {
-      // Send to /app/chat/{roomId} as defined in your backend
+      // Send to /app/chat/{roomId}
       const success = send(`/app/chat/${currentRoom.roomChatID}`, conversationRequest);
       if (success) {
         console.log('✅ Message sent via WebSocket successfully:', conversationRequest);
       } else {
         console.error('❌ Failed to send message via WebSocket');
-        // Remove the message from local state if sending failed
+        //khong gui duoc thi xoa khoi ui
         setMessages(prev => prev.filter(msg => msg.id !== message.id));
       }
     } catch (error) {
@@ -327,9 +310,8 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
   };
 
   const handleClose = () => {
-    // Clear localStorage when closing chat
-
-    console.log('Manual logout: Removed token and currentUser from localStorage');
+    localStorage.removeItem('token');
+    localStorage.removeItem('currentUser');
     onClose();
   };
 

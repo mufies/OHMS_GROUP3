@@ -1,4 +1,5 @@
 package com.example.ohms.controller;
+import java.io.FileReader;
 import java.util.List;
 
 import org.springframework.messaging.handler.annotation.DestinationVariable;
@@ -11,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.ohms.dto.request.ConversationRequest;
+import com.example.ohms.dto.request.FileRequest;
 import com.example.ohms.dto.response.ApiResponse;
 import com.example.ohms.dto.response.ConversationResponse;
 import com.example.ohms.service.MessageService;
@@ -66,4 +68,12 @@ public class ConversationController {
         // broadcast lại cho room biết tin nhắn này đã được update
         simpMessagingTemplate.convertAndSend("/topic/room/" + roomId, response);
    }
+
+   // @MessageMapping("/chat/{roomId}/file")
+   // public void sendFile(
+   //    @DestinationVariable("roomId") String roomId,
+   //    @Payload FileRequest request
+   // ) {
+      
+   // }
 }
