@@ -12,5 +12,7 @@ public interface RoomChatMapper {
    @Mapping(target = "user", ignore = true)
    @Mapping(target = "id", ignore = true)
    RoomChat toRoomChat(RoomChatRequest roomChatRequest);
+   
+   @Mapping(source = "id", target = "roomChatID")
    RoomChatResponse toRoomChatResponse(RoomChat roomChat);
 }

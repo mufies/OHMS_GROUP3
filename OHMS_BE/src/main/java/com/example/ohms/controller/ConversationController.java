@@ -1,4 +1,5 @@
 package com.example.ohms.controller;
+import java.io.FileReader;
 import java.util.List;
 
 import org.springframework.messaging.handler.annotation.DestinationVariable;
@@ -11,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.ohms.dto.request.ConversationRequest;
+import com.example.ohms.dto.request.FileRequest;
 import com.example.ohms.dto.response.ApiResponse;
 import com.example.ohms.dto.response.ConversationResponse;
 import com.example.ohms.service.MessageService;
@@ -29,16 +31,12 @@ public class ConversationController {
 //app/chat/{roomId chỗ này handle cho fontend gọi send
    @MessageMapping("chat/{roomId}")    // xác lập message bắn lên cái room
    
-   public ApiResponse<ConversationResponse> sendMessage(
+   public void sendMessage(
       @DestinationVariable("roomId") String roomId,
       @Payload ConversationRequest conversationRequest
    ){ 
       ConversationResponse conversationResponse = messageService.createMessage(roomId, conversationRequest);
       simpMessagingTemplate.convertAndSend("/topic/room/" + roomId, conversationResponse);
-      return ApiResponse.<ConversationResponse>builder()
-      .code(200)
-      .results(conversationResponse)
-      .build();
    } 
    //  get id from room
    @GetMapping("{roomId}")
@@ -50,21 +48,18 @@ public class ConversationController {
       .results(messageService.getMessage(roomId))
       .build();
    }
+   
    @MessageMapping("chat/delete/{roomId}/{messageId}")
-   public ApiResponse<Void> deleteMessage(
+   public void deleteMessage(
       @DestinationVariable("messageId") String messageId,
       @DestinationVariable("roomId") String roomId
    ){
-      Void results = messageService.deleteMessage(messageId);
+      messageService.deleteMessage(messageId);
       //  1 cách khác thay thế send to, cách này sẽ gửi response tới thằng roomId để thông báo là đã xóa message
-      simpMessagingTemplate.convertAndSend("topic/room/" + roomId, "deleted:" + messageId );
-      return ApiResponse.<Void>builder()
-      .code(200)
-      .results(results)
-      .build();
+      simpMessagingTemplate.convertAndSend("/topic/room/" + roomId, "deleted:" + messageId );
    }
    @MessageMapping("chat/update/{roomId}/{messageId}")
-   public ApiResponse<ConversationResponse> updateMessage(
+   public void updateMessage(
       @DestinationVariable String roomId,
             @DestinationVariable String messageId,
             @Payload ConversationRequest request
@@ -72,9 +67,13 @@ public class ConversationController {
         ConversationResponse response = messageService.update(messageId, request);
         // broadcast lại cho room biết tin nhắn này đã được update
         simpMessagingTemplate.convertAndSend("/topic/room/" + roomId, response);
-      return ApiResponse.<ConversationResponse>builder()
-      .code(200)
-      .results(response)
-      .build();
    }
+
+   // @MessageMapping("/chat/{roomId}/file")
+   // public void sendFile(
+   //    @DestinationVariable("roomId") String roomId,
+   //    @Payload FileRequest request
+   // ) {
+      
+   // }
 }

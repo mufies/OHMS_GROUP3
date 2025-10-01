@@ -30,7 +30,7 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level = AccessLevel.PRIVATE,makeFinal = true)
 @EnableMethodSecurity // thực tế thì đây là cách phân quyền được sử dụng phổ biển hơn trong các dự án
 public class SecurityConfig {
-    String [] PUBLIC={"/auth/**","/permission/**","/role/**","/users/**","/medicine/**","/bill/**","/medical-examination/**"};
+    String [] PUBLIC={"/auth/**","/permission/**","/role/**","/users/**","/medicine/**","/bill/**","/medical-examination/**","/ws/**","/chat/**","/conversation/**"};
     String [] SWAGGEER_PUBLIC_ENDPOINT={"/v3/api-docs/**","/swagger-ui/**","/swagger-ui.html"};
         @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -42,7 +42,16 @@ public class SecurityConfig {
                 .anyRequest().authenticated()           
             );
             http.csrf(AbstractHttpConfigurer::disable);
-
+            //         http
+            // .csrf(csrf -> csrf
+            //     .ignoringRequestMatchers("/ws/**") // Disable CSRF for WebSocket
+            // )
+            // .authorizeHttpRequests(auth -> auth
+            //     .requestMatchers("/ws/**").permitAll() // Allow WebSocket handshake
+            //     .requestMatchers("/chat/**").permitAll() // Allow chat API
+            //     .requestMatchers("/conversation/**").permitAll() // Allow conversation API
+            //     .anyRequest().authenticated()
+            // );
             http.oauth2ResourceServer(oauth2 -> oauth2
                 .jwt(jwtConfigurer -> jwtConfigurer.decoder(jwtDecoder())
                 .jwtAuthenticationConverter(jwtAuthenticationConverter()))
@@ -76,9 +85,9 @@ public class SecurityConfig {
        @Bean
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:3000")); // domain FE (Next.js)
+        configuration.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:5174", "http://localhost:3000")); // domain FE (React.js)
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS","PATCH"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));
+        configuration.setAllowedHeaders(List.of("*"));
         configuration.setExposedHeaders(List.of("Authorization"));
         configuration.setAllowCredentials(true); // nếu FE gửi cookie/token
 
@@ -86,4 +95,6 @@ public class SecurityConfig {
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }
+
+    
 }
