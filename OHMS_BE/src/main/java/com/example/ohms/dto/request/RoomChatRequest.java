@@ -13,5 +13,4 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level = AccessLevel.PRIVATE,makeFinal = true)
 public class RoomChatRequest {
    Set<String> user;
-// tạo room chat rồi mới tạo conversation 
 }

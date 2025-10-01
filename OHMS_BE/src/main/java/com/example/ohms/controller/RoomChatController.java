@@ -18,7 +18,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
 @RestController
-@RequestMapping("/roomchat")
+@RequestMapping("/chat")
 @RequiredArgsConstructor
 @FieldDefaults(level =  AccessLevel.PRIVATE,makeFinal = true)
 public class RoomChatController {
@@ -42,6 +42,8 @@ public class RoomChatController {
       .results(roomChatService.getExistingRoomChat(id1, id2))
       .build();
    }
+
+   //id nay la cua user hay gi day
    @GetMapping("{id}")
    public ApiResponse<List<RoomChatResponse>> getListRommchat(
       @PathVariable("id") String id
@@ -51,4 +53,6 @@ public class RoomChatController {
       .results(roomChatService.getListRoomChat(id))
       .build();
    }
+
+
 }

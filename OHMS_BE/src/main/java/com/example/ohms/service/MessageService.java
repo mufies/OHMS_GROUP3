@@ -4,16 +4,19 @@ import java.util.List;
 
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.example.ohms.dto.request.ConversationRequest;
 import com.example.ohms.dto.response.ConversationResponse;
 import com.example.ohms.entity.Conversation;
 import com.example.ohms.entity.RoomChat;
+import com.example.ohms.entity.User;
 import com.example.ohms.exception.AppException;
 import com.example.ohms.exception.ErrorCode;
 import com.example.ohms.mapper.ConversationMapper;
 import com.example.ohms.repository.ConversationRepository;
 import com.example.ohms.repository.RoomChatRepository;
+import com.example.ohms.repository.UserRepository;
 
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -29,20 +32,30 @@ public class MessageService {
    ConversationMapper conversationMapper;
    ConversationRepository conversationRepository;
    RoomChatRepository roomChatRepositoryl;
-   // phải đăng nhập thì mới được nhắn tin
+   UserRepository userRepository;
    
-   @PreAuthorize("isAuthenticated()")
+   // @PreAuthorize("isAuthenticated()")
+   @Transactional
    public ConversationResponse createMessage(String roomId,ConversationRequest conversationRequest){
       Conversation conversation = conversationMapper.toConversation(conversationRequest);
+      
+      // Find and set the room chat
       RoomChat roomChat = roomChatRepositoryl.findById(roomId).orElseThrow(()->new AppException(ErrorCode.ROOM_CHAT_NOT_FOUND));
       conversation.setRoomChat(roomChat);
+      
+      // Find and set the user with roles eagerly loaded to avoid lazy initialization
+      User user = userRepository.findByIdWithRoles(conversationRequest.getUser()).orElseThrow(()->new AppException(ErrorCode.USER_NOT_FOUND));
+      conversation.setUser(user);
+      
       conversation.setCreatedAt(LocalDateTime.now());
       conversationRepository.save(conversation);
       return conversationMapper.toConversationResponse(conversation);
    }
    // lấy message trong roomchat
+   @Transactional(readOnly = true)
    public List<ConversationResponse> getMessage(String roomId){
-      return conversationRepository.findByRoomChatId(roomId).stream().map(conversationMapper :: toConversationResponse).toList();
+      List<Conversation> conversations = conversationRepository.findByRoomChatIdWithUserAndRoles(roomId);
+      return conversations.stream().map(conversationMapper :: toConversationResponse).toList();
    }
    // xóa message
    public Void deleteMessage(String messageId){

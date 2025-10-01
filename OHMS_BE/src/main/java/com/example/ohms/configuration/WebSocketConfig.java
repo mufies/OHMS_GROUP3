@@ -5,8 +5,7 @@
     import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
     import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
     import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
-
-import org.springframework.lang.NonNull;
+    import org.springframework.lang.NonNull;
 
     @Configuration
     @EnableWebSocketMessageBroker // bật STOMP qua websocket
@@ -21,9 +20,9 @@ import org.springframework.lang.NonNull;
         }
 
         @Override
-        public void registerStompEndpoints(@NonNull StompEndpointRegistry registry) {
-            registry.addEndpoint("/ws") 
-                    .setAllowedOriginPatterns("*")
-                    .withSockJS(); 
+        public void registerStompEndpoints(StompEndpointRegistry registry) {
+            registry.addEndpoint("/ws")
+                    .setAllowedOrigins("http://localhost:5173", "http://localhost:5174", "http://localhost:3000")
+                    .withSockJS();
         }
     }
