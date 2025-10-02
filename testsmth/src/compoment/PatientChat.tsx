@@ -4,16 +4,28 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faPaperPlane, 
   faUserMd, 
-  faTimes
+  faTimes,
+  faPhone,
+  faVideo
 } from '@fortawesome/free-solid-svg-icons';
 
 import {useWebSocketService} from '../services/webSocketServices';
+import { WebRTCModal } from './webrtc/WebRTCModal';
  
 interface Message {
   id: string;
   senderId: string;
   senderName: string;
   content: string;
+  timestamp: Date;
+  isRead: boolean;
+}
+
+interface CallRequest{
+  id: string;
+  senderId: string;
+  senderName: string;
+  CallId: string;
   timestamp: Date;
   isRead: boolean;
 }
@@ -45,6 +57,8 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
   const [chatRooms, setChatRooms] = useState<RoomChatResponse[]>([]);
   const [availableDoctors, setAvailableDoctors] = useState<User[]>([]);
   const [wsConnected, setWsConnected] = useState(false);
+  const [showWebRTC, setShowWebRTC] = useState(false);
+
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -168,12 +182,7 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
     }
   };
 
-  useEffect(() => {
-    return () => {
 
-      console.log('Auto logout: Removed token and currentUser from localStorage');
-    };
-  }, []);
 
   // Fetch chat rooms when component mounts
   useEffect(() => {
@@ -315,9 +324,11 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
     onClose();
   };
 
+
+
+
   return (
     <div className="fixed inset-0 z-50 bg-white flex">
-      {/* Doctors List Sidebar */}
       <div className="w-1/3 bg-gray-50 border-r border-gray-200 flex flex-col">
         <div className="p-4 border-b border-gray-200 flex justify-between items-center">
           <h2 className="text-lg font-semibold text-black">Available Doctors</h2>
@@ -386,11 +397,9 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
         </div>
       </div>
 
-      {/* Chat Area */}
       <div className="flex-1 flex flex-col">
         {selectedDoctor ? (
           <>
-            {/* Chat Header */}
             <div className="p-4 border-b border-gray-200 bg-white">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
@@ -409,6 +418,20 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
                 </div>
                 
                 <div className="flex items-center space-x-2">
+                  <button 
+                    className="p-2 text-black hover:text-gray-600 hover:bg-gray-100 rounded-full"
+                    onClick={() => setShowWebRTC(true)}
+                    title="Audio Call"
+                  >
+                    <FontAwesomeIcon icon={faPhone} />
+                  </button>
+                  <button 
+                    className="p-2 text-black hover:text-gray-600 hover:bg-gray-100 rounded-full"
+                    onClick={() => setShowWebRTC(true)}
+                    title="Video Call"
+                  >
+                    <FontAwesomeIcon icon={faVideo} />
+                  </button>
                   <div className={`w-2 h-2 rounded-full ${wsConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
                   <span className={`text-xs ${wsConnected ? 'text-green-600' : 'text-red-600'}`}>
                     {wsConnected ? 'Chat Active' : 'Connecting...'}
@@ -417,7 +440,6 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
               </div>
             </div>
 
-            {/* Messages */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
               {messages.map(message => (
                 <div
@@ -470,6 +492,13 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
           </div>
         )}
       </div>
+      
+      <WebRTCModal
+        isOpen={showWebRTC}
+        onClose={() => setShowWebRTC(false)}
+        currentUserId={currentUser.id}
+        title={`Video Call with Dr. ${selectedDoctor?.username || 'Doctor'}`}
+      />
     </div>
   );
 };

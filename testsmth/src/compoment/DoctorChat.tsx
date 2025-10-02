@@ -11,6 +11,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 
 import {useWebSocketService} from '../services/webSocketServices';
+import { WebRTCModal } from './webrtc/WebRTCModal';
 
 interface Message {
   id: string;
@@ -58,10 +59,11 @@ const DoctorChat = ({ currentUser, onClose }: DoctorChatProps) => {
   const [chatRooms, setChatRooms] = useState<RoomChatResponse[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [wsConnected, setWsConnected] = useState(false);
+  const [showWebRTC, setShowWebRTC] = useState(false);
+
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Websocket setup before connect
   const webSocketUrl = 'http://localhost:8080/ws';
   const { connect, subscribe, send, unsubscribe } = useWebSocketService(
     webSocketUrl,
@@ -78,8 +80,7 @@ const DoctorChat = ({ currentUser, onClose }: DoctorChatProps) => {
 // Ket noi toi websocket mount
 useEffect(() => {
   connect();
-  return () => {
-  };
+  return () => {};
 }, [connect]);
 
 // sub toi cai chatroom muon chat
@@ -452,10 +453,18 @@ useEffect(() => {
                 </div>
                 
                 <div className="flex space-x-2">
-                  <button className="p-2 text-black hover:text-gray-600 hover:bg-gray-100 rounded-full">
+                  <button 
+                    className="p-2 text-black hover:text-gray-600 hover:bg-gray-100 rounded-full"
+                    onClick={() => setShowWebRTC(true)}
+                    title="Audio Call"
+                  >
                     <FontAwesomeIcon icon={faPhone} />
                   </button>
-                  <button className="p-2 text-black hover:text-gray-600 hover:bg-gray-100 rounded-full">
+                  <button 
+                    className="p-2 text-black hover:text-gray-600 hover:bg-gray-100 rounded-full"
+                    onClick={() => setShowWebRTC(true)}
+                    title="Video Call"
+                  >
                     <FontAwesomeIcon icon={faVideo} />
                   </button>
                 </div>
@@ -514,6 +523,14 @@ useEffect(() => {
           </div>
         )}
       </div>
+      
+      {/* WebRTC Modal */}
+      <WebRTCModal
+        isOpen={showWebRTC}
+        onClose={() => setShowWebRTC(false)}
+        currentUserId={currentUser.id}
+        title={`Video Call with ${selectedPatient?.username || 'Patient'}`}
+      />
     </div>
   );
 };

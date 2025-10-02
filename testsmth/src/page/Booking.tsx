@@ -12,7 +12,6 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import Navigator from '../compoment/Navigator';
 import SearchDoctor from '../compoment/searchDoctor';
-import Footer from "../compoment/footer.tsx";
 //
 // interface Doctor {
 //   id: string;
@@ -183,7 +182,6 @@ const Booking = () => {
                 </div>
             </div>
         </div>
-        <Footer />
     </>
   );
 };
