@@ -34,7 +34,6 @@ export const CallControls: React.FC<CallControlsProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Create Call Section */}
       <div className="text-center">
         <h2 className="text-xl font-mono mb-4 text-black">Create a New Call</h2>
         <button
@@ -52,7 +51,6 @@ export const CallControls: React.FC<CallControlsProps> = ({
         )}
       </div>
 
-      {/* Join Call Section */}
       <div className="text-center">
         <h2 className="text-xl font-mono mb-2 text-black">Join a Call</h2>
         <p className="mb-4 text-black">Answer the call from a different browser window or device</p>
@@ -72,9 +70,8 @@ export const CallControls: React.FC<CallControlsProps> = ({
         >
           Answer
         </button>
-      </div>
+      </div> 
 
-      {/* Hangup Section */}
       <div className="text-center">
         <h2 className="text-xl font-mono mb-2 text-black">Hangup</h2>
         <button

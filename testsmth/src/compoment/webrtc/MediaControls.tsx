@@ -6,19 +6,20 @@ interface AudioDeviceInfo {
 }
 
 interface MediaControlsProps {
-  onStartMedia: (options: { mode: 'video' | 'audio' | 'screen'; selectedAudioDevice?: string }) => void;
+  onStartMedia: (options: { mode: 'video' | 'audio'; selectedAudioDevice?: string }) => void;
   mediaStarted: boolean;
   mediaError: string;
+  mediaRequest: 'video' | 'audio';
 }
 
 export const MediaControls: React.FC<MediaControlsProps> = ({
   onStartMedia,
   mediaStarted,
-  mediaError
+  mediaError,
+  mediaRequest
 }) => {
   const [audioDevices, setAudioDevices] = useState<AudioDeviceInfo[]>([]);
   const [selectedAudioDevice, setSelectedAudioDevice] = useState<string>("");
-  const [mediaMode, setMediaMode] = useState<'video' | 'audio' | 'screen'>('video');
 
   const getAudioDevices = async () => {
     try {
@@ -42,37 +43,22 @@ export const MediaControls: React.FC<MediaControlsProps> = ({
     getAudioDevices();
   }, []);
 
-  const handleStartMedia = () => {
-    onStartMedia({
-      mode: mediaMode,
-      selectedAudioDevice
-    });
-  };
+  useEffect(() => {
+    if (!mediaStarted && selectedAudioDevice) {
+      onStartMedia({
+        mode: mediaRequest,
+        selectedAudioDevice
+      });
+    }
+  }, [mediaRequest, selectedAudioDevice, mediaStarted, onStartMedia]);
+
+
 
   return (
     <div className="space-y-4">
-      {/* Media Mode Selection */}
-      <div>
-        <label className="block text-sm font-medium mb-2 text-black">Media Mode:</label>
-        <select 
-          value={mediaMode} 
-          onChange={(e) => setMediaMode(e.target.value as 'video' | 'audio' | 'screen')}
-          className="border border-gray-300 rounded px-2 py-1 mr-4 text-black"
-        >
-          <option value="video">Video + Audio</option>
-          <option value="audio">Audio Only</option>
-          <option value="screen">Screen Share</option>
-        </select>
-        <button
-          onClick={getAudioDevices}
-          className="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600"
-        >
-          Refresh Audio Devices
-        </button>
-      </div>
 
       {/* Audio Device Selection */}
-      {audioDevices.length > 0 && (
+      {/* {audioDevices.length > 0 && (
         <div>
           <label className="block text-sm font-medium mb-2 text-black">Audio Input:</label>
           <select 
@@ -87,7 +73,7 @@ export const MediaControls: React.FC<MediaControlsProps> = ({
             ))}
           </select>
         </div>
-      )}
+      )} */}
 
       {/* Error Display */}
       {mediaError && (
@@ -97,13 +83,13 @@ export const MediaControls: React.FC<MediaControlsProps> = ({
       )}
 
       {/* Start Media Button */}
-      <button
-        onClick={handleStartMedia}
+      {/* <button
+        onClick={() => onStartMedia({ mode: mediaRequest, selectedAudioDevice })}
         disabled={mediaStarted}
         className="bg-blue-600 text-white py-2 px-4 rounded font-mono hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {mediaStarted ? 'Media Ready' : 'Start Media'}
-      </button>
+      </button> */}
     </div>
   );
 };

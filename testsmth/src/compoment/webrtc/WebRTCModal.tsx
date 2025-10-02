@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTimes } from '@fortawesome/free-solid-svg-icons';
 import { useWebRTC } from '../../hook/useWebRTC';
@@ -6,20 +6,23 @@ import { firestore, webrtcServers } from '../../config/firebase';
 import { VideoDisplay } from './VideoDisplay';
 import { MediaControls } from './MediaControls';
 import { CallControls } from './CallControls';
-import { DebugStatus } from './DebugStatus';
 
 interface WebRTCModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentUserId: string;
   title?: string;
+  type: string;
+  onCallIdCreated?: (callId: string) => void; // Callback to send callId back to parent
 }
 
 export const WebRTCModal: React.FC<WebRTCModalProps> = ({ 
   isOpen, 
   onClose, 
   currentUserId,
-  title = "WebRTC Video Call"
+  title = "WebRTC Call",
+  type,
+  onCallIdCreated
 }) => {
   const webrtc = useWebRTC({
     firestore,
@@ -27,11 +30,37 @@ export const WebRTCModal: React.FC<WebRTCModalProps> = ({
     currentUserId
   });
 
+  // Cleanup media when modal is closed
+  useEffect(() => {
+    if (!isOpen && webrtc.mediaStarted) {
+      webrtc.hangupCall();
+    }
+  }, [isOpen, webrtc.mediaStarted, webrtc.hangupCall]);
+
+  // Send callId to parent when it changes
+  useEffect(() => {
+    if (webrtc.callId && onCallIdCreated) {
+      onCallIdCreated(webrtc.callId);
+    }
+  }, [webrtc.callId, onCallIdCreated]);
+
   if (!isOpen) return null;
 
   const handleClose = () => {
     webrtc.hangupCall();
     onClose();
+  };
+
+  const handleHangupAndClose = () => {
+    webrtc.hangupCall();
+    onClose();
+  };
+
+  // Export callId when a call is created
+  const handleCreateCall = () => {
+    webrtc.createCall();
+    // CallId will be automatically sent to parent via useEffect above
+    console.log('Call created with ID:', webrtc.callId);
   };
 
   return (
@@ -56,6 +85,7 @@ export const WebRTCModal: React.FC<WebRTCModalProps> = ({
             onStartMedia={webrtc.startMedia}
             mediaStarted={webrtc.mediaStarted}
             mediaError={webrtc.mediaError}
+            mediaRequest={type}
           />
         </div>
 
@@ -81,9 +111,9 @@ export const WebRTCModal: React.FC<WebRTCModalProps> = ({
         {/* Call Controls */}
         <div className="mb-4">
           <CallControls
-            onCreateCall={webrtc.createCall}
+            onCreateCall={handleCreateCall}
             onAnswerCall={webrtc.answerCall}
-            onHangup={webrtc.hangupCall}
+            onHangup={handleHangupAndClose}
             callId={webrtc.callId}
             setCallId={webrtc.setCallId}
             mediaStarted={webrtc.mediaStarted}

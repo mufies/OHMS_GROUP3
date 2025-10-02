@@ -12,6 +12,7 @@ import {
 
 import {useWebSocketService} from '../services/webSocketServices';
 import { WebRTCModal } from './webrtc/WebRTCModal';
+import { useWebRTC } from './webrtc';
 
 interface Message {
   id: string;
@@ -51,6 +52,8 @@ interface DoctorChatProps {
   onClose: () => void;
 }
 
+
+
 const DoctorChat = ({ currentUser, onClose }: DoctorChatProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -59,10 +62,34 @@ const DoctorChat = ({ currentUser, onClose }: DoctorChatProps) => {
   const [chatRooms, setChatRooms] = useState<RoomChatResponse[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [wsConnected, setWsConnected] = useState(false);
-  const [showWebRTC, setShowWebRTC] = useState(false);
-
-  
+  const [showWebRTC, setShowWebRTC] = useState(false);  
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [callOptions, setCallOptions] = useState<'audio' | 'video'>('audio');
+  const [CallId, setCallId] = useState('');
+  const [hasSentCallIdMessage, setHasSentCallIdMessage] = useState(false);
+
+  const handleCallIdCreated = (callId: string) => {
+    setCallId(callId);
+    console.log('Received callId from WebRTCModal:', callId);
+    
+    if (callId && selectedPatient && !hasSentCallIdMessage) {
+      setNewMessage(callId);
+      setTimeout(() => {
+        handleSendMessageNoForm();
+        setHasSentCallIdMessage(true);
+      }, 100);
+    }
+  };
+
+  useEffect(() => {
+    setHasSentCallIdMessage(false);
+    setCallId('');
+  }, [selectedPatient]);
+
+
+
+
+
 
   const webSocketUrl = 'http://localhost:8080/ws';
   const { connect, subscribe, send, unsubscribe } = useWebSocketService(
@@ -258,58 +285,54 @@ useEffect(() => {
 
   
 
-  const handleSendMessage = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newMessage.trim() || !selectedPatient) return;
+  const handleSendMessageNoForm = () => {
+  if (!newMessage.trim() || !selectedPatient) return;
 
-    // Find the current room ID
-    const currentRoom = chatRooms.find(room => 
-      room.user.some(user => user.id === selectedPatient.id)
-    );
+  const currentRoom = chatRooms.find(room => 
+    room.user.some(user => user.id === selectedPatient.id)
+  );
 
-    if (!currentRoom) {
-      console.error('No room found for the selected patient');
-      return;
-    }
+  if (!currentRoom) {
+    console.error('No room found for the selected doctor');
+    return;
+  }
 
-    // Create message for local display
-    const message: Message = {
-      id: Date.now().toString(),
-      senderId: currentUser.id,
-      senderName: currentUser.username,
-      content: newMessage.trim(),
-      timestamp: new Date(),
-      isRead: false
-    };
-
-    //reset lai ui de update cai tn moi gui di
-    setMessages(prev => {
-      const updatedMessages = [...prev, message];
-      return updatedMessages.sort((a, b) => 
-        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-      );
-    });
-
-    const conversationRequest = {
-      message: newMessage.trim(),
-      user: currentUser.id
-    };
-
-    try {
-      // Send to /app/chat/{roomId} 
-      const success = send(`/app/chat/${currentRoom.roomChatID}`, conversationRequest);
-      if (success) {
-      } else {
-        //khong gui duoc thi xoa khoi ui
-        setMessages(prev => prev.filter(msg => msg.id !== message.id));
-      }
-    } catch (error) {
-      setMessages(prev => prev.filter(msg => msg.id !== message.id));
-    }
-
-    setNewMessage('');
+  const message: Message = {
+    id: Date.now().toString(),
+    senderId: currentUser.id,
+    senderName: currentUser.username,
+    content: newMessage.trim(),
+    timestamp: new Date(),
+    isRead: false
   };
 
+  setMessages(prev => {
+    const updatedMessages = [...prev, message];
+    return updatedMessages.sort((a, b) => 
+      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    );
+  });
+
+  const conversationRequest = {
+    message: newMessage.trim(),
+    user: currentUser.id
+  };
+
+  try {
+    const success = send(`/app/chat/${currentRoom.roomChatID}`, conversationRequest);
+    if (success) {
+      console.log('✅ Message sent via WebSocket successfully:', conversationRequest);
+    } else {
+      console.error('❌ Failed to send message via WebSocket');
+      setMessages(prev => prev.filter(msg => msg.id !== message.id));
+    }
+  } catch (error) {
+    console.error('❌ Error sending message via WebSocket:', error);
+    setMessages(prev => prev.filter(msg => msg.id !== message.id));
+  }
+
+  setNewMessage('');
+};
   const formatTime = (date: Date) => date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   const formatLastMessageTime = (date: Date) => {
@@ -455,20 +478,31 @@ useEffect(() => {
                 <div className="flex space-x-2">
                   <button 
                     className="p-2 text-black hover:text-gray-600 hover:bg-gray-100 rounded-full"
-                    onClick={() => setShowWebRTC(true)}
+                    onClick={() => {
+                      setShowWebRTC(true); 
+                      setCallOptions('audio'); 
+                      setHasSentCallIdMessage(false);
+                      setCallId('');
+                    }}
                     title="Audio Call"
                   >
                     <FontAwesomeIcon icon={faPhone} />
                   </button>
                   <button 
                     className="p-2 text-black hover:text-gray-600 hover:bg-gray-100 rounded-full"
-                    onClick={() => setShowWebRTC(true)}
+                    onClick={() => {
+                      setShowWebRTC(true); 
+                      setCallOptions('video'); 
+                      setHasSentCallIdMessage(false);
+                      setCallId('');
+                    }}
                     title="Video Call"
                   >
                     <FontAwesomeIcon icon={faVideo} />
                   </button>
                 </div>
               </div>
+
             </div>
 
             {/* Messages */}
@@ -494,25 +528,36 @@ useEffect(() => {
               ))}
               <div ref={messagesEndRef} />
             </div>
-
-            <form onSubmit={handleSendMessage} className="p-4 border-t border-gray-200 bg-white">
+            <div className="p-4 border-t border-gray-200 bg-white">
               <div className="flex space-x-4">
                 <input
                   type="text"
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendMessageNoForm();
+                    }
+                  }}
                   placeholder="Type your message..."
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck="false"
                   className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
                 />
                 <button
-                  type="submit"
+                  type="button"  
                   disabled={!newMessage.trim()}
+                  onClick={handleSendMessageNoForm}  // Gắn gọi hàm gửi tin nhắn
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+
                 >
                   <FontAwesomeIcon icon={faPaperPlane} />
                 </button>
               </div>
-            </form>
+            </div>
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center text-black">
@@ -530,6 +575,8 @@ useEffect(() => {
         onClose={() => setShowWebRTC(false)}
         currentUserId={currentUser.id}
         title={`Video Call with ${selectedPatient?.username || 'Patient'}`}
+        type = {callOptions}
+        onCallIdCreated={handleCallIdCreated}
       />
     </div>
   );

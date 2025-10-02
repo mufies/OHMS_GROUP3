@@ -172,7 +172,7 @@ export const useWebRTC = (config: WebRTCConfig) => {
   }, []);
 
   // Create call
-  const createCall = useCallback(async () => {
+  const createCall = useCallback(async (): Promise<string | null> => {
     try {
       const callsCollection = collection(config.firestore, 'calls');
       const callDoc = doc(callsCollection);
@@ -232,9 +232,12 @@ export const useWebRTC = (config: WebRTCConfig) => {
       } else {
         setMediaError(`Cannot create offer. Connection state: ${pc.current.signalingState}`);
       }
+      return callDoc.id; 
     } catch (error) {
       console.error('Error creating call:', error);
       setMediaError(`Failed to create call: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      return null;
+
     }
   }, [config.firestore, config.currentUserId]);
 

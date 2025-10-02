@@ -11,7 +11,7 @@ import {
 
 import {useWebSocketService} from '../services/webSocketServices';
 import { WebRTCModal } from './webrtc/WebRTCModal';
- 
+
 interface Message {
   id: string;
   senderId: string;
@@ -21,16 +21,7 @@ interface Message {
   isRead: boolean;
 }
 
-interface CallRequest{
-  id: string;
-  senderId: string;
-  senderName: string;
-  CallId: string;
-  timestamp: Date;
-  isRead: boolean;
-}
-
-interface User { //Doctor
+interface User { // Doctor
   id: string;
   username: string;
   email: string;
@@ -58,8 +49,10 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
   const [availableDoctors, setAvailableDoctors] = useState<User[]>([]);
   const [wsConnected, setWsConnected] = useState(false);
   const [showWebRTC, setShowWebRTC] = useState(false);
+  const [callOptions, setCallOptions] = useState<'audio' | 'video'>('audio');
+  const [CallId, setCallId] = useState('');
+  const [hasSentCallIdMessage, setHasSentCallIdMessage] = useState(false);
 
-  
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // WebSocket setup 
@@ -76,63 +69,71 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
     }
   );
 
+  // Connect once on mount
   useEffect(() => {
-    if (selectedDoctor && chatRooms.length > 0) {
-      const currentRoom = chatRooms.find(room => 
-        room.user.some(user => user.id === selectedDoctor.id)
-      );
-      
-      if (currentRoom) {
-          connect();
-        
-        const subscribeTimer = setTimeout(() => {
-          
-        
-          subscribe(`/topic/room/${currentRoom.roomChatID}`, (message) => {
-            
-            if (message.user?.id === currentUser.id) {
-              return;
-            }
-            
-            setMessages((prevMessages) => {
-              const newMessage: Message = {
-                id: Date.now().toString(),
-                senderId: message.user?.id || 'unknown',
-                senderName: message.user?.username || 'Unknown',
-                content: message.message,
-                timestamp: new Date(message.createdAt || Date.now()),
-                isRead: false
-              };
-              
-              console.log('📝 Processing WebSocket message:', newMessage);
-              
-              const updatedMessages = [...prevMessages, newMessage];
-              const sortedMessages = updatedMessages.sort((a, b) => 
-                new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-              );
-              
-              console.log('📋 Total messages after adding:', sortedMessages.length);
-              return sortedMessages;
-            });
-          });
-        }, 1000); // Wait 1 second for connection to establish
+    connect();
+    // No disconnect here so other usages keep working
+  }, [connect]);
 
-        return () => {
-          clearTimeout(subscribeTimer);
-          unsubscribe(`/topic/room/${currentRoom.roomChatID}`);
-          // Don't disconnect here as other components might be using it
-        };
-      }
+  // Subscribe/unsubscribe on room changes
+  useEffect(() => {
+    if (!selectedDoctor || chatRooms.length === 0) return;
+
+    const currentRoom = chatRooms.find(room =>
+      room.user.some(user => user.id === selectedDoctor.id)
+    );
+    if (!currentRoom) return;
+
+    const subscribeTimer = setTimeout(() => {
+      subscribe(`/topic/room/${currentRoom.roomChatID}`, (message) => {
+        if (message.user?.id === currentUser.id) return;
+
+        setMessages(prevMessages => {
+          const newMessage: Message = {
+            id: Date.now().toString(),
+            senderId: message.user?.id || 'unknown',
+            senderName: message.user?.username || 'Unknown',
+            content: message.message,
+            timestamp: new Date(message.createdAt || Date.now()),
+            isRead: false,
+          };
+          const updatedMessages = [...prevMessages, newMessage];
+          return updatedMessages.sort((a, b) =>
+            new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+          );
+        });
+      });
+    }, 1000);
+
+    return () => {
+      clearTimeout(subscribeTimer);
+      unsubscribe(`/topic/room/${currentRoom.roomChatID}`);
+    };
+  }, [selectedDoctor, chatRooms, subscribe, unsubscribe, currentUser.id]);
+
+  // Reset call id flag on doctor change
+  useEffect(() => {
+    setHasSentCallIdMessage(false);
+    setCallId('');
+  }, [selectedDoctor]);
+
+  const handleCallIdCreated = (callId: string) => {
+    setCallId(callId);
+    console.log('Received callId from WebRTCModal:', callId);
+    
+    if (callId && selectedDoctor && !hasSentCallIdMessage) {
+      setNewMessage(callId);
+      setTimeout(() => {
+        handleSendMessageNoForm();
+        setHasSentCallIdMessage(true);
+      }, 100);
     }
-  }, [selectedDoctor, chatRooms, currentUser.id, connect, subscribe, unsubscribe]);
+  };
 
-
-  //lay danh sach doctor ma duoc asign de tu van hoac da tu van truoc do co du lieu ve chat
+  // Fetch chat rooms assigned to this patient
   const fetchChatRooms = async () => {
     try {
       const token = localStorage.getItem('token');
-
-    
       if (!token) {
         console.error('❌ No token found in localStorage');
         return;
@@ -146,8 +147,6 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
           'Content-Type': 'application/json',
         }
       });
-
-
 
       if (response.data && response.data.results) {
         setChatRooms(response.data.results);
@@ -167,11 +166,7 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
           });
         });
 
-        const doctors = Array.from(doctorsMap.values());
-
-        setAvailableDoctors(doctors);
-      } else {
-          console.log('0 data igs?');
+        setAvailableDoctors(Array.from(doctorsMap.values()));
       }
     } catch (error) {
       if (axios.isAxiosError(error)) {
@@ -182,30 +177,18 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
     }
   };
 
-
-
-  // Fetch chat rooms when component mounts
   useEffect(() => {
     fetchChatRooms();
   }, [currentUser.id]);
 
-  
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
+  // Load existing messages when doctor changes
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  useEffect(() => {
-    // Load existing messages when a doctor is selected
     const loadMessages = async () => {
       if (selectedDoctor && chatRooms.length > 0) {
-        const currentRoom = chatRooms.find(room => 
+        const currentRoom = chatRooms.find(room =>
           room.user.some(user => user.id === selectedDoctor.id)
         );
-        
+
         if (currentRoom) {
           try {
             const token = localStorage.getItem('token');
@@ -223,15 +206,12 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
                 senderName: conv.user?.username || 'Unknown',
                 content: conv.message,
                 timestamp: new Date(conv.createdAt || new Date()),
-                isRead: true
+                isRead: true,
               }));
-              
-              // Sort messages by timestamp (oldest first)
-              const sortedMessages = loadedMessages.sort((a, b) => 
+
+              setMessages(loadedMessages.sort((a, b) =>
                 new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-              );
-              
-              setMessages(sortedMessages);
+              ));
             }
           } catch (error) {
             console.error('Error loading messages:', error);
@@ -246,11 +226,18 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
     loadMessages();
   }, [selectedDoctor, chatRooms, currentUser.id]);
 
-  const handleSendMessage = (e: React.FormEvent) => {
-    e.preventDefault();
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const handleSendMessageNoForm = () => {
     if (!newMessage.trim() || !selectedDoctor) return;
 
-    const currentRoom = chatRooms.find(room => 
+    const currentRoom = chatRooms.find(room =>
       room.user.some(user => user.id === selectedDoctor.id)
     );
 
@@ -268,54 +255,42 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
       isRead: false
     };
 
-    //reset lai ui de update cai tn moi gui di
     setMessages(prev => {
       const updatedMessages = [...prev, message];
-      return updatedMessages.sort((a, b) => 
+      return updatedMessages.sort((a, b) =>
         new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
       );
     });
 
-    // dto
     const conversationRequest = {
       message: newMessage.trim(),
       user: currentUser.id
     };
 
     try {
-      // Send to /app/chat/{roomId}
       const success = send(`/app/chat/${currentRoom.roomChatID}`, conversationRequest);
       if (success) {
         console.log('✅ Message sent via WebSocket successfully:', conversationRequest);
       } else {
         console.error('❌ Failed to send message via WebSocket');
-        //khong gui duoc thi xoa khoi ui
         setMessages(prev => prev.filter(msg => msg.id !== message.id));
       }
     } catch (error) {
       console.error('❌ Error sending message via WebSocket:', error);
-      // Remove the message from local state if sending failed
       setMessages(prev => prev.filter(msg => msg.id !== message.id));
     }
 
     setNewMessage('');
   };
 
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
+  const formatTime = (date: Date) => date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   const formatLastSeen = (date: Date) => {
     const now = new Date();
     const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
-    
-    if (diffInMinutes < 60) {
-      return `${diffInMinutes}m ago`;
-    } else if (diffInMinutes < 1440) {
-      return `${Math.floor(diffInMinutes / 60)}h ago`;
-    } else {
-      return `${Math.floor(diffInMinutes / 1440)}d ago`;
-    }
+    if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ago`;
+    return `${Math.floor(diffInMinutes / 1440)}d ago`;
   };
 
   const handleClose = () => {
@@ -323,9 +298,6 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
     localStorage.removeItem('currentUser');
     onClose();
   };
-
-
-
 
   return (
     <div className="fixed inset-0 z-50 bg-white flex">
@@ -420,14 +392,24 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
                 <div className="flex items-center space-x-2">
                   <button 
                     className="p-2 text-black hover:text-gray-600 hover:bg-gray-100 rounded-full"
-                    onClick={() => setShowWebRTC(true)}
+                    onClick={() => { 
+                      setShowWebRTC(true); 
+                      setCallOptions('audio'); 
+                      setHasSentCallIdMessage(false); 
+                      setCallId('');
+                    }}
                     title="Audio Call"
-                  >
+                  >                
                     <FontAwesomeIcon icon={faPhone} />
                   </button>
                   <button 
                     className="p-2 text-black hover:text-gray-600 hover:bg-gray-100 rounded-full"
-                    onClick={() => setShowWebRTC(true)}
+                    onClick={() => { 
+                      setShowWebRTC(true); 
+                      setCallOptions('video'); 
+                      setHasSentCallIdMessage(false); 
+                      setCallId('');
+                    }}
                     title="Video Call"
                   >
                     <FontAwesomeIcon icon={faVideo} />
@@ -463,25 +445,35 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Message Input */}
-            <form onSubmit={handleSendMessage} className="p-4 border-t border-gray-200 bg-white">
+            <div className="p-4 border-t border-gray-200 bg-white">
               <div className="flex space-x-4">
                 <input
                   type="text"
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendMessageNoForm();
+                    }
+                  }}
                   placeholder="Type your message..."
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck="false"
                   className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
                 />
                 <button
-                  type="submit"
+                  type="button"
                   disabled={!newMessage.trim()}
+                  onClick={handleSendMessageNoForm}
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
                 >
                   <FontAwesomeIcon icon={faPaperPlane} />
                 </button>
               </div>
-            </form>
+            </div>
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center text-black">
@@ -492,12 +484,14 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
           </div>
         )}
       </div>
-      
+
       <WebRTCModal
         isOpen={showWebRTC}
         onClose={() => setShowWebRTC(false)}
         currentUserId={currentUser.id}
         title={`Video Call with Dr. ${selectedDoctor?.username || 'Doctor'}`}
+        type={callOptions}
+        onCallIdCreated={handleCallIdCreated}
       />
     </div>
   );
