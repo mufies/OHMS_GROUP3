@@ -1,6 +1,7 @@
 package com.example.ohms.entity;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -29,6 +30,7 @@ public class Conversation {
    String message;
    @ManyToOne // 1 user có thể có nhiều message
    User user;
+   List<String> imageUrls;
 // thời gian tạo tin nhắn
      // thời gian tạo tin nhắn
     LocalDateTime createdAt = LocalDateTime.now();

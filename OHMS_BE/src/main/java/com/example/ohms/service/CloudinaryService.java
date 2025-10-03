@@ -9,6 +9,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -45,4 +47,31 @@ public class CloudinaryService {
                 ObjectUtils.asMap("resource_type", "image"));
         return result.get("result").toString();
     }
+    // Trong CloudinaryService (thêm method này nếu chưa)
+public List<String> uploadMulti(List<byte[]> imageBytesList) throws IOException {
+        List<String> imageUrls = new ArrayList<>();
+        
+        for (byte[] imageBytes : imageBytesList) {
+            String url = uploadFromBytes(imageBytes);  // Gọi không param String
+            imageUrls.add(url);
+        }
+        return imageUrls;
+    }
+
+// Và method uploadFromBytes (update để bỏ fileName nếu không cần)
+public String uploadFromBytes(byte[] imageBytes) throws IOException {  // Bỏ param fileName
+    if (imageBytes == null || imageBytes.length == 0) {
+        throw new IllegalArgumentException("Image bytes is null or empty");
+    }
+    log.info("Uploading image bytes to Cloudinary: size={}", imageBytes.length);
+    Map<String, Object> params = ObjectUtils.asMap(
+        "resource_type", "auto",
+        "folder", "chat_images"  // Folder mày đã set
+    );
+    // Không set public_id, Cloudinary tự generate
+    Map<String, Object> uploadResult = cloudinary.uploader().upload(imageBytes, params);
+    String secureUrl = uploadResult.get("secure_url").toString();
+    log.info("Uploaded image URL: {}", secureUrl);
+    return secureUrl;
+}
 }
