@@ -50,8 +50,8 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
   const [wsConnected, setWsConnected] = useState(false);
   const [showWebRTC, setShowWebRTC] = useState(false);
   const [callOptions, setCallOptions] = useState<'audio' | 'video'>('audio');
-  const [CallId, setCallId] = useState('');
   const [hasSentCallIdMessage, setHasSentCallIdMessage] = useState(false);
+  const [CallId, setCallId] = useState('');
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -114,20 +114,17 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
   // Reset call id flag on doctor change
   useEffect(() => {
     setHasSentCallIdMessage(false);
-    setCallId('');
   }, [selectedDoctor]);
 
   const handleCallIdCreated = (callId: string) => {
+    if (!callId || !selectedDoctor || hasSentCallIdMessage) return;
     setCallId(callId);
-    console.log('Received callId from WebRTCModal:', callId);
-    
-    if (callId && selectedDoctor && !hasSentCallIdMessage) {
-      setNewMessage(callId);
-      setTimeout(() => {
-        handleSendMessageNoForm();
-        setHasSentCallIdMessage(true);
-      }, 100);
-    }
+    setNewMessage(`CallId ${callId} type ${callOptions}`);
+
+    setTimeout(() => {
+      handleSendMessageNoForm();
+      setHasSentCallIdMessage(true);
+    }, 100);
   };
 
   // Fetch chat rooms assigned to this patient
@@ -396,7 +393,6 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
                       setShowWebRTC(true); 
                       setCallOptions('audio'); 
                       setHasSentCallIdMessage(false); 
-                      setCallId('');
                     }}
                     title="Audio Call"
                   >                
@@ -408,7 +404,6 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
                       setShowWebRTC(true); 
                       setCallOptions('video'); 
                       setHasSentCallIdMessage(false); 
-                      setCallId('');
                     }}
                     title="Video Call"
                   >
@@ -423,25 +418,40 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
-              {messages.map(message => (
-                <div
-                  key={message.id}
-                  className={`flex ${message.senderId === currentUser.id ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                    message.senderId === currentUser.id
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-white text-black border'
-                  }`}>
-                    <p className="text-sm">{message.content}</p>
-                    <p className={`text-xs mt-1 ${
-                      message.senderId === currentUser.id ? 'text-blue-100' : 'text-black'
+           {messages.map(message => {
+                const isCurrentUser = message.senderId === currentUser.id;
+                const isCallRequest = !isCurrentUser && message.content.startsWith('CallId ');
+                const callText = isCallRequest ? message.content.replace('CallId ', '') : '';
+
+                return (
+                  <div
+                    key={message.id}
+                    className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                      isCurrentUser
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-white text-black border'
                     }`}>
-                      {formatTime(message.timestamp)}
-                    </p>
+                      {isCallRequest ? (
+                        <div className="bg-green-100 border-l-4 border-green-500 p-2 mb-2">
+                          <span className="font-semibold text-green-700">Request Call</span>
+                          <div className="text-black mt-1 text-sm">
+                            {callText}
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-sm">{message.content}</p>
+                      )}
+                      <p className={`text-xs mt-1 ${
+                        isCurrentUser ? 'text-blue-100' : 'text-black'
+                      }`}>
+                        {formatTime(message.timestamp)}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
               <div ref={messagesEndRef} />
             </div>
 

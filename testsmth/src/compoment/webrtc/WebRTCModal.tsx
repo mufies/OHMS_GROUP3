@@ -48,6 +48,7 @@ export const WebRTCModal: React.FC<WebRTCModalProps> = ({
 
   const handleClose = () => {
     webrtc.hangupCall();
+    
     onClose();
   };
 

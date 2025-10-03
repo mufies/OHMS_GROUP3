@@ -82,8 +82,7 @@ export const MediaControls: React.FC<MediaControlsProps> = ({
         </div>
       )}
 
-      {/* Start Media Button */}
-      {/* <button
+       {/* <button
         onClick={() => onStartMedia({ mode: mediaRequest, selectedAudioDevice })}
         disabled={mediaStarted}
         className="bg-blue-600 text-white py-2 px-4 rounded font-mono hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
