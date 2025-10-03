@@ -1,8 +1,6 @@
 package com.example.ohms.service;
 import java.time.LocalDateTime;
 import java.util.List;
-
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,22 +33,27 @@ public class MessageService {
    UserRepository userRepository;
    
    // @PreAuthorize("isAuthenticated()")
-   @Transactional
-   public ConversationResponse createMessage(String roomId,ConversationRequest conversationRequest){
-      Conversation conversation = conversationMapper.toConversation(conversationRequest);
-      
-      // Find and set the room chat
-      RoomChat roomChat = roomChatRepositoryl.findById(roomId).orElseThrow(()->new AppException(ErrorCode.ROOM_CHAT_NOT_FOUND));
-      conversation.setRoomChat(roomChat);
-      
-      // Find and set the user with roles eagerly loaded to avoid lazy initialization
-      User user = userRepository.findByIdWithRoles(conversationRequest.getUser()).orElseThrow(()->new AppException(ErrorCode.USER_NOT_FOUND));
-      conversation.setUser(user);
-      
-      conversation.setCreatedAt(LocalDateTime.now());
-      conversationRepository.save(conversation);
-      return conversationMapper.toConversationResponse(conversation);
-   }
+@Transactional
+public ConversationResponse createMessage(String roomId, ConversationRequest conversationRequest, List<String> imageUrls) {
+    Conversation conversation = conversationMapper.toConversation(conversationRequest);
+    
+    // Find and set the room chat
+    RoomChat roomChat = roomChatRepositoryl.findById(roomId).orElseThrow(() -> new AppException(ErrorCode.ROOM_CHAT_NOT_FOUND));
+    conversation.setRoomChat(roomChat);
+    
+    User user = userRepository.findByIdWithRoles(conversationRequest.getUser()).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+    conversation.setUser(user);
+    
+    conversation.setCreatedAt(LocalDateTime.now());
+    
+    // Set list image URLs nếu có (từ Cloudinary)
+    if (imageUrls != null && !imageUrls.isEmpty()) {
+        conversation.setImageUrls(imageUrls);  // Giả sử entity Conversation có field List<String> imageUrls
+    }
+    
+    conversationRepository.save(conversation);
+    return conversationMapper.toConversationResponse(conversation);  // Mapper cần handle imageUrls trong response
+}
    // lấy message trong roomchat
    @Transactional(readOnly = true)
    public List<ConversationResponse> getMessage(String roomId){
