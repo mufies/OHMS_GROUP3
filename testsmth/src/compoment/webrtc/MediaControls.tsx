@@ -25,7 +25,7 @@ export const MediaControls: React.FC<MediaControlsProps> = ({
     try {
       const devices = await navigator.mediaDevices.enumerateDevices();
       const audioInputs = devices.filter(device => device.kind === 'audioinput');
-      const deviceInfos = audioInputs.map(device => ({
+      const deviceInfos = audioInputs.map(device => ({  
         deviceId: device.deviceId,
         label: device.label || `Microphone ${device.deviceId.slice(0, 8)}`
       }));

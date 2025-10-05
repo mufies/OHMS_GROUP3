@@ -11,8 +11,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 
 import { useWebSocketService } from '../services/webSocketServices';
-import { WebRTCModal } from './webrtc/WebRTCModal';
-import { CatchWebRTCModal } from './webrtc/CatchWebRTCModal';
+
 
 interface Message {
   id: string;
@@ -60,10 +59,7 @@ const DoctorChat = ({ currentUser, onClose }: DoctorChatProps) => {
   const [chatRooms, setChatRooms] = useState<RoomChatResponse[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [wsConnected, setWsConnected] = useState(false);
-  const [showWebRTC, setShowWebRTC] = useState(false);
   const [callOptions, setCallOptions] = useState<'audio' | 'video'>('audio');
-  const [hasSentCallIdMessage, setHasSentCallIdMessage] = useState(false);
-  const [showWebRTCCallRequest, setShowWebRTCCallRequest] = useState(false);
   const [callRequestOptions, setCallRequestOptions] = useState<'audio' | 'video'>('audio');
   const [CallId, setCallId] = useState('');
 
@@ -77,34 +73,73 @@ const DoctorChat = ({ currentUser, onClose }: DoctorChatProps) => {
     ) || null;
   }, [selectedPatient, chatRooms]);
 
-  // Handle new callId creation (send message once)
-  const handleCallIdCreated = (callId: string) => {
-    setCallId(callId);
-    if (!callId || !selectedPatient || hasSentCallIdMessage) return;
-    setNewMessage(`CallId ${callId} type ${callOptions}`);
+  // Send new message (without form submit) - Memoize đầy đủ
+  const handleSendMessageNoForm = useCallback(() => {
+    if (!newMessage.trim() || !selectedPatient) {
+      console.warn('Cannot send: No message or patient selected');
+      return;
+    }
 
-    setTimeout(() => {
-      handleSendMessageNoForm();
-      setHasSentCallIdMessage(true);
-    }, 100);
-  };
+    const currentRoom = getCurrentRoom();
+    if (!currentRoom) {
+      console.error('No room found for the selected patient');
+      return;
+    }
 
-  // Reset callId message flag on patient change
-  useEffect(() => {
-    setHasSentCallIdMessage(false);
-  }, [selectedPatient]);
+    const message: Message = {
+      id: Date.now().toString(),
+      senderId: currentUser.id,
+      senderName: currentUser.username,
+      content: newMessage.trim(),
+      timestamp: new Date(),
+      isRead: false
+    };
+
+    // Optimistic update
+    setMessages(prev => {
+      const updated = [...prev, message];
+      return updated.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+    });
+
+    const conversationRequest = {
+      message: newMessage.trim(),
+      user: currentUser.id
+    };
+
+    try {
+      const success = send(`/app/chat/${currentRoom.roomChatID}`, conversationRequest);
+      if (!success) {
+        console.error('Failed to send message via WebSocket');
+        setMessages(prev => prev.filter(msg => msg.id !== message.id));
+      } else {
+        console.log('✅ Message sent via WebSocket successfully:', conversationRequest);
+      }
+    } catch (error) {
+      console.error('❌ Error sending message via WebSocket:', error);
+      setMessages(prev => prev.filter(msg => msg.id !== message.id));
+    }
+
+    setNewMessage('');
+  }, [currentUser.id, currentUser.username, newMessage, selectedPatient, getCurrentRoom]);
+
+
 
   const webSocketUrl = 'http://localhost:8080/ws';
+  
+  // Memoize callbacks
+  const onConnected = useCallback(() => setWsConnected(true), []);
+  const onError = useCallback(() => setWsConnected(false), []);
+  
   const { connect, subscribe, send, unsubscribe } = useWebSocketService(
     webSocketUrl,
-    () => setWsConnected(true),
-    () => setWsConnected(false)
+    onConnected,
+    onError
   );
 
   // Connect WebSocket on mount
   useEffect(() => {
     connect();
-  }, [connect]);
+  }, [connect]); 
 
   // Subscribe to chat room topic on selectedPatient or chatRooms change
   useEffect(() => {
@@ -243,49 +278,6 @@ const DoctorChat = ({ currentUser, onClose }: DoctorChatProps) => {
     );
   }, [patients, searchTerm]);
 
-  // Send new message (without form submit)
-  const handleSendMessageNoForm = useCallback(() => {
-    if (!newMessage.trim() || !selectedPatient) return;
-
-    const currentRoom = getCurrentRoom();
-    if (!currentRoom) {
-      console.error('No room found for the selected patient');
-      return;
-    }
-
-    const message: Message = {
-      id: Date.now().toString(),
-      senderId: currentUser.id,
-      senderName: currentUser.username,
-      content: newMessage.trim(),
-      timestamp: new Date(),
-      isRead: false
-    };
-
-    setMessages(prev => {
-      const updated = [...prev, message];
-      return updated.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-    });
-
-    const conversationRequest = {
-      message: newMessage.trim(),
-      user: currentUser.id
-    };
-
-    try {
-      const success = send(`/app/chat/${currentRoom.roomChatID}`, conversationRequest);
-      if (!success) {
-        console.error('Failed to send message via WebSocket');
-        setMessages(prev => prev.filter(msg => msg.id !== message.id));
-      }
-    } catch (error) {
-      console.error('Error sending message via WebSocket:', error);
-      setMessages(prev => prev.filter(msg => msg.id !== message.id));
-    }
-
-    setNewMessage('');
-  }, [currentUser.id, currentUser.username, newMessage, selectedPatient, send, getCurrentRoom]);
-
   // Format time helpers
   const formatTime = (date: Date) => date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
@@ -298,28 +290,38 @@ const DoctorChat = ({ currentUser, onClose }: DoctorChatProps) => {
   };
 
   // Close chat and cleanup
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     localStorage.removeItem('token');
     localStorage.removeItem('currentUser');
     onClose();
-  };
+  }, [onClose]);
 
-  // Determine call request options from messages (latest CallId message)
-  useEffect(() => {
-    const lastCallMessage = [...messages].reverse().find(m => !m.senderId || m.content.startsWith('CallId '));
-    if (lastCallMessage) {
-      const content = lastCallMessage.content.replace('CallId ', '');
-      const callIdPart = content.split(' type ')[0]; // Extract CallId part
-      const type = content.split('type ')[1] as 'audio' | 'video' | undefined;
+
+
+  
+
+  // Memoized title
+  // const webRTCtitle = useMemo(() => `Video Call with ${selectedPatient?.username ?? 'Patient'}`, [selectedPatient?.username]);
+  // const catchTitle = useMemo(() => `Incoming Call from ${selectedPatient?.username ?? 'Patient'}`, [selectedPatient?.username]);
+
+  // FIX CHÍNH: Detect incoming CallId from messages (từ patient, set state cho CatchWebRTC)
+  // useEffect(() => {
+  //   const lastCallMessage = [...messages].reverse().find(m => m.senderId !== currentUser.id && m.content.startsWith('CallId '));
+  //   if (lastCallMessage && lastCallMessage.content !== CallId) {  // New incoming CallId
+  //     const content = lastCallMessage.content.replace('CallId ', '');
+  //     const callIdPart = content.split(' type ')[0];
+  //     const type = content.split('type ')[1] as 'audio' | 'video' | undefined;
       
-      // Set the CallId state from incoming message
-      if (callIdPart && callIdPart !== CallId) {
-        setCallId(callIdPart);
-      }
+  //     if (callIdPart) {
+  //       setCallId(callIdPart);
+  //       console.log('📞 Incoming CallId detected:', callIdPart, type);
+  //     }
       
-      if (type) setCallRequestOptions(type);
-    }
-  }, [messages, CallId]);
+  //     if (type) {
+  //       setCallRequestOptions(type);
+  //     }
+  //   }
+  // }, [messages, CallId, currentUser.id]);
 
   return (
     <div className="fixed inset-0 z-50 bg-white flex">
@@ -435,32 +437,25 @@ const DoctorChat = ({ currentUser, onClose }: DoctorChatProps) => {
                     <p className="text-sm text-black">
                       ID: {selectedPatient.patientId} • {selectedPatient.condition}
                     </p>
-                    {/* Debug: Show current CallId */}
-                    <p className="text-xs text-blue-600 font-mono">
-                      CallId: {CallId || 'null'}
-                    </p>
+
                   </div>
                 </div>
                 <div className="flex space-x-2">
                   <button 
-                    className="p-2 text-black hover:text-gray-600 hover:bg-gray-100 rounded-full"
-                    onClick={() => {
-                      setShowWebRTC(true); 
-                      setCallOptions('audio'); 
-                      setHasSentCallIdMessage(false);
-                    }}
-                    title="Audio Call"
+                    className={`p-2 text-black hover:text-gray-600 hover:bg-gray-100 rounded-full cursor-pointer`} 
+                      // ${!canCreateCall ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    // onClick={() => handleOpenCall('audio')}
+                    // title="Audio Call"
+                    // disabled={!canCreateCall}
                   >
                     <FontAwesomeIcon icon={faPhone} />
                   </button>
                   <button 
-                    className="p-2 text-black hover:text-gray-600 hover:bg-gray-100 rounded-full"
-                    onClick={() => {
-                      setShowWebRTC(true); 
-                      setCallOptions('video'); 
-                      setHasSentCallIdMessage(false);
-                    }}
-                    title="Video Call"
+                    className={`p-2 text-black hover:text-gray-600 hover:bg-gray-100 rounded-full cursor-pointer`}
+                      // ${!canCreateCall ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    // onClick={() => handleOpenCall('video')}
+                    // title="Video Call"
+                    // disabled={!canCreateCall}
                   >
                     <FontAwesomeIcon icon={faVideo} />
                   </button>
@@ -468,11 +463,12 @@ const DoctorChat = ({ currentUser, onClose }: DoctorChatProps) => {
               </div>
             </div>
 
-            {/* Messages List */}
+            {/* Messages List - FIX: Thêm button accept cho incoming CallId */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
               {messages.map(message => {
                 const isCurrentUser = message.senderId === currentUser.id;
-                const isCallRequest = !isCurrentUser && message.content.startsWith('CallId ');
+                const isCallRequest = !isCurrentUser && message.content.startsWith('CallId ');  // Incoming từ patient
+                const callText = isCallRequest ? message.content.replace('CallId ', '') : '';
 
                 return (
                   <div
@@ -484,14 +480,19 @@ const DoctorChat = ({ currentUser, onClose }: DoctorChatProps) => {
                     }`}>
                       {isCallRequest ? (
                         <div className="bg-green-100 border-l-4 border-green-500 p-2 mb-2">
-                          <span className="font-semibold text-green-700">Call</span>
+                          <span className="font-semibold text-green-700">Incoming Call Request</span>
                           <div className="text-black mt-1 text-sm">
+                            {callText}
                             <button
-                              className="p-2 text-black hover:text-gray-600 hover:bg-gray-100 rounded-full cursor-pointer"
-                              onClick={() => setShowWebRTCCallRequest(true)}
-                              title="Call"
+                              className="ml-2 p-1 bg-green-500 text-white rounded text-xs hover:bg-green-600 mt-1 disabled:opacity-50"
+                              onClick={() => {
+                                setCallRequestOptions(callRequestOptions);  // Đã set từ useEffect
+                                console.log('🔊 Doctor accepting call with CallId:', CallId);
+                              }}
+                              title="Accept Call"
+                              disabled={!CallId || !getCurrentRoom()}  // Disable nếu không có CallId/room
                             >
-                              {callRequestOptions} Call
+                              Accept {callRequestOptions} Call
                             </button>
                           </div>
                         </div>
@@ -549,24 +550,7 @@ const DoctorChat = ({ currentUser, onClose }: DoctorChatProps) => {
         )}
       </div>
 
-      {/* WebRTC Modal */}
-      <WebRTCModal
-        isOpen={showWebRTC}
-        onClose={() => setShowWebRTC(false)}
-        currentUserId={currentUser.id}
-        title={`Video Call with ${selectedPatient?.username ?? 'Patient'}`}
-        type={callOptions}
-        onCallIdCreated={handleCallIdCreated}
-      />
-
-      <CatchWebRTCModal
-        isOpen={showWebRTCCallRequest}
-        onClose={() => setShowWebRTCCallRequest(false)}
-        currentUserId={currentUser.id}
-        title={`Video Call with ${selectedPatient?.username ?? 'Patient'}`}
-        type={callRequestOptions}
-        CallId={CallId}
-      />
+      
     </div>
   );
 };

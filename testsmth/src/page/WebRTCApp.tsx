@@ -1,15 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { initializeApp } from 'firebase/app';
-import { 
-  getFirestore, 
-  collection, 
-  doc, 
-  addDoc, 
-  setDoc, 
-  getDoc, 
-  updateDoc, 
-  onSnapshot 
-} from 'firebase/firestore';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import firebase from 'firebase/compat/app';
+import 'firebase/compat/firestore';
+import { useWebSocketService } from '../services/webSocketServices';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -18,561 +10,495 @@ const firebaseConfig = {
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
-const app = initializeApp(firebaseConfig);
+if (!firebase.apps.length) {
+  firebase.initializeApp(firebaseConfig);
+}
+const firestore = firebase.firestore();
 
-const firestore = getFirestore(app);
-const servers = {
+const servers: RTCConfiguration = {
   iceServers: [
-    {
-      urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'],
-    },
+    { urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'] },
   ],
   iceCandidatePoolSize: 10,
 };
 
-const WebRTCApp: React.FC = () => {
-  const [callId, setCallId] = useState("");
-  const [mediaStarted, setMediaStarted] = useState(false);
-  const [callCreated, setCallCreated] = useState(false);
-  const [answerStarted, setAnswerStarted] = useState(false);
-  const [hangupEnabled, setHangupEnabled] = useState(false);
-  const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([]);
-  const [selectedAudioDevice, setSelectedAudioDevice] = useState<string>("");
-  const [mediaMode, setMediaMode] = useState<'video' | 'audio' | 'screen'>('video');
-  const [mediaError, setMediaError] = useState<string>("");
-  const [currentUserId] = useState<string>(() => `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);
-
-  const localStream = useRef<MediaStream | null>(null);
-  const remoteStream = useRef<MediaStream | null>(null);
-  const pc = useRef<RTCPeerConnection>(new RTCPeerConnection(servers));
+const App: React.FC = () => {
+  const pc = useRef<RTCPeerConnection | null>(null);
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+  const [callId, setCallId] = useState<string>('');
+  const [webcamStarted, setWebcamStarted] = useState<boolean>(false);
+  const [callCreated, setCallCreated] = useState<boolean>(false);
+  const [connectionStatus, setConnectionStatus] = useState<string>('Not connected');
+  const [wsConnected, setWsConnected] = useState<boolean>(false);
+  
+  // URL params from query string
+  const [roomId, setRoomId] = useState<string>("");
+  const [urlCurrentUser, setUrlCurrentUser] = useState<string>("");
+  const [mediaMode, setMediaMode] = useState<'video' | 'audio'>('video');
+  
+  const callDocRef = useRef<firebase.firestore.DocumentReference | null>(null);
+  const unsubscribeRef = useRef<(() => void) | null>(null);
+  const autoStartedRef = useRef(false);
 
   const webcamVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
-  const callDocRef = useRef<any>(null); 
-  const unsubscribeRef = useRef<(() => void) | null>(null); 
 
-  // Function to signal that user is leaving
-  const userLeft = async () => {
-    if (callDocRef.current && currentUserId) {
-      try {
-        await updateDoc(callDocRef.current, {
-          userLeft: true,
-          whoLeft: currentUserId,
-          leftAt: new Date().toISOString()
-        });
-        console.log('Signaled user left:', currentUserId);
-      } catch (error) {
-        console.error('Error signaling user left:', error);
-      }
-    }
-  };
-
-  // Setup beforeunload and refresh detection
   useEffect(() => {
-    const handleBeforeUnload = () => {
-      userLeft();
-    };
-
-    const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.keyCode === 116) { // F5 refresh key
-        userLeft();
-      }
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    window.addEventListener('keyup', handleKeyUp);
-
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      window.removeEventListener('keyup', handleKeyUp);
-    };
-  }, [currentUserId]);
-
-  // Get available audio devices
-  const getAudioDevices = async () => {
-    try {
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const audioInputs = devices.filter(device => device.kind === 'audioinput');
-      setAudioDevices(audioInputs);
-      if (audioInputs.length > 0 && !selectedAudioDevice) {
-        setSelectedAudioDevice(audioInputs[0].deviceId);
-      }
-    } catch (error) {
-      console.error('Error getting audio devices:', error);
-    }
-  };
-
-  const startMedia = async () => {
-    setMediaError("");
+    pc.current = new RTCPeerConnection(servers);
     
+    // Cleanup on unmount
+    return () => {
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+      }
+      if (pc.current) {
+        pc.current.close();
+      }
+      if (localStream) {
+        localStream.getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (localStream && webcamVideoRef.current) {
+      webcamVideoRef.current.srcObject = localStream;
+    }
+  }, [localStream]);
+
+  useEffect(() => {
+    if (remoteStream && remoteVideoRef.current) {
+      remoteVideoRef.current.srcObject = remoteStream;
+    }
+  }, [remoteStream]);
+
+  useEffect(() => {
+    if (!pc.current || !localStream) return;
+
+    const remote = new MediaStream();
+    setRemoteStream(remote);
+
+    localStream.getTracks().forEach((track) => {
+      pc.current!.addTrack(track, localStream);
+    });
+
+    pc.current.ontrack = (event) => {
+      event.streams[0].getTracks().forEach((track) => {
+        remote.addTrack(track);
+      });
+      setRemoteStream(new MediaStream(remote.getTracks()));
+    };
+  }, [webcamStarted]);
+
+  const startWebcam = async () => {
     try {
-      let constraints: MediaStreamConstraints | null = null;
-      
-      if (mediaMode === 'video') {
-        constraints = {
-          video: { width: 640, height: 480 },
-          audio: selectedAudioDevice ? { deviceId: selectedAudioDevice } : true
-        };
-      } else if (mediaMode === 'screen') {
-        try {
-          localStream.current = await navigator.mediaDevices.getDisplayMedia({
-            video: true,
-            audio: true
-          });
-        } catch (screenError) {
-          setMediaError("Screen sharing not available. Falling back to audio only.");
-          constraints = {
-            video: false,
-            audio: selectedAudioDevice ? { deviceId: selectedAudioDevice } : true
-          };
-        }
-      } else {
-        constraints = {
-          video: false,
-          audio: selectedAudioDevice ? { deviceId: selectedAudioDevice } : true
-        };
-      }
-
-      if (!localStream.current && constraints) {
-        try {
-          if (constraints) {
-            localStream.current = await navigator.mediaDevices.getUserMedia(constraints);
-          }
-        } catch (videoError) {
-          if (mediaMode === 'video') {
-            setMediaError("Camera not available. Using audio only.");
-            try {
-              localStream.current = await navigator.mediaDevices.getUserMedia({
-                video: false,
-                audio: selectedAudioDevice ? { deviceId: selectedAudioDevice } : true
-              });
-            } catch (audioError) {
-              setMediaError("No audio devices available. Creating silent connection.");
-              const audioContext = new AudioContext();
-              const oscillator = audioContext.createOscillator();
-              const dest = audioContext.createMediaStreamDestination();
-              oscillator.connect(dest);
-              oscillator.start();
-              localStream.current = dest.stream;
-            }
-          } else {
-            throw videoError;
-          }
-        }
-      }
-
-      remoteStream.current = new MediaStream();
-
-      if (localStream.current) {
-        localStream.current.getTracks().forEach((track) => {
-          pc.current.addTrack(track, localStream.current!);
-        });
-      }
-
-      // Handle remote tracks
-      pc.current.ontrack = (event) => {
-        console.log('Received remote track:', event.track.kind);
-        event.streams[0].getTracks().forEach((track) => {
-          remoteStream.current!.addTrack(track);
-          
-          // Monitor track state
-          track.onended = () => {
-            console.log(`Remote ${track.kind} track ended`);
-            setMediaError(`Remote ${track.kind} track ended`);
-          };
-          
-          track.onmute = () => {
-            console.log(`Remote ${track.kind} track muted`);
-          };
-          
-          track.onunmute = () => {
-            console.log(`Remote ${track.kind} track unmuted`);
-          };
-        });
-        
-        if (remoteVideoRef.current) {
-          remoteVideoRef.current.srcObject = remoteStream.current;
-          console.log('Remote stream assigned to video element');
-        }
-      };
-
-      // Display local stream
-      if (webcamVideoRef.current) {
-        webcamVideoRef.current.srcObject = localStream.current;
-      }
-
-      setMediaStarted(true);
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      setLocalStream(stream);
+      setWebcamStarted(true);
     } catch (error) {
-      console.error('Error starting media:', error);
-      setMediaError(`Media error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error('Error accessing media devices:', error);
     }
   };
 
   const createCall = async () => {
+    if (!pc.current) return;
+
     try {
-      const callsCollection = collection(firestore, 'calls');
-      const callDoc = doc(callsCollection);
-      const offerCandidatesCollection = collection(callDoc, 'offerCandidates');
-      const answerCandidatesCollection = collection(callDoc, 'answerCandidates');
+      const callDoc = firestore.collection('calls').doc();
+      const offerCandidates = callDoc.collection('offerCandidates');
+      const answerCandidates = callDoc.collection('answerCandidates');
 
       setCallId(callDoc.id);
-      callDocRef.current = callDoc; // Store reference for user left signaling
-
-      // Monitor connection state changes
-      pc.current.onconnectionstatechange = () => {
-        console.log('Connection state changed:', pc.current.connectionState);
-      };
-
-      // Monitor for user left signals
-      const unsubscribeUserLeft = onSnapshot(callDoc, (snapshot) => {
-        const data = snapshot.data();
-        
-        // Check for user left signal
-        if (data?.userLeft && data?.whoLeft && data?.whoLeft !== currentUserId) {
-          console.log('Remote user left:', data.whoLeft);
-          setMediaError(`Remote user left the call`);
-          hangupCall();
-          return;
-        }
-        
-        // Handle answer (existing logic)
-        if (!pc.current.currentRemoteDescription && data?.answer) {
-          const answerDescription = new RTCSessionDescription(data.answer);
-          pc.current.setRemoteDescription(answerDescription);
-        }
-      });
-
-      unsubscribeRef.current = unsubscribeUserLeft;
+      setCallCreated(true);
+      callDocRef.current = callDoc;
+      setConnectionStatus('Creating call...');
 
       pc.current.onicecandidate = (event) => {
         if (event.candidate) {
-          addDoc(offerCandidatesCollection, event.candidate.toJSON());
+          offerCandidates.add(event.candidate.toJSON());
         }
       };
 
-      // Only create offer if we're in stable state
-      if (pc.current.signalingState === 'stable') {
-        const offerDescription = await pc.current.createOffer();
-        await pc.current.setLocalDescription(offerDescription);
+      const offerDescription = await pc.current.createOffer();
+      await pc.current.setLocalDescription(offerDescription);
 
-        const offer = {
-          sdp: offerDescription.sdp,
-          type: offerDescription.type,
-        };
+      const offer = {
+        sdp: offerDescription.sdp,
+        type: offerDescription.type,
+      };
 
-        await setDoc(callDoc, { offer });
+      await callDoc.set({ offer, hangup: false });
 
-        onSnapshot(answerCandidatesCollection, (snapshot) => {
-          snapshot.docChanges().forEach((change) => {
-            if (change.type === 'added') {
-              const candidate = new RTCIceCandidate(change.doc.data());
-              pc.current.addIceCandidate(candidate);
-            }
-          });
+      // Listen for remote answer and hangup signal
+      const unsubscribe = callDoc.onSnapshot((snapshot) => {
+        const data = snapshot.data();
+        
+        // Check for hangup signal
+        if (data?.hangup) {
+          console.log('🔴 Remote peer hung up');
+          setConnectionStatus('Remote peer disconnected');
+          hangup();
+          return;
+        }
+        
+        if (!pc.current?.currentRemoteDescription && data?.answer) {
+          const answerDescription = new RTCSessionDescription(data.answer);
+          pc.current?.setRemoteDescription(answerDescription);
+          setConnectionStatus('Connected');
+        }
+      });
+
+      unsubscribeRef.current = unsubscribe;
+
+      // Listen for remote ICE candidates
+      answerCandidates.onSnapshot((snapshot) => {
+        snapshot.docChanges().forEach((change) => {
+          if (change.type === 'added') {
+            const candidate = new RTCIceCandidate(change.doc.data());
+            pc.current?.addIceCandidate(candidate);
+          }
         });
+      });
+      
+      // After call is created, send URL to other peer via WebSocket if roomId exists
 
-        setCallCreated(true);
-        setHangupEnabled(true);
-      } else {
-        setMediaError(`Cannot create offer. Connection state: ${pc.current.signalingState}`);
+      
+      if (roomId && wsConnected) {
+        const videoCallUrl = `${window.location.origin}/video?callId=${callDoc.id}&currentUser=${urlCurrentUser}&callType=${mediaMode}`;
+        
+        const messageData = {
+          message: videoCallUrl,
+          user: urlCurrentUser
+        };
+        
+        const success = send(`/app/chat/${roomId}`, messageData);
+        
+        if (success) {
+          console.log('✅ Video call URL sent to room:', roomId, 'URL:', videoCallUrl);
+        } else {
+          console.error('❌ Failed to send video call URL');
+        }
       }
     } catch (error) {
       console.error('Error creating call:', error);
-      setMediaError(`Failed to create call: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setConnectionStatus('Error creating call');
     }
   };
 
   const answerCall = async () => {
+    if (!pc.current || !callId) return;
+
     try {
-      const callsCollection = collection(firestore, 'calls');
-      const callDoc = doc(callsCollection, callId);
-      const answerCandidatesCollection = collection(callDoc, 'answerCandidates');
-      const offerCandidatesCollection = collection(callDoc, 'offerCandidates');
+      const callDoc = firestore.collection('calls').doc(callId);
+      const answerCandidates = callDoc.collection('answerCandidates');
+      const offerCandidates = callDoc.collection('offerCandidates');
 
-      callDocRef.current = callDoc; // Store reference for user left signaling
-
-      // Monitor connection state changes
-      pc.current.onconnectionstatechange = () => {
-        console.log('Connection state changed:', pc.current.connectionState);
-      };
-
-      // Monitor for user left signals
-      const unsubscribeUserLeft = onSnapshot(callDoc, (snapshot) => {
-        const data = snapshot.data();
-        
-        if (data?.userLeft && data?.whoLeft && data?.whoLeft !== currentUserId) {
-          console.log('Remote user left:', data.whoLeft);
-          setMediaError(`Remote user left the call`);
-          hangupCall();
-        }
-      });
-
-      unsubscribeRef.current = unsubscribeUserLeft;
+      callDocRef.current = callDoc;
+      setConnectionStatus('Answering call...');
 
       pc.current.onicecandidate = (event) => {
         if (event.candidate) {
-          addDoc(answerCandidatesCollection, event.candidate.toJSON());
+          answerCandidates.add(event.candidate.toJSON());
         }
       };
 
-      const callSnapshot = await getDoc(callDoc);
-      const callData = callSnapshot.data();
+      const callData = (await callDoc.get()).data();
 
       if (!callData?.offer) {
-        setMediaError("No offer found in call document");
+        console.error('No offer found');
+        setConnectionStatus('Error: No offer found');
+        return;
+      }
+
+      // Check if call was already hung up
+      if (callData?.hangup) {
+        console.log('🔴 Call already ended');
+        setConnectionStatus('Call already ended');
         return;
       }
 
       const offerDescription = callData.offer;
-      
-      // Only set remote description if we haven't already
-      if (pc.current.signalingState === 'stable') {
-        await pc.current.setRemoteDescription(new RTCSessionDescription(offerDescription));
-      }
+      await pc.current.setRemoteDescription(new RTCSessionDescription(offerDescription));
 
-      // Only create and set local description if we're in the right state
-      if (pc.current.signalingState === 'have-remote-offer') {
-        const answerDescription = await pc.current.createAnswer();
-        await pc.current.setLocalDescription(answerDescription);
+      const answerDescription = await pc.current.createAnswer();
+      await pc.current.setLocalDescription(answerDescription);
 
-        const answer = {
-          type: answerDescription.type,
-          sdp: answerDescription.sdp,
-        };
+      const answer = {
+        type: answerDescription.type,
+        sdp: answerDescription.sdp,
+      };
 
-        await updateDoc(callDoc, { answer });
-      }
+      await callDoc.update({ answer });
+      setConnectionStatus('Connected');
 
-      onSnapshot(offerCandidatesCollection, (snapshot) => {
+      // Listen for hangup signal
+      const unsubscribe = callDoc.onSnapshot((snapshot) => {
+        const data = snapshot.data();
+        
+        if (data?.hangup) {
+          console.log('🔴 Remote peer hung up');
+          setConnectionStatus('Remote peer disconnected');
+          hangup();
+        }
+      });
+
+      unsubscribeRef.current = unsubscribe;
+
+      // Listen for remote ICE candidates
+      offerCandidates.onSnapshot((snapshot) => {
         snapshot.docChanges().forEach((change) => {
           if (change.type === 'added') {
             const candidate = new RTCIceCandidate(change.doc.data());
-            pc.current.addIceCandidate(candidate);
+            if (pc.current) {
+              pc.current.addIceCandidate(candidate);
+            }
           }
         });
       });
-
-      setAnswerStarted(true);
-      setHangupEnabled(true);
-      console.log('Call answered successfully, hangup enabled:', true);
     } catch (error) {
       console.error('Error answering call:', error);
-      setMediaError(`Failed to answer call: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      // Still enable hangup in case of error so user can reset
-      setHangupEnabled(true);
-      console.log('Error in answerCall, but hangup still enabled:', true);
+      setConnectionStatus('Error answering call');
     }
   };
 
-  const hangupCall = () => {
-    console.log('Hangup called, current hangupEnabled state:', hangupEnabled);
+  const hangup = async () => {
+    console.log('🔴 Hangup called');
     
-    // Signal that user is leaving (only if not already signaled by remote)
-    userLeft();
+    // Signal hangup to remote peer via Firestore
+    if (callDocRef.current) {
+      try {
+        await callDocRef.current.update({ hangup: true });
+        console.log('✅ Hangup signal sent to remote peer');
+      } catch (error) {
+        console.error('Error signaling hangup:', error);
+      }
+    }
     
-    // Unsubscribe from user left monitoring
+    // Unsubscribe from Firestore listeners
     if (unsubscribeRef.current) {
       unsubscribeRef.current();
       unsubscribeRef.current = null;
     }
     
-    // Stop all local tracks
-    localStream.current?.getTracks().forEach((track) => track.stop());
-
     // Close peer connection
-    pc.current.close();
-
-    // Clear streams
-    remoteStream.current = null;
-    localStream.current = null;
-    
-    // Clear video elements
-    if (webcamVideoRef.current) {
-      webcamVideoRef.current.srcObject = null;
-    }
-    if (remoteVideoRef.current) {
-      remoteVideoRef.current.srcObject = null;
+    if (pc.current) {
+      pc.current.close();
+      pc.current = new RTCPeerConnection(servers);
     }
     
-    // Reset state
-    setCallId("");
-    setMediaStarted(false);
+    // Stop all local media tracks (turn off camera/mic)
+    if (localStream) {
+      localStream.getTracks().forEach((track) => {
+        console.log(`🎥 Stopping ${track.kind} track`);
+        track.stop();
+      });
+      setLocalStream(null);
+    }
+    
+    // Clear remote stream
+    setRemoteStream(null);
+    setCallId('');
+    setWebcamStarted(false);
     setCallCreated(false);
-    setAnswerStarted(false);
-    setHangupEnabled(false);
-    setMediaError("");
-    
-    // Clear call reference
+    setConnectionStatus('Disconnected');
     callDocRef.current = null;
-
-    // Create new peer connection
-    pc.current = new RTCPeerConnection(servers);
     
-    console.log('Hangup completed, all states reset');
+    console.log('🔴 Hangup completed, camera turned off');
   };
 
-  // Fallback ICE connection monitoring (backup to user left detection)
-  useEffect(() => {
-    const handleConnectionStateChange = () => {
-      console.log('ICE Connection State:', pc.current.iceConnectionState);
+  //setup websocket to send link for another peer
+      // WebSocket setup 
+      const webSocketUrl = 'http://localhost:8080/ws';
       
-      // Only trigger on 'failed' state as a fallback (not disconnected)
-      if (pc.current.iceConnectionState === 'failed') {
-        console.log('Connection failed, hanging up as fallback...');
-        setMediaError("Connection failed - network issue detected");
-        hangupCall();
-      }
-    };
-
-    // Add event listener for connection state changes
-    pc.current.addEventListener('iceconnectionstatechange', handleConnectionStateChange);
-
-    // Cleanup event listener
-    return () => {
-      pc.current.removeEventListener('iceconnectionstatechange', handleConnectionStateChange);
-    };
-  }, [hangupEnabled]); // Add dependency to prevent stale closure
-
-  // Monitor remote stream status
-  useEffect(() => {
-    const checkRemoteStream = () => {
-      if (remoteStream.current) {
-        const tracks = remoteStream.current.getTracks();
-        console.log('Remote stream tracks:', tracks.length);
+      // Memoize callbacks
+      const onConnected = useCallback(() => {
+        console.log('WebSocket Connected!');
+        setWsConnected(true);
+      }, []);
+      
+      const onError = useCallback((error: string) => {
+        console.log('WebSocket Error:', error);
+        setWsConnected(false);
+      }, []);
+      
+      const { connect, send } = useWebSocketService(
+        webSocketUrl,
+        onConnected,
+        onError
+      );
+    
+      // Connect once on mount
+      useEffect(() => {
+        connect();
+      }, [connect]);
+  
+      // Parse URL parameters on mount
+      useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
         
-        if (tracks.length === 0) {
-          console.log('Remote stream has no tracks');
-          setMediaError("Remote stream lost - no tracks available");
+        const urlRoomId = params.get('roomId');
+        const urlUser = params.get('currentUser');
+        const callType = params.get('callType');
+        const urlCallId = params.get('callId');
+        
+        console.log('📋 URL Parameters:', { urlRoomId, urlUser, callType, urlCallId });
+        
+        if (urlRoomId) setRoomId(urlRoomId);
+        if (urlUser) setUrlCurrentUser(urlUser);
+        
+        // Auto-configure media mode based on callType
+        if (callType === 'video' || callType === 'audio') {
+          setMediaMode(callType as 'video' | 'audio');
+          console.log('🎥 Media mode set to:', callType);
         }
         
-        // Check if all tracks are ended
-        // const activeTracks = tracks.filter(track => track.readyState === 'live');
-        // if (tracks.length > 0 && activeTracks.length === 0) {
-        //   console.log('All remote tracks ended');
-        //   setMediaError("Remote stream ended - all tracks stopped");
-        // }
-      }
-    };
-
-    // check the src every 2s
-    const interval = setInterval(checkRemoteStream, 2000);
-    
-    return () => clearInterval(interval);
-  }, [remoteStream.current, hangupEnabled]);
-
+        // If callId is in URL, this is the answering peer - auto-answer
+        if (urlCallId && !autoStartedRef.current) {
+          autoStartedRef.current = true;
+          setCallId(urlCallId);
+          
+          // Auto-start media and answer after a delay
+          setTimeout(async () => {
+            console.log('🎬 Auto-starting webcam for answering...');
+            await startWebcam();
+            
+            // Wait a bit for media to be ready, then answer
+            setTimeout(async () => {
+              console.log('📞 Auto-answering call...');
+              await answerCall();
+            }, 1000);
+          }, 500);
+        } 
+        // If roomId exists but no callId, this is the calling peer - auto-create call
+        else if (urlRoomId && !autoStartedRef.current) {
+          autoStartedRef.current = true;
+          
+          // Auto-start media and create call
+          setTimeout(async () => {
+            console.log('🎬 Auto-starting webcam for calling...');
+            await startWebcam();
+            
+            // Wait for media to be ready, then create call
+            // setTimeout(async () => {
+            //   console.log('📞 Auto-creating call...');
+            //   await createCall();
+            // }, 1000);
+          }, 500);
+        }
+      }, []);
+      
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 text-gray-800 p-10">
-      <h2 className="text-2xl font-mono mb-6">1. Setup Media</h2>
-      
-      {/* Media Mode Selection */}
-      <div className="mb-4">
-        <label className="block text-sm font-medium mb-2">Media Mode:</label>
-        <select 
-          value={mediaMode} 
-          onChange={(e) => setMediaMode(e.target.value as 'video' | 'audio' | 'screen')}
-          className="border border-gray-300 rounded px-2 py-1 mr-4"
-        >
-          <option value="video">Video + Audio</option>
-          <option value="audio">Audio Only</option>
-          <option value="screen">Screen Share</option>
-        </select>
-        <button
-          onClick={getAudioDevices}
-          className="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600"
-        >
-          Refresh Audio Devices
-        </button>
-      </div>
-
-      {/* Audio Device Selection */}
-      {audioDevices.length > 0 && (
-        <div className="mb-4">
-          <label className="block text-sm font-medium mb-2">Audio Input:</label>
-          <select 
-            value={selectedAudioDevice} 
-            onChange={(e) => setSelectedAudioDevice(e.target.value)}
-            className="border border-gray-300 rounded px-2 py-1"
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 text-white p-8">
+      <div className="max-w-6xl mx-auto">
+        <h1 className="text-4xl font-bold text-center mb-4 text-blue-300">WebRTC Video Call</h1>
+        
+        {/* Connection Status Indicator */}
+        <div className="text-center mb-6">
+          <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full ${
+            connectionStatus === 'Connected' ? 'bg-green-600' :
+            connectionStatus.includes('disconnected') || connectionStatus.includes('ended') ? 'bg-red-600' :
+            connectionStatus.includes('Error') ? 'bg-red-600' :
+            connectionStatus.includes('...') ? 'bg-yellow-600' :
+            'bg-gray-600'
+          }`}>
+            <div className={`w-3 h-3 rounded-full ${
+              connectionStatus === 'Connected' ? 'bg-green-300 animate-pulse' :
+              connectionStatus.includes('disconnected') || connectionStatus.includes('ended') ? 'bg-red-300' :
+              connectionStatus.includes('...') ? 'bg-yellow-300 animate-pulse' :
+              'bg-gray-400'
+            }`}></div>
+            <span className="font-semibold">{connectionStatus}</span>
+          </div>
+        </div>
+        
+        <div className="bg-gray-800 rounded-lg p-6 mb-6 shadow-xl border border-blue-500">
+          <h2 className="text-2xl font-semibold mb-4 text-blue-300">1. Start your Webcam</h2>
+          <div className="flex justify-center items-center gap-8 mb-6">
+            <div className="flex-1 max-w-md">
+              <h3 className="text-xl font-medium mb-3 text-green-400">Local Stream</h3>
+              <video
+                ref={webcamVideoRef}
+                autoPlay
+                playsInline
+                muted
+                className="w-full h-64 bg-black rounded-lg border-2 border-green-500 shadow-lg"
+              />
+            </div>
+            <div className="flex-1 max-w-md">
+              <h3 className="text-xl font-medium mb-3 text-purple-400">Remote Stream</h3>
+              <video
+                ref={remoteVideoRef}
+                autoPlay
+                playsInline
+                className="w-full h-64 bg-black rounded-lg border-2 border-purple-500 shadow-lg"
+              />
+            </div>
+          </div>
+          <button
+            onClick={startWebcam}
+            disabled={webcamStarted}
+            className="w-full px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors shadow-lg"
           >
-            {audioDevices.map((device) => (
-              <option key={device.deviceId} value={device.deviceId}>
-                {device.label || `Microphone ${device.deviceId.slice(0, 8)}`}
-              </option>
-            ))}
-          </select>
+            {webcamStarted ? '✓ Webcam Started' : 'Start Webcam'}
+          </button>
         </div>
-      )}
 
-      {/* Error Display */}
-      {mediaError && (
-        <div className="mb-4 p-3 bg-yellow-100 border border-yellow-400 rounded text-yellow-700">
-          {mediaError}
+        <div className="bg-gray-800 rounded-lg p-6 mb-6 shadow-xl border border-blue-500">
+          <h2 className="text-2xl font-semibold mb-4 text-blue-300">2. Create a new Call</h2>
+          <button
+            onClick={createCall}
+            disabled={!webcamStarted || callCreated}
+            className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors shadow-lg"
+          >
+            {callCreated ? `✓ Call Created: ${callId}` : 'Create Call (offer)'}
+          </button>
+          {callCreated && (
+            <div className="mt-4 p-4 bg-gray-900 rounded-lg border border-blue-400">
+              <p className="text-sm text-blue-300 mb-2">Share this Call ID:</p>
+              <p className="font-mono text-lg text-white break-all bg-black p-3 rounded border border-blue-500">{callId}</p>
+            </div>
+          )}
         </div>
-      )}
 
-      {/* Debug Status */}
-
-
-      <div className="flex justify-center space-x-8 mb-6">
-        <div className="flex flex-col items-center">
-          <h3 className="font-mono mb-2">Local Stream</h3>
-          <video ref={webcamVideoRef} className="w-[40vw] h-[30vw] bg-gray-800" autoPlay playsInline muted />
+        <div className="bg-gray-800 rounded-lg p-6 mb-6 shadow-xl border border-blue-500">
+          <h2 className="text-2xl font-semibold mb-4 text-blue-300">3. Join a Call</h2>
+          <p className="mb-4 text-gray-300">Answer the call from a different browser window or device</p>
+          <input
+            id="callInput"
+            type="text"
+            value={callId}
+            onChange={(e) => setCallId(e.target.value)}
+            placeholder="Enter call ID"
+            className="w-full border-2 border-blue-500 bg-gray-900 text-white rounded-lg px-4 py-3 mb-4 focus:outline-none focus:border-blue-400 placeholder-gray-500"
+          />
+          <button
+            onClick={answerCall}
+            disabled={!webcamStarted || !callId}
+            className="w-full px-6 py-3 bg-yellow-600 hover:bg-yellow-700 text-white font-semibold rounded-lg disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors shadow-lg"
+          >
+            Answer Call
+          </button>
         </div>
-        <div className="flex flex-col items-center">
-          <h3 className="font-mono mb-2">Remote Stream</h3>
-          <video ref={remoteVideoRef} className="w-[40vw] h-[30vw] bg-gray-800" autoPlay playsInline />
+
+        <div className="bg-gray-800 rounded-lg p-6 shadow-xl border border-blue-500">
+          <h2 className="text-2xl font-semibold mb-4 text-blue-300">4. Hangup</h2>
+          <button
+            onClick={hangup}
+            disabled={!callCreated && !callId}
+            className="w-full px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors shadow-lg"
+          >
+            Hangup
+          </button>
         </div>
       </div>
-
-      <button
-        onClick={startMedia}
-        disabled={mediaStarted}
-        className="bg-blue-600 text-white py-2 px-4 rounded font-mono hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed mb-6"
-      >
-        {mediaStarted ? 'Media Ready' : 'Start Media'}
-      </button>
-
-      <h2 className="text-2xl font-mono mb-4">2. Create a new Call</h2>
-      <button
-        onClick={createCall}
-        disabled={!mediaStarted || callCreated}
-        className="bg-green-600 text-white py-2 px-4 rounded font-mono hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed mb-6"
-      >
-        Create Call (offer)
-      </button>
-
-      <h2 className="text-2xl font-mono mb-2">3. Join a Call</h2>
-      <p className="mb-4">Answer the call from a different browser window or device</p>
-
-      <input
-        type="text"
-        value={callId}
-        onChange={(e) => setCallId(e.target.value)}
-        placeholder="Enter Call ID"
-        className="border border-gray-300 rounded px-2 py-1 font-mono mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-      />
-
-      <button
-        onClick={answerCall}
-        disabled={!mediaStarted || answerStarted || callId.length === 0}
-        className="bg-yellow-600 text-white py-2 px-4 rounded font-mono hover:bg-yellow-700 disabled:opacity-50 disabled:cursor-not-allowed mb-6"
-      >
-        Answer
-      </button>
-
-      <h2 className="text-2xl font-mono mb-2">4. Hangup</h2>
-      <button
-        disabled={!hangupEnabled}
-        onClick={hangupCall}
-        className="bg-red-600 text-white py-2 px-4 rounded font-mono hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        Hangup
-      </button>
     </div>
   );
 };
 
-export default WebRTCApp;
+export default App;
+

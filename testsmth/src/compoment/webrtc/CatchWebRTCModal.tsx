@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTimes } from '@fortawesome/free-solid-svg-icons';
 import { useWebRTC } from '../../hook/useWebRTC';
@@ -29,49 +29,74 @@ export const CatchWebRTCModal: React.FC<WebRTCModalProps> = ({
     currentUserId
   });
 
-  // Cleanup media when modal is closed
+  const hasAutoConnectedRef = useRef<string | null>(null);
+
   useEffect(() => {
+    console.log('🔍 [CatchWebRTCModal] Modal open state changed:', isOpen, 'mediaStarted:', webrtc.mediaStarted);
+    
     if (!isOpen && webrtc.mediaStarted) {
+      console.log('🛑 [CatchWebRTCModal] Modal closed with media started - calling hangup');
       webrtc.hangupCall();
+    }
+        if (!isOpen) {
+      hasAutoConnectedRef.current = null;
     }
   }, [isOpen, webrtc.mediaStarted, webrtc.hangupCall]);
 
-  // Auto-connect when modal opens with CallId
   useEffect(() => {
-    if (isOpen && CallId && !webrtc.answerStarted && !webrtc.callCreated) {
+    if (webrtc.mediaError?.includes('Remote user left') || webrtc.mediaError?.includes('ended') || webrtc.isHungup) {
+      console.log('🔄 [CatchWebRTCModal] Detected hangup - auto closing modal');
+      hasAutoConnectedRef.current = null;  // Reset ref để tránh re-connect nếu reopen
+      onClose();  // Đóng modal ngay → isOpen=false, block useEffect
+    }
+  }, [webrtc.mediaError, webrtc.isHungup, onClose]);
+
+  // Auto-connect when modal opens with CallId
+useEffect(() => {
+    if (isOpen && CallId && hasAutoConnectedRef.current !== CallId && 
+        !webrtc.answerStarted && !webrtc.callCreated && !webrtc.isHungup) {
       console.log('Auto-connecting to call:', CallId);
       
-      // Start media first, then answer call
+      hasAutoConnectedRef.current = CallId;
+      
       const autoConnect = async () => {
         try {
-          // Start media based on type
-          await webrtc.startMedia({
-            mode: type as 'video' | 'audio',
-          });
+          await webrtc.startMedia({ mode: type });
           
-          // Small delay to ensure media is ready
           setTimeout(() => {
             webrtc.setCallId(CallId.trim());
             webrtc.answerCall(CallId.trim());
           }, 1000);
         } catch (error) {
           console.error('Auto-connect failed:', error);
+          hasAutoConnectedRef.current = null;  // Reset nếu fail
+          onClose();  // Close nếu error
         }
       };
       
       autoConnect();
     }
-  }, [isOpen, CallId, type, webrtc.startMedia, webrtc.answerCall, webrtc.setCallId, webrtc.answerStarted, webrtc.callCreated]);
+  }, [isOpen, CallId, type, webrtc.answerStarted, webrtc.callCreated, webrtc.isHungup, webrtc.startMedia, webrtc.answerCall, webrtc.setCallId]);  // Thêm deps để re-check
+
+  useEffect(() => {
+    if (!isOpen) {
+      hasAutoConnectedRef.current = null;
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
 
   const handleClose = () => {
+    console.log('🚪 [CatchWebRTCModal] handleClose called');
+    hasAutoConnectedRef.current = null;  // Reset ref
     webrtc.hangupCall();
     onClose();
   };
 
   const handleHangupAndClose = () => {
+    console.log('📞 [CatchWebRTCModal] handleHangupAndClose called');
+    hasAutoConnectedRef.current = null;
     webrtc.hangupCall();
     onClose();
   };
@@ -104,22 +129,24 @@ export const CatchWebRTCModal: React.FC<WebRTCModalProps> = ({
 
         {/* Video Display */}
         {webrtc.mediaStarted && type === 'video' && (
-          <div className="mb-6">
-            <div className="flex justify-center space-x-8">
-              <VideoDisplay
-          stream={webrtc.localStream}
-          title="Local Stream"
-          muted={true}
-          className="w-80 h-60 bg-gray-800 rounded"
-              />
-              <VideoDisplay
-          stream={webrtc.remoteStream}
-          title="Remote Stream"
-          className="w-80 h-60 bg-gray-800 rounded"
-              />
-            </div>
+        <div className="mb-6">
+          <div className="flex justify-center space-x-8">
+            <VideoDisplay
+              stream={webrtc.localStream}
+              title="Local Stream"
+              muted={true}  // Đảm bảo local muted
+              usertype='local'
+              className="w-80 h-60 bg-gray-800 rounded"
+            />
+            <VideoDisplay
+              stream={webrtc.remoteStream}
+              title="Remote Stream"
+              usertype='remote'
+              className="w-80 h-60 bg-gray-800 rounded"
+            />
           </div>
-        )}
+        </div>
+      )}
 
         {/* Call Status and Hangup */}
         <div className="mb-4 text-center">

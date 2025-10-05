@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
@@ -9,8 +9,8 @@ import {
   faVideo
 } from '@fortawesome/free-solid-svg-icons';
 
-import {useWebSocketService} from '../services/webSocketServices';
-import { WebRTCModal } from './webrtc/WebRTCModal';
+import { useWebSocketService } from '../services/webSocketServices';
+
 
 interface Message {
   id: string;
@@ -50,85 +50,166 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
   const [wsConnected, setWsConnected] = useState(false);
   const [showWebRTC, setShowWebRTC] = useState(false);
   const [callOptions, setCallOptions] = useState<'audio' | 'video'>('audio');
-  const [hasSentCallIdMessage, setHasSentCallIdMessage] = useState(false);
-  const [CallId, setCallId] = useState('');
+  const [callRequestOptions, setCallRequestOptions] = useState<'audio' | 'video'>('audio');  // Type cho incoming
+  const [CallId, setCallId] = useState('');  // CallId cho incoming
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const getCurrentRoom = useCallback(() => {
+    if (!selectedDoctor) return null;
+    return chatRooms.find(room =>
+      room.user.some(user => user.id === selectedDoctor.id)
+    ) || null;
+  }, [selectedDoctor, chatRooms]);
+
+  const handleSendMessageNoForm = useCallback(() => {
+    if (!newMessage.trim() || !selectedDoctor) {
+      console.warn('Cannot send: No message or doctor selected');
+      return;
+    }
+
+    const currentRoom = getCurrentRoom();
+    if (!currentRoom) {
+      console.error('No room found for the selected doctor');
+      return;
+    }
+
+    const message: Message = {
+      id: Date.now().toString(),
+      senderId: currentUser.id,
+      senderName: currentUser.username,
+      content: newMessage.trim(),
+      timestamp: new Date(),
+      isRead: false
+    };
+
+    // Optimistic update
+    setMessages(prev => {
+      const updated = [...prev, message];
+      return updated.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+    });
+
+    const conversationRequest = {
+      message: newMessage.trim(),
+      user: currentUser.id
+    };
+
+    try {
+      const success = send(`/app/chat/${currentRoom.roomChatID}`, conversationRequest);
+      if (!success) {
+        console.error('Failed to send message via WebSocket');
+        setMessages(prev => prev.filter(msg => msg.id !== message.id));
+      } else {
+        console.log('✅ Message sent via WebSocket successfully:', conversationRequest);
+      }
+    } catch (error) {
+      console.error('❌ Error sending message via WebSocket:', error);
+      setMessages(prev => prev.filter(msg => msg.id !== message.id));
+    }
+
+    setNewMessage('');
+  }, [currentUser.id, currentUser.username, newMessage, selectedDoctor, getCurrentRoom]);
+
+
   // WebSocket setup 
   const webSocketUrl = 'http://localhost:8080/ws';
+  
+  // Memoize callbacks
+  const onConnected = useCallback(() => {
+    console.log('WebSocket Connected!');
+    setWsConnected(true);
+  }, []);
+  
+  const onError = useCallback((error: string) => {
+    console.log('WebSocket Error:', error);
+    setWsConnected(false);
+  }, []);
+  
   const { connect, subscribe, send, unsubscribe } = useWebSocketService(
     webSocketUrl,
-    () => {
-      console.log('WebSocket Connected!');
-      setWsConnected(true);
-    },
-    (error) => {
-      console.log('WebSocket Error:', error);
-      setWsConnected(false);
-    }
+    onConnected,
+    onError
   );
 
   // Connect once on mount
   useEffect(() => {
     connect();
-    // No disconnect here so other usages keep working
   }, [connect]);
 
   // Subscribe/unsubscribe on room changes
   useEffect(() => {
-    if (!selectedDoctor || chatRooms.length === 0) return;
-
-    const currentRoom = chatRooms.find(room =>
-      room.user.some(user => user.id === selectedDoctor.id)
-    );
+    const currentRoom = getCurrentRoom();
     if (!currentRoom) return;
 
-    const subscribeTimer = setTimeout(() => {
-      subscribe(`/topic/room/${currentRoom.roomChatID}`, (message) => {
-        if (message.user?.id === currentUser.id) return;
+    const subscriptionCallback = (message: any) => {
+      if (message.user?.id === currentUser.id) return;  // Skip own messages
 
-        setMessages(prevMessages => {
-          const newMessage: Message = {
-            id: Date.now().toString(),
-            senderId: message.user?.id || 'unknown',
-            senderName: message.user?.username || 'Unknown',
-            content: message.message,
-            timestamp: new Date(message.createdAt || Date.now()),
-            isRead: false,
-          };
-          const updatedMessages = [...prevMessages, newMessage];
-          return updatedMessages.sort((a, b) =>
-            new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-          );
-        });
+      const incomingMessage: Message = {
+        id: Date.now().toString(),
+        senderId: message.user?.id || 'unknown',
+        senderName: message.user?.username || 'Unknown',
+        content: message.message,
+        timestamp: new Date(message.createdAt || Date.now()),
+        isRead: false,
+      };
+
+      setMessages(prev => {
+        const updated = [...prev, incomingMessage];
+        return updated.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
       });
+    };
+
+    const subscribeTimer = setTimeout(() => {
+      subscribe(`/topic/room/${currentRoom.roomChatID}`, subscriptionCallback);
     }, 1000);
 
     return () => {
       clearTimeout(subscribeTimer);
       unsubscribe(`/topic/room/${currentRoom.roomChatID}`);
     };
-  }, [selectedDoctor, chatRooms, subscribe, unsubscribe, currentUser.id]);
+  }, [selectedDoctor, chatRooms, subscribe, unsubscribe, currentUser.id, getCurrentRoom]);
 
-  // Reset call id flag on doctor change
+  // Load existing messages when doctor changes
   useEffect(() => {
-    setHasSentCallIdMessage(false);
-  }, [selectedDoctor]);
+    const loadMessages = async () => {
+      const currentRoom = getCurrentRoom();
+      if (!currentRoom) {
+        setMessages([]);
+        return;
+      }
 
-  const handleCallIdCreated = (callId: string) => {
-    if (!callId || !selectedDoctor || hasSentCallIdMessage) return;
-    setCallId(callId);
-    setNewMessage(`CallId ${callId} type ${callOptions}`);
+      try {
+        const token = localStorage.getItem('token');
+        const response = await axios.get(`http://localhost:8080/conversation/${currentRoom.roomChatID}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          }
+        });
 
-    setTimeout(() => {
-      handleSendMessageNoForm();
-      setHasSentCallIdMessage(true);
-    }, 100);
-  };
+        if (response.data && response.data.results) {
+          const loadedMessages: Message[] = response.data.results.map((conv: any) => ({
+            id: conv.id || Date.now().toString(),
+            senderId: conv.user?.id || 'unknown',
+            senderName: conv.user?.username || 'Unknown',
+            content: conv.message,
+            timestamp: new Date(conv.createdAt || new Date()),
+            isRead: true,
+          }));
+
+          setMessages(loadedMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime()));
+        }
+      } catch (error) {
+        console.error('Error loading messages:', error);
+        setMessages([]);
+      }
+    };
+
+    loadMessages();
+  }, [selectedDoctor, chatRooms, currentUser.id, getCurrentRoom]);
 
   // Fetch chat rooms assigned to this patient
-  const fetchChatRooms = async () => {
+  const fetchChatRooms = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
       if (!token) {
@@ -157,7 +238,8 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
                 username: user.username,
                 email: user.email,
                 isOnline: Math.random() > 0.5,
-                specialization: ''
+                specialization: '',
+                lastSeen: new Date(Date.now() - Math.random() * 3600000)  // Mock lastSeen
               });
             }
           });
@@ -172,114 +254,22 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
         console.error('Unexpected error:', error);
       }
     }
-  };
+  }, [currentUser.id]);
 
   useEffect(() => {
     fetchChatRooms();
-  }, [currentUser.id]);
+  }, [fetchChatRooms]);
 
-  // Load existing messages when doctor changes
-  useEffect(() => {
-    const loadMessages = async () => {
-      if (selectedDoctor && chatRooms.length > 0) {
-        const currentRoom = chatRooms.find(room =>
-          room.user.some(user => user.id === selectedDoctor.id)
-        );
-
-        if (currentRoom) {
-          try {
-            const token = localStorage.getItem('token');
-            const response = await axios.get(`http://localhost:8080/conversation/${currentRoom.roomChatID}`, {
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
-              }
-            });
-
-            if (response.data && response.data.results) {
-              const loadedMessages: Message[] = response.data.results.map((conv: any) => ({
-                id: conv.id || Date.now().toString(),
-                senderId: conv.user?.id || 'unknown',
-                senderName: conv.user?.username || 'Unknown',
-                content: conv.message,
-                timestamp: new Date(conv.createdAt || new Date()),
-                isRead: true,
-              }));
-
-              setMessages(loadedMessages.sort((a, b) =>
-                new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-              ));
-            }
-          } catch (error) {
-            console.error('Error loading messages:', error);
-            setMessages([]);
-          }
-        }
-      } else {
-        setMessages([]);
-      }
-    };
-
-    loadMessages();
-  }, [selectedDoctor, chatRooms, currentUser.id]);
-
-  const scrollToBottom = () => {
+  // Scroll to bottom
+  const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  }, []);
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, scrollToBottom]);
 
-  const handleSendMessageNoForm = () => {
-    if (!newMessage.trim() || !selectedDoctor) return;
-
-    const currentRoom = chatRooms.find(room =>
-      room.user.some(user => user.id === selectedDoctor.id)
-    );
-
-    if (!currentRoom) {
-      console.error('No room found for the selected doctor');
-      return;
-    }
-
-    const message: Message = {
-      id: Date.now().toString(),
-      senderId: currentUser.id,
-      senderName: currentUser.username,
-      content: newMessage.trim(),
-      timestamp: new Date(),
-      isRead: false
-    };
-
-    setMessages(prev => {
-      const updatedMessages = [...prev, message];
-      return updatedMessages.sort((a, b) =>
-        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-      );
-    });
-
-    const conversationRequest = {
-      message: newMessage.trim(),
-      user: currentUser.id
-    };
-
-    try {
-      const success = send(`/app/chat/${currentRoom.roomChatID}`, conversationRequest);
-      if (success) {
-        console.log('✅ Message sent via WebSocket successfully:', conversationRequest);
-      } else {
-        console.error('❌ Failed to send message via WebSocket');
-        setMessages(prev => prev.filter(msg => msg.id !== message.id));
-      }
-    } catch (error) {
-      console.error('❌ Error sending message via WebSocket:', error);
-      setMessages(prev => prev.filter(msg => msg.id !== message.id));
-    }
-
-    setNewMessage('');
-  };
-
+  // Format helpers
   const formatTime = (date: Date) => date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   const formatLastSeen = (date: Date) => {
@@ -290,11 +280,62 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
     return `${Math.floor(diffInMinutes / 1440)}d ago`;
   };
 
-  const handleClose = () => {
+  // Close handler
+  const handleClose = useCallback(() => {
     localStorage.removeItem('token');
     localStorage.removeItem('currentUser');
     onClose();
-  };
+  }, [onClose]);
+
+
+
+ 
+
+  // Memoized titles
+  const webRTCtitle = useMemo(() => `Video Call with Dr. ${selectedDoctor?.username || 'Doctor'}`, [selectedDoctor?.username]);
+  const catchTitle = useMemo(() => `Incoming Call from Dr. ${selectedDoctor?.username || 'Doctor'}`, [selectedDoctor?.username]);
+
+  // useEffect(() => {
+  //   const lastCallMessage = [...messages].reverse().find(m => m.senderId !== currentUser.id && m.content.startsWith('CallId '));
+  //   if (lastCallMessage && lastCallMessage.content !== CallId) {  // New incoming CallId
+  //     const content = lastCallMessage.content.replace('CallId ', '');
+  //     const callIdPart = content.split(' type ')[0];
+  //     const type = content.split('type ')[1] as 'audio' | 'video' | undefined;
+      
+  //     if (callIdPart) {
+  //       setCallId(callIdPart);
+  //       console.log('📞 Incoming CallId detected:', callIdPart, type);
+  //     }
+      
+  //     if (type) {
+  //       setCallRequestOptions(type);
+  //     }
+  //   }
+  // }, [messages, CallId, currentUser.id]);
+
+  const filteredDoctors = useMemo(() => availableDoctors, [availableDoctors]);  
+
+
+  //create query when create call, import data into it
+  const createCall = () => {
+    var currentRoom = getCurrentRoom();
+      const variable = {
+          roomId: currentRoom?.roomChatID,
+          currentUser: currentUser.id,
+          callType: callOptions
+      }
+      openCallWindow(`http://localhost:5173/video?roomId=${variable.roomId}&currentUser=${variable.currentUser}&callType=${variable.callType}`)
+
+  }
+
+  const openCallWindow = (url: string) =>
+  {
+  const windowFeatures = "width:1000,height=800,resizable=yes,scrollbars=no";
+  const callWindow = window.open(url, "callWindow", windowFeatures);
+  if (callWindow) {
+    callWindow.focus(); // Focus the new window
+  }
+  }
 
   return (
     <div className="fixed inset-0 z-50 bg-white flex">
@@ -306,18 +347,15 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
             <span className={`text-xs ${wsConnected ? 'text-green-600' : 'text-red-600'}`}>
               {wsConnected ? 'Online' : 'Offline'}
             </span>
-            <button
-              onClick={handleClose}
-              className="text-black hover:text-gray-600"
-            >
+            <button onClick={handleClose} className="text-black hover:text-gray-600">
               <FontAwesomeIcon icon={faTimes} />
             </button>
           </div>
         </div>
         
         <div className="flex-1 overflow-y-auto">
-          {availableDoctors.length > 0 ? (
-            availableDoctors.map(doctor => (
+          {filteredDoctors.length > 0 ? (
+            filteredDoctors.map(doctor => (
               <div
                 key={doctor.id}
                 onClick={() => setSelectedDoctor(doctor)}
@@ -383,42 +421,42 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
                   <div>
                     <h3 className="font-medium text-black">{selectedDoctor.username}</h3>
                     <p className="text-sm text-black">{selectedDoctor.specialization}</p>
+
                   </div>
                 </div>
                 
                 <div className="flex items-center space-x-2">
                   <button 
-                    className="p-2 text-black hover:text-gray-600 hover:bg-gray-100 rounded-full"
-                    onClick={() => { 
-                      setShowWebRTC(true); 
-                      setCallOptions('audio'); 
-                      setHasSentCallIdMessage(false); 
-                    }}
-                    title="Audio Call"
-                  >                
+                    className={`p-2 text-black hover:text-gray-600 hover:bg-gray-100 rounded-full cursor-pointer`} 
+                    onClick={() => {
+                      setCallOptions('audio');
+                      createCall();
+                    }}                    // title="Audio Call"
+                    // disabled={!canCreateCall}
+                  >
                     <FontAwesomeIcon icon={faPhone} />
                   </button>
-                  <button 
-                    className="p-2 text-black hover:text-gray-600 hover:bg-gray-100 rounded-full"
-                    onClick={() => { 
-                      setShowWebRTC(true); 
-                      setCallOptions('video'); 
-                      setHasSentCallIdMessage(false); 
+                    <button 
+                    className={`p-2 text-black hover:text-gray-600 hover:bg-gray-100 rounded-full cursor-pointer`}
+                    onClick={() => {
+                      setCallOptions('video');
+                      createCall();
                     }}
                     title="Video Call"
-                  >
+                    // disabled={!canCreateCall}
+                    >
                     <FontAwesomeIcon icon={faVideo} />
-                  </button>
-                  <div className={`w-2 h-2 rounded-full ${wsConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                    </button>
+                  {/* <div className={`w-2 h-2 rounded-full ${wsConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
                   <span className={`text-xs ${wsConnected ? 'text-green-600' : 'text-red-600'}`}>
                     {wsConnected ? 'Chat Active' : 'Connecting...'}
-                  </span>
+                  </span> */}
                 </div>
               </div>
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
-           {messages.map(message => {
+              {messages.map(message => {
                 const isCurrentUser = message.senderId === currentUser.id;
                 const isCallRequest = !isCurrentUser && message.content.startsWith('CallId ');
                 const callText = isCallRequest ? message.content.replace('CallId ', '') : '';
@@ -429,23 +467,29 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
                     className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'}`}
                   >
                     <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                      isCurrentUser
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-white text-black border'
+                      isCurrentUser ? 'bg-blue-600 text-white' : 'bg-white text-black border'
                     }`}>
                       {isCallRequest ? (
                         <div className="bg-green-100 border-l-4 border-green-500 p-2 mb-2">
                           <span className="font-semibold text-green-700">Request Call</span>
                           <div className="text-black mt-1 text-sm">
                             {callText}
+                            {/* Fix: Button accept để mở CatchWebRTCModal */}
+                            <button
+                              className="ml-2 p-1 bg-green-500 text-white rounded text-xs hover:bg-green-600 mt-1"
+                              onClick={() => {
+                                setCallRequestOptions(callRequestOptions);  // Đã set từ useEffect
+                              }}
+                              title="Accept Call"
+                            >
+                              Accept {callRequestOptions} Call
+                            </button>
                           </div>
                         </div>
                       ) : (
                         <p className="text-sm">{message.content}</p>
                       )}
-                      <p className={`text-xs mt-1 ${
-                        isCurrentUser ? 'text-blue-100' : 'text-black'
-                      }`}>
+                      <p className={`text-xs mt-1 ${isCurrentUser ? 'text-blue-100' : 'text-black'}`}>
                         {formatTime(message.timestamp)}
                       </p>
                     </div>
@@ -495,14 +539,7 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
         )}
       </div>
 
-      <WebRTCModal
-        isOpen={showWebRTC}
-        onClose={() => setShowWebRTC(false)}
-        currentUserId={currentUser.id}
-        title={`Video Call with Dr. ${selectedDoctor?.username || 'Doctor'}`}
-        type={callOptions}
-        onCallIdCreated={handleCallIdCreated}
-      />
+
     </div>
   );
 };
