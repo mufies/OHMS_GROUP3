@@ -48,10 +48,8 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
   const [chatRooms, setChatRooms] = useState<RoomChatResponse[]>([]);
   const [availableDoctors, setAvailableDoctors] = useState<User[]>([]);
   const [wsConnected, setWsConnected] = useState(false);
-  const [showWebRTC, setShowWebRTC] = useState(false);
   const [callOptions, setCallOptions] = useState<'audio' | 'video'>('audio');
   const [callRequestOptions, setCallRequestOptions] = useState<'audio' | 'video'>('audio');  // Type cho incoming
-  const [CallId, setCallId] = useState('');  // CallId cho incoming
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -292,8 +290,7 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
  
 
   // Memoized titles
-  const webRTCtitle = useMemo(() => `Video Call with Dr. ${selectedDoctor?.username || 'Doctor'}`, [selectedDoctor?.username]);
-  const catchTitle = useMemo(() => `Incoming Call from Dr. ${selectedDoctor?.username || 'Doctor'}`, [selectedDoctor?.username]);
+
 
   // useEffect(() => {
   //   const lastCallMessage = [...messages].reverse().find(m => m.senderId !== currentUser.id && m.content.startsWith('CallId '));
@@ -330,7 +327,8 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
 
   const openCallWindow = (url: string) =>
   {
-  const windowFeatures = "width:1000,height=800,resizable=yes,scrollbars=no";
+  const windowFeatures = "width=790,height=800,resizable=yes,scrollbars=no,left=" + 
+    (screen.width / 2 - 500) + ",top=" + (screen.height / 2 - 400);
   const callWindow = window.open(url, "callWindow", windowFeatures);
   if (callWindow) {
     callWindow.focus(); // Focus the new window
@@ -458,8 +456,7 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
             <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
               {messages.map(message => {
                 const isCurrentUser = message.senderId === currentUser.id;
-                const isCallRequest = !isCurrentUser && message.content.startsWith('CallId ');
-                const callText = isCallRequest ? message.content.replace('CallId ', '') : '';
+                const isCallRequest = !isCurrentUser && message.content.startsWith('http');
 
                 return (
                   <div
@@ -473,12 +470,10 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
                         <div className="bg-green-100 border-l-4 border-green-500 p-2 mb-2">
                           <span className="font-semibold text-green-700">Request Call</span>
                           <div className="text-black mt-1 text-sm">
-                            {callText}
-                            {/* Fix: Button accept để mở CatchWebRTCModal */}
                             <button
                               className="ml-2 p-1 bg-green-500 text-white rounded text-xs hover:bg-green-600 mt-1"
                               onClick={() => {
-                                setCallRequestOptions(callRequestOptions);  // Đã set từ useEffect
+                                openCallWindow(message.content);
                               }}
                               title="Accept Call"
                             >

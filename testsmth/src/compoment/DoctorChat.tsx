@@ -323,6 +323,27 @@ const DoctorChat = ({ currentUser, onClose }: DoctorChatProps) => {
   //   }
   // }, [messages, CallId, currentUser.id]);
 
+    const createCall = () => {
+    var currentRoom = getCurrentRoom();
+      const variable = {
+          roomId: currentRoom?.roomChatID,
+          currentUser: currentUser.id,
+          callType: callOptions
+      }
+      openCallWindow(`http://localhost:5173/video?roomId=${variable.roomId}&currentUser=${variable.currentUser}&callType=${variable.callType}`)
+
+  }
+
+  const openCallWindow = (url: string) =>
+  {
+  const windowFeatures = "width=790,height=800,resizable=yes,scrollbars=no,left=" + 
+    (screen.width / 2 - 500) + ",top=" + (screen.height / 2 - 400);
+  const callWindow = window.open(url, "callWindow", windowFeatures);
+  if (callWindow) {
+    callWindow.focus(); // Focus the new window
+  }
+  }
+
   return (
     <div className="fixed inset-0 z-50 bg-white flex">
       {/* Patients List */}
@@ -443,22 +464,25 @@ const DoctorChat = ({ currentUser, onClose }: DoctorChatProps) => {
                 <div className="flex space-x-2">
                   <button 
                     className={`p-2 text-black hover:text-gray-600 hover:bg-gray-100 rounded-full cursor-pointer`} 
-                      // ${!canCreateCall ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    // onClick={() => handleOpenCall('audio')}
-                    // title="Audio Call"
+                    onClick={() => {
+                      setCallOptions('audio');
+                      createCall();
+                    }}                    // title="Audio Call"
                     // disabled={!canCreateCall}
                   >
                     <FontAwesomeIcon icon={faPhone} />
                   </button>
-                  <button 
+                    <button 
                     className={`p-2 text-black hover:text-gray-600 hover:bg-gray-100 rounded-full cursor-pointer`}
-                      // ${!canCreateCall ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    // onClick={() => handleOpenCall('video')}
-                    // title="Video Call"
+                    onClick={() => {
+                      setCallOptions('video');
+                      createCall();
+                    }}
+                    title="Video Call"
                     // disabled={!canCreateCall}
-                  >
+                    >
                     <FontAwesomeIcon icon={faVideo} />
-                  </button>
+                    </button>
                 </div>
               </div>
             </div>
@@ -467,8 +491,7 @@ const DoctorChat = ({ currentUser, onClose }: DoctorChatProps) => {
             <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
               {messages.map(message => {
                 const isCurrentUser = message.senderId === currentUser.id;
-                const isCallRequest = !isCurrentUser && message.content.startsWith('CallId ');  // Incoming từ patient
-                const callText = isCallRequest ? message.content.replace('CallId ', '') : '';
+                const isCallRequest = !isCurrentUser && message.content.startsWith('http');  // Incoming từ patient
 
                 return (
                   <div
@@ -482,15 +505,12 @@ const DoctorChat = ({ currentUser, onClose }: DoctorChatProps) => {
                         <div className="bg-green-100 border-l-4 border-green-500 p-2 mb-2">
                           <span className="font-semibold text-green-700">Incoming Call Request</span>
                           <div className="text-black mt-1 text-sm">
-                            {callText}
                             <button
                               className="ml-2 p-1 bg-green-500 text-white rounded text-xs hover:bg-green-600 mt-1 disabled:opacity-50"
                               onClick={() => {
-                                setCallRequestOptions(callRequestOptions);  // Đã set từ useEffect
-                                console.log('🔊 Doctor accepting call with CallId:', CallId);
+                                openCallWindow(message.content);
                               }}
                               title="Accept Call"
-                              disabled={!CallId || !getCurrentRoom()}  // Disable nếu không có CallId/room
                             >
                               Accept {callRequestOptions} Call
                             </button>

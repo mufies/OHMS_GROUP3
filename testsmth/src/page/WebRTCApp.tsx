@@ -308,6 +308,18 @@ const App: React.FC = () => {
     callDocRef.current = null;
     
     console.log('🔴 Hangup completed, camera turned off');
+    
+    // Close window after a short delay to allow cleanup
+    setTimeout(() => {
+      console.log('🚪 Closing window...');
+      window.close();
+      
+      // Fallback: If window.close() doesn't work (browser security), redirect to home
+      setTimeout(() => {
+        console.log('⚠️ Window close blocked, redirecting to home...');
+        window.location.href = '/';
+      }, 500);
+    }, 1000);
   };
 
   //setup websocket to send link for another peer
@@ -382,11 +394,11 @@ const App: React.FC = () => {
             console.log('🎬 Auto-starting webcam for calling...');
             await startWebcam();
             
-            // Wait for media to be ready, then create call
+            // // Wait for media to be ready, then create call
             // setTimeout(async () => {
             //   console.log('📞 Auto-creating call...');
             //   await createCall();
-            // }, 1000);
+            // }, 200);
           }, 500);
         }
       }, []);
