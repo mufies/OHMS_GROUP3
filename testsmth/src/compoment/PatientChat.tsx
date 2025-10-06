@@ -314,12 +314,12 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
 
 
   //create query when create call, import data into it
-  const createCall = () => {
+  const createCall = (type: 'audio' | 'video') => {
     var currentRoom = getCurrentRoom();
       const variable = {
           roomId: currentRoom?.roomChatID,
           currentUser: currentUser.id,
-          callType: callOptions
+          callType: type  // Use the parameter directly instead of state
       }
       openCallWindow(`http://localhost:5173/video?roomId=${variable.roomId}&currentUser=${variable.currentUser}&callType=${variable.callType}`)
 
@@ -427,8 +427,7 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
                   <button 
                     className={`p-2 text-black hover:text-gray-600 hover:bg-gray-100 rounded-full cursor-pointer`} 
                     onClick={() => {
-                      setCallOptions('audio');
-                      createCall();
+                      createCall('audio');
                     }}                    // title="Audio Call"
                     // disabled={!canCreateCall}
                   >
@@ -437,8 +436,7 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
                     <button 
                     className={`p-2 text-black hover:text-gray-600 hover:bg-gray-100 rounded-full cursor-pointer`}
                     onClick={() => {
-                      setCallOptions('video');
-                      createCall();
+                      createCall('video');
                     }}
                     title="Video Call"
                     // disabled={!canCreateCall}

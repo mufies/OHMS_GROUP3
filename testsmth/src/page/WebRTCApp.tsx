@@ -30,7 +30,7 @@ const App: React.FC = () => {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [callId, setCallId] = useState<string>('');
-  const [webcamStarted, setWebcamStarted] = useState<boolean>(false);
+  const [mediaStarted, setMediaStarted] = useState<boolean>(false);
   const [callCreated, setCallCreated] = useState<boolean>(false);
   const [connectionStatus, setConnectionStatus] = useState<string>('Not connected');
   const [wsConnected, setWsConnected] = useState<boolean>(false);
@@ -44,7 +44,7 @@ const App: React.FC = () => {
   const unsubscribeRef = useRef<(() => void) | null>(null);
   const autoStartedRef = useRef(false);
 
-  const webcamVideoRef = useRef<HTMLVideoElement>(null);
+  const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -65,8 +65,8 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (localStream && webcamVideoRef.current) {
-      webcamVideoRef.current.srcObject = localStream;
+    if (localStream && localVideoRef.current) {
+      localVideoRef.current.srcObject = localStream;
     }
   }, [localStream]);
 
@@ -92,13 +92,17 @@ const App: React.FC = () => {
       });
       setRemoteStream(new MediaStream(remote.getTracks()));
     };
-  }, [webcamStarted]);
+  }, [mediaStarted]);
 
-  const startWebcam = async () => {
+  const startLocalMedia = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      const constraints = {
+        video: mediaMode === 'video',
+        audio: true
+      };
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       setLocalStream(stream);
-      setWebcamStarted(true);
+      setMediaStarted(true);
     } catch (error) {
       console.error('Error accessing media devices:', error);
     }
@@ -165,8 +169,6 @@ const App: React.FC = () => {
       });
       
       // After call is created, send URL to other peer via WebSocket if roomId exists
-
-      
       if (roomId && wsConnected) {
         const videoCallUrl = `${window.location.origin}/video?callId=${callDoc.id}&currentUser=${urlCurrentUser}&callType=${mediaMode}`;
         
@@ -302,12 +304,12 @@ const App: React.FC = () => {
     // Clear remote stream
     setRemoteStream(null);
     setCallId('');
-    setWebcamStarted(false);
+    setMediaStarted(false);
     setCallCreated(false);
     setConnectionStatus('Disconnected');
     callDocRef.current = null;
     
-    console.log('🔴 Hangup completed, camera turned off');
+    console.log('🔴 Hangup completed, media turned off');
     
     // Close window after a short delay to allow cleanup
     setTimeout(() => {
@@ -322,87 +324,110 @@ const App: React.FC = () => {
     }, 1000);
   };
 
-  //setup websocket to send link for another peer
-      // WebSocket setup 
-      const webSocketUrl = 'http://localhost:8080/ws';
-      
-      // Memoize callbacks
-      const onConnected = useCallback(() => {
-        console.log('WebSocket Connected!');
-        setWsConnected(true);
-      }, []);
-      
-      const onError = useCallback((error: string) => {
-        console.log('WebSocket Error:', error);
-        setWsConnected(false);
-      }, []);
-      
-      const { connect, send } = useWebSocketService(
-        webSocketUrl,
-        onConnected,
-        onError
-      );
-    
-      // Connect once on mount
-      useEffect(() => {
-        connect();
-      }, [connect]);
+  // WebSocket setup 
+  const webSocketUrl = 'http://localhost:8080/ws';
   
-      // Parse URL parameters on mount
-      useEffect(() => {
-        const params = new URLSearchParams(window.location.search);
-        
-        const urlRoomId = params.get('roomId');
-        const urlUser = params.get('currentUser');
-        const callType = params.get('callType');
-        const urlCallId = params.get('callId');
-        
-        console.log('📋 URL Parameters:', { urlRoomId, urlUser, callType, urlCallId });
-        
-        if (urlRoomId) setRoomId(urlRoomId);
-        if (urlUser) setUrlCurrentUser(urlUser);
-        
-        // Auto-configure media mode based on callType
-        if (callType === 'video' || callType === 'audio') {
-          setMediaMode(callType as 'video' | 'audio');
-          console.log('🎥 Media mode set to:', callType);
-        }
-        
-        // If callId is in URL, this is the answering peer - auto-answer
-        if (urlCallId && !autoStartedRef.current) {
-          autoStartedRef.current = true;
-          setCallId(urlCallId);
-          
-          // Auto-start media and answer after a delay
-          setTimeout(async () => {
-            console.log('🎬 Auto-starting webcam for answering...');
-            await startWebcam();
-            
-            // Wait a bit for media to be ready, then answer
-            setTimeout(async () => {
-              console.log('📞 Auto-answering call...');
-              await answerCall();
-            }, 1000);
-          }, 500);
-        } 
-        // If roomId exists but no callId, this is the calling peer - auto-create call
-        else if (urlRoomId && !autoStartedRef.current) {
-          autoStartedRef.current = true;
-          
-          // Auto-start media and create call
-          setTimeout(async () => {
-            console.log('🎬 Auto-starting webcam for calling...');
-            await startWebcam();
-            
-            // // Wait for media to be ready, then create call
-            // setTimeout(async () => {
-            //   console.log('📞 Auto-creating call...');
-            //   await createCall();
-            // }, 200);
-          }, 500);
-        }
-      }, []);
+  // Memoize callbacks
+  const onConnected = useCallback(() => {
+    console.log('WebSocket Connected!');
+    setWsConnected(true);
+  }, []);
+  
+  const onError = useCallback((error: string) => {
+    console.log('WebSocket Error:', error);
+    setWsConnected(false);
+  }, []);
+  
+  const { connect, send } = useWebSocketService(
+    webSocketUrl,
+    onConnected,
+    onError
+  );
+  
+  // Connect once on mount
+  useEffect(() => {
+    connect();
+  }, [connect]);
+  
+  // Parse URL parameters on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    
+    const urlRoomId = params.get('roomId');
+    const urlUser = params.get('currentUser');
+    const callType = params.get('callType');
+    const urlCallId = params.get('callId');
+    
+    console.log('📋 URL Parameters:', { urlRoomId, urlUser, callType, urlCallId });
+    
+    if (urlRoomId) setRoomId(urlRoomId);
+    if (urlUser) setUrlCurrentUser(urlUser);
+    
+    // Auto-configure media mode based on callType FIRST
+    const finalMediaMode: 'video' | 'audio' = (callType === 'video' || callType === 'audio') ? callType as 'video' | 'audio' : 'video';
+    setMediaMode(finalMediaMode);
+    console.log('🎥 Media mode set to:', finalMediaMode);
+    
+    // If callId is in URL, this is the answering peer - auto-answer
+    if (urlCallId && !autoStartedRef.current) {
+      autoStartedRef.current = true;
+      setCallId(urlCallId);
       
+      // Auto-start media and answer after a delay
+      setTimeout(async () => {
+        console.log(`🎬 Auto-starting ${finalMediaMode} for answering...`);
+        
+        // Start media with the correct mode
+        try {
+          const constraints = {
+            video: finalMediaMode === 'video',
+            audio: true
+          };
+          console.log('📹 Media constraints:', constraints);
+          const stream = await navigator.mediaDevices.getUserMedia(constraints);
+          setLocalStream(stream);
+          setMediaStarted(true);
+          
+          // Wait a bit for media to be ready, then answer
+          setTimeout(async () => {
+            console.log('📞 Auto-answering call...');
+            await answerCall();
+          }, 1000);
+        } catch (error) {
+          console.error('Error accessing media devices:', error);
+        }
+      }, 500);
+    } 
+    // If roomId exists but no callId, this is the calling peer - auto-create call
+    else if (urlRoomId && !autoStartedRef.current) {
+      autoStartedRef.current = true;
+      
+      // Auto-start media
+      setTimeout(async () => {
+        console.log(`🎬 Auto-starting ${finalMediaMode} for calling...`);
+        
+        // Start media with the correct mode
+        try {
+          const constraints = {
+            video: finalMediaMode === 'video',
+            audio: true
+          };
+          console.log('📹 Media constraints:', constraints);
+          const stream = await navigator.mediaDevices.getUserMedia(constraints);
+          setLocalStream(stream);
+          setMediaStarted(true);
+          
+          // Wait for media to be ready, then create call
+          // setTimeout(async () => {
+          //   console.log('📞 Auto-creating call...');
+          //   await createCall();
+          // }, 1000);
+        } catch (error) {
+          console.error('Error accessing media devices:', error);
+        }
+      }, 500);
+    }
+  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 text-white p-8">
@@ -429,12 +454,12 @@ const App: React.FC = () => {
         </div>
         
         <div className="bg-gray-800 rounded-lg p-6 mb-6 shadow-xl border border-blue-500">
-          <h2 className="text-2xl font-semibold mb-4 text-blue-300">1. Start your Webcam</h2>
+          <h2 className="text-2xl font-semibold mb-4 text-blue-300">1. Start your Media ({mediaMode})</h2>
           <div className="flex justify-center items-center gap-8 mb-6">
             <div className="flex-1 max-w-md">
               <h3 className="text-xl font-medium mb-3 text-green-400">Local Stream</h3>
               <video
-                ref={webcamVideoRef}
+                ref={localVideoRef}
                 autoPlay
                 playsInline
                 muted
@@ -452,11 +477,11 @@ const App: React.FC = () => {
             </div>
           </div>
           <button
-            onClick={startWebcam}
-            disabled={webcamStarted}
+            onClick={startLocalMedia}
+            disabled={mediaStarted}
             className="w-full px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors shadow-lg"
           >
-            {webcamStarted ? '✓ Webcam Started' : 'Start Webcam'}
+            {mediaStarted ? '✓ Media Started' : `Start ${mediaMode.charAt(0).toUpperCase() + mediaMode.slice(1)}`}
           </button>
         </div>
 
@@ -464,7 +489,7 @@ const App: React.FC = () => {
           <h2 className="text-2xl font-semibold mb-4 text-blue-300">2. Create a new Call</h2>
           <button
             onClick={createCall}
-            disabled={!webcamStarted || callCreated}
+            disabled={!mediaStarted || callCreated}
             className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors shadow-lg"
           >
             {callCreated ? `✓ Call Created: ${callId}` : 'Create Call (offer)'}
@@ -490,7 +515,7 @@ const App: React.FC = () => {
           />
           <button
             onClick={answerCall}
-            disabled={!webcamStarted || !callId}
+            disabled={!mediaStarted || !callId}
             className="w-full px-6 py-3 bg-yellow-600 hover:bg-yellow-700 text-white font-semibold rounded-lg disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors shadow-lg"
           >
             Answer Call
@@ -513,4 +538,3 @@ const App: React.FC = () => {
 };
 
 export default App;
-

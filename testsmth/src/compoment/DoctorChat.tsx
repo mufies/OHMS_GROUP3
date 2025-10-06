@@ -59,7 +59,6 @@ const DoctorChat = ({ currentUser, onClose }: DoctorChatProps) => {
   const [chatRooms, setChatRooms] = useState<RoomChatResponse[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [wsConnected, setWsConnected] = useState(false);
-  const [callOptions, setCallOptions] = useState<'audio' | 'video'>('audio');
   const [callRequestOptions, setCallRequestOptions] = useState<'audio' | 'video'>('audio');
   const [CallId, setCallId] = useState('');
 
@@ -323,12 +322,12 @@ const DoctorChat = ({ currentUser, onClose }: DoctorChatProps) => {
   //   }
   // }, [messages, CallId, currentUser.id]);
 
-    const createCall = () => {
+    const createCall = (type: 'audio' | 'video') => {
     var currentRoom = getCurrentRoom();
       const variable = {
           roomId: currentRoom?.roomChatID,
           currentUser: currentUser.id,
-          callType: callOptions
+          callType: type  // Use the parameter directly instead of state
       }
       openCallWindow(`http://localhost:5173/video?roomId=${variable.roomId}&currentUser=${variable.currentUser}&callType=${variable.callType}`)
 
@@ -464,22 +463,15 @@ const DoctorChat = ({ currentUser, onClose }: DoctorChatProps) => {
                 <div className="flex space-x-2">
                   <button 
                     className={`p-2 text-black hover:text-gray-600 hover:bg-gray-100 rounded-full cursor-pointer`} 
-                    onClick={() => {
-                      setCallOptions('audio');
-                      createCall();
-                    }}                    // title="Audio Call"
-                    // disabled={!canCreateCall}
+                    onClick={() => createCall('audio')}
+                    title="Audio Call"
                   >
                     <FontAwesomeIcon icon={faPhone} />
                   </button>
                     <button 
                     className={`p-2 text-black hover:text-gray-600 hover:bg-gray-100 rounded-full cursor-pointer`}
-                    onClick={() => {
-                      setCallOptions('video');
-                      createCall();
-                    }}
+                    onClick={() => createCall('video')}
                     title="Video Call"
-                    // disabled={!canCreateCall}
                     >
                     <FontAwesomeIcon icon={faVideo} />
                     </button>

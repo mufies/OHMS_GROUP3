@@ -10,7 +10,7 @@ import com.example.ohms.entity.Conversation;
 @Mapper(componentModel = "spring", uses = {UserMapper.class})
 public interface ConversationMapper  {
    @Mapping(target = "roomChat", ignore = true)
-   @Mapping(target = "user", ignore = true)  // Will be set manually in service
+   @Mapping(target = "user", ignore = true)  
    @Mapping(target = "id", ignore = true)
    @Mapping(target = "createdAt", ignore = true)
    Conversation toConversation(ConversationRequest conversationRequest);
