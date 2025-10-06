@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
@@ -10,9 +10,8 @@ import {
   faVideo
 } from '@fortawesome/free-solid-svg-icons';
 
-import {useWebSocketService} from '../services/webSocketServices';
-import { WebRTCModal } from './webrtc/WebRTCModal';
-import { useWebRTC } from './webrtc';
+import { useWebSocketService } from '../services/webSocketServices';
+
 
 interface Message {
   id: string;
@@ -52,8 +51,6 @@ interface DoctorChatProps {
   onClose: () => void;
 }
 
-
-
 const DoctorChat = ({ currentUser, onClose }: DoctorChatProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -62,125 +59,165 @@ const DoctorChat = ({ currentUser, onClose }: DoctorChatProps) => {
   const [chatRooms, setChatRooms] = useState<RoomChatResponse[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [wsConnected, setWsConnected] = useState(false);
-  const [showWebRTC, setShowWebRTC] = useState(false);  
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const [callOptions, setCallOptions] = useState<'audio' | 'video'>('audio');
+  const [callRequestOptions, setCallRequestOptions] = useState<'audio' | 'video'>('audio');
   const [CallId, setCallId] = useState('');
-  const [hasSentCallIdMessage, setHasSentCallIdMessage] = useState(false);
 
-  const handleCallIdCreated = (callId: string) => {
-    setCallId(callId);
-    console.log('Received callId from WebRTCModal:', callId);
-    
-    if (callId && selectedPatient && !hasSentCallIdMessage) {
-      setNewMessage(callId);
-      setTimeout(() => {
-        handleSendMessageNoForm();
-        setHasSentCallIdMessage(true);
-      }, 100);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Helper: Find current chat room by selectedPatient
+  const getCurrentRoom = useCallback(() => {
+    if (!selectedPatient) return null;
+    return chatRooms.find(room =>
+      room.user.some(user => user.id === selectedPatient.id)
+    ) || null;
+  }, [selectedPatient, chatRooms]);
+
+  // Send new message (without form submit) - Memoize đầy đủ
+  const handleSendMessageNoForm = useCallback(() => {
+    if (!newMessage.trim() || !selectedPatient) {
+      console.warn('Cannot send: No message or patient selected');
+      return;
     }
-  };
 
-  useEffect(() => {
-    setHasSentCallIdMessage(false);
-    setCallId('');
-  }, [selectedPatient]);
+    const currentRoom = getCurrentRoom();
+    if (!currentRoom) {
+      console.error('No room found for the selected patient');
+      return;
+    }
 
+    const message: Message = {
+      id: Date.now().toString(),
+      senderId: currentUser.id,
+      senderName: currentUser.username,
+      content: newMessage.trim(),
+      timestamp: new Date(),
+      isRead: false
+    };
 
+    // Optimistic update
+    setMessages(prev => {
+      const updated = [...prev, message];
+      return updated.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+    });
 
+    const conversationRequest = {
+      message: newMessage.trim(),
+      user: currentUser.id
+    };
+
+    try {
+      const success = send(`/app/chat/${currentRoom.roomChatID}`, conversationRequest);
+      if (!success) {
+        console.error('Failed to send message via WebSocket');
+        setMessages(prev => prev.filter(msg => msg.id !== message.id));
+      } else {
+        console.log('✅ Message sent via WebSocket successfully:', conversationRequest);
+      }
+    } catch (error) {
+      console.error('❌ Error sending message via WebSocket:', error);
+      setMessages(prev => prev.filter(msg => msg.id !== message.id));
+    }
+
+    setNewMessage('');
+  }, [currentUser.id, currentUser.username, newMessage, selectedPatient, getCurrentRoom]);
 
 
 
   const webSocketUrl = 'http://localhost:8080/ws';
+  
+  // Memoize callbacks
+  const onConnected = useCallback(() => setWsConnected(true), []);
+  const onError = useCallback(() => setWsConnected(false), []);
+  
   const { connect, subscribe, send, unsubscribe } = useWebSocketService(
     webSocketUrl,
-    () => {
-      console.log('WebSocket Connected!');
-      setWsConnected(true);
-    },
-    (error) => {
-      console.log('WebSocket Error:', error);
-      setWsConnected(false);
-    }
+    onConnected,
+    onError
   );
 
-// Ket noi toi websocket mount
-useEffect(() => {
-  connect();
-  return () => {};
-}, [connect]);
+  // Connect WebSocket on mount
+  useEffect(() => {
+    connect();
+  }, [connect]); 
 
-// sub toi cai chatroom muon chat
-useEffect(() => {
-  if (selectedPatient && chatRooms.length > 0) {
-    const currentRoom = chatRooms.find(room =>
-      room.user.some(user => user.id === selectedPatient.id)
-    );
-
+  // Subscribe to chat room topic on selectedPatient or chatRooms change
+  useEffect(() => {
+    const currentRoom = getCurrentRoom();
     if (!currentRoom) return;
 
+    const subscriptionCallback = (message: any) => {
+      if (message.user?.id === currentUser.id) return; // Skip own messages
 
-    //dang ki nhan tin nhan realtime tu 1 roomchat aka box chat voi bsi
-    const subscribeTimer = setTimeout(() => {
-      subscribe(`/topic/room/${currentRoom.roomChatID}`, (message) => {
-        console.log('📨 Received WebSocket message in DoctorChat:', message);
-        
-        // Skip if this message is from the current user (avoid duplicates)
-        if (message.user?.id === currentUser.id) {
-          return;
-        }
-        
-        setMessages((prevMessages) => {
-          const newMessage: Message = {
-            id: Date.now().toString(),
-            senderId: message.user?.id || 'unknown',
-            senderName: message.user?.username || 'Unknown',
-            content: message.message,
-            timestamp: new Date(message.createdAt || Date.now()),
-            isRead: false
-          };
-          
-          
-          // Add new message and sort by timestamp (oldest first)
-          const updatedMessages = [...prevMessages, newMessage];
-          const sortedMessages = updatedMessages.sort((a, b) => 
-            new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-          );
-          
-          return sortedMessages;
-        });
+      const incomingMessage: Message = {
+        id: Date.now().toString(),
+        senderId: message.user?.id ?? 'unknown',
+        senderName: message.user?.username ?? 'Unknown',
+        content: message.message,
+        timestamp: new Date(message.createdAt ?? Date.now()),
+        isRead: false,
+      };
+
+      setMessages(prev => {
+        const updatedMessages = [...prev, incomingMessage];
+        return updatedMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
       });
+    };
+
+    const subscribeTimer = setTimeout(() => {
+      subscribe(`/topic/room/${currentRoom.roomChatID}`, subscriptionCallback);
     }, 1000);
-    //out qua room khac thi disconnect
+
     return () => {
       clearTimeout(subscribeTimer);
       unsubscribe(`/topic/room/${currentRoom.roomChatID}`);
     };
-  }
-}, [selectedPatient, chatRooms, subscribe, unsubscribe]);
+  }, [selectedPatient, chatRooms, subscribe, unsubscribe, currentUser.id, getCurrentRoom]);
 
-
-
+  // Load existing messages on selectedPatient or chatRooms change
   useEffect(() => {
     const loadExistingMessages = async () => {
-      if (selectedPatient && chatRooms.length > 0) {
-        const currentRoom = chatRooms.find(room => 
-          room.user.some(user => user.id === selectedPatient.id)
-        );
-        
-        if (currentRoom) {
-          loadMessages(currentRoom.roomChatID);
+      const currentRoom = getCurrentRoom();
+      if (!currentRoom) {
+        setMessages([]);
+        return;
+      }
+
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        const response = await axios.get(`http://localhost:8080/conversation/${currentRoom.roomChatID}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (response.data?.results) {
+          const loadedMessages: Message[] = response.data.results.map((conv: any) => ({
+            id: conv.id ?? Date.now().toString(),
+            senderId: conv.user?.id ?? 'unknown',
+            senderName: conv.user?.username ?? 'Unknown',
+            content: conv.message,
+            timestamp: new Date(conv.createdAt ?? new Date()),
+            isRead: true
+          }));
+
+          loadedMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+          setMessages(loadedMessages);
         }
-      } else {
-        //clear msg khi k chon patients
+      } catch (error) {
+        console.error('Error loading messages:', error);
         setMessages([]);
       }
     };
 
     loadExistingMessages();
-  }, [selectedPatient, chatRooms, currentUser.id]);
+  }, [selectedPatient, chatRooms, currentUser.id, getCurrentRoom]);
 
-  const fetchChatRooms = async () => {
+  // Fetch chat rooms and extract patients list
+  const fetchChatRooms = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
       if (!token) return;
@@ -189,18 +226,16 @@ useEffect(() => {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
-        }
+        },
       });
 
-      if (response.data && response.data.results) {
+      if (response.data?.results) {
         setChatRooms(response.data.results);
-        console.log(response.data.results);
-        // Lấy danh sách patient duy nhất từ các phòng chat
-        const patientsMap = new Map<string, Patient>();
 
+        const patientsMap = new Map<string, Patient>();
         response.data.results.forEach((room: RoomChatResponse) => {
           room.user.forEach((user: User) => {
-            if (user.id!= currentUser.id) {
+            if (user.id !== currentUser.id) {
               patientsMap.set(user.id, {
                 id: user.id,
                 username: user.username,
@@ -217,145 +252,101 @@ useEffect(() => {
         });
         setPatients(Array.from(patientsMap.values()));
       }
-    } catch (error) {
-      if (axios.isAxiosError(error)) {
-        console.error('Error fetching chat rooms:', error.response?.data ?? error.message);
-      } else {
-        console.error('Unexpected error:', error);
-      }
+    } catch (error: any) {
+      console.error('Error fetching chat rooms:', error.response?.data ?? error.message ?? error);
     }
-  };
-
-  const loadMessages = async (roomChatID: string) => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) return;
-
-      console.log('Loading messages for room:', roomChatID);
-      const response = await axios.get(`http://localhost:8080/conversation/${roomChatID}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        }
-      });
-
-      console.log('Loaded messages response:', response.data);
-      
-      // Handle response structure like PatientChat
-      if (response.data && response.data.results) {
-        const loadedMessages: Message[] = response.data.results.map((conv: any) => ({
-          id: conv.id || Date.now().toString(),
-          senderId: conv.user?.id || 'unknown',
-          senderName: conv.user?.username || 'Unknown',
-          content: conv.message,
-          timestamp: new Date(conv.createdAt || new Date()),
-          isRead: true
-        }));
-        
-        // Sort messages by timestamp (oldest first)
-        const sortedMessages = loadedMessages.sort((a, b) => 
-          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-        );
-        
-        setMessages(sortedMessages);
-        console.log('Loaded existing messages (sorted):', sortedMessages);
-      }
-    } catch (error) {
-      console.error('Error loading messages:', error);
-      // Fall back to empty messages if loading fails
-      setMessages([]);
-    }
-  };
+  }, [currentUser.id]);
 
   useEffect(() => {
     fetchChatRooms();
-  }, [currentUser.id]);
+  }, [fetchChatRooms]);
 
-
-
-  const scrollToBottom = () => {
+  // Scroll messages to bottom on message list change
+  const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  }, []);
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, scrollToBottom]);
 
-  const filteredPatients = patients;
-
-  
-
-  const handleSendMessageNoForm = () => {
-  if (!newMessage.trim() || !selectedPatient) return;
-
-  const currentRoom = chatRooms.find(room => 
-    room.user.some(user => user.id === selectedPatient.id)
-  );
-
-  if (!currentRoom) {
-    console.error('No room found for the selected doctor');
-    return;
-  }
-
-  const message: Message = {
-    id: Date.now().toString(),
-    senderId: currentUser.id,
-    senderName: currentUser.username,
-    content: newMessage.trim(),
-    timestamp: new Date(),
-    isRead: false
-  };
-
-  setMessages(prev => {
-    const updatedMessages = [...prev, message];
-    return updatedMessages.sort((a, b) => 
-      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+  // Filtered patients by searchTerm (case insensitive)
+  const filteredPatients = useMemo(() => {
+    if (!searchTerm.trim()) return patients;
+    return patients.filter(p =>
+      p.username.toLowerCase().includes(searchTerm.toLowerCase())
     );
-  });
+  }, [patients, searchTerm]);
 
-  const conversationRequest = {
-    message: newMessage.trim(),
-    user: currentUser.id
-  };
-
-  try {
-    const success = send(`/app/chat/${currentRoom.roomChatID}`, conversationRequest);
-    if (success) {
-      console.log('✅ Message sent via WebSocket successfully:', conversationRequest);
-    } else {
-      console.error('❌ Failed to send message via WebSocket');
-      setMessages(prev => prev.filter(msg => msg.id !== message.id));
-    }
-  } catch (error) {
-    console.error('❌ Error sending message via WebSocket:', error);
-    setMessages(prev => prev.filter(msg => msg.id !== message.id));
-  }
-
-  setNewMessage('');
-};
+  // Format time helpers
   const formatTime = (date: Date) => date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   const formatLastMessageTime = (date: Date) => {
     const now = new Date();
-    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
-    
-    if (diffInMinutes < 60) {
-      return `${diffInMinutes}m ago`;
-    } else if (diffInMinutes < 1440) {
-      return `${Math.floor(diffInMinutes / 60)}h ago`;
-    } else {
-      return `${Math.floor(diffInMinutes / 1440)}d ago`;
-    }
+    const diffMinutes = Math.floor((now.getTime() - date.getTime()) / 60000);
+    if (diffMinutes < 60) return `${diffMinutes}m ago`;
+    if (diffMinutes < 1440) return `${Math.floor(diffMinutes / 60)}h ago`;
+    return `${Math.floor(diffMinutes / 1440)}d ago`;
   };
 
-  const handleClose = () => {
+  // Close chat and cleanup
+  const handleClose = useCallback(() => {
     localStorage.removeItem('token');
     localStorage.removeItem('currentUser');
     onClose();
-  };
+  }, [onClose]);
+
+
+
+  
+
+  // Memoized title
+  // const webRTCtitle = useMemo(() => `Video Call with ${selectedPatient?.username ?? 'Patient'}`, [selectedPatient?.username]);
+  // const catchTitle = useMemo(() => `Incoming Call from ${selectedPatient?.username ?? 'Patient'}`, [selectedPatient?.username]);
+
+  // FIX CHÍNH: Detect incoming CallId from messages (từ patient, set state cho CatchWebRTC)
+  // useEffect(() => {
+  //   const lastCallMessage = [...messages].reverse().find(m => m.senderId !== currentUser.id && m.content.startsWith('CallId '));
+  //   if (lastCallMessage && lastCallMessage.content !== CallId) {  // New incoming CallId
+  //     const content = lastCallMessage.content.replace('CallId ', '');
+  //     const callIdPart = content.split(' type ')[0];
+  //     const type = content.split('type ')[1] as 'audio' | 'video' | undefined;
+      
+  //     if (callIdPart) {
+  //       setCallId(callIdPart);
+  //       console.log('📞 Incoming CallId detected:', callIdPart, type);
+  //     }
+      
+  //     if (type) {
+  //       setCallRequestOptions(type);
+  //     }
+  //   }
+  // }, [messages, CallId, currentUser.id]);
+
+    const createCall = () => {
+    var currentRoom = getCurrentRoom();
+      const variable = {
+          roomId: currentRoom?.roomChatID,
+          currentUser: currentUser.id,
+          callType: callOptions
+      }
+      openCallWindow(`http://localhost:5173/video?roomId=${variable.roomId}&currentUser=${variable.currentUser}&callType=${variable.callType}`)
+
+  }
+
+  const openCallWindow = (url: string) =>
+  {
+  const windowFeatures = "width=790,height=800,resizable=yes,scrollbars=no,left=" + 
+    (screen.width / 2 - 500) + ",top=" + (screen.height / 2 - 400);
+  const callWindow = window.open(url, "callWindow", windowFeatures);
+  if (callWindow) {
+    callWindow.focus(); // Focus the new window
+  }
+  }
 
   return (
     <div className="fixed inset-0 z-50 bg-white flex">
+      {/* Patients List */}
       <div className="w-1/3 bg-gray-50 border-r border-gray-200 flex flex-col">
         <div className="p-4 border-b border-gray-200">
           <div className="flex justify-between items-center mb-4">
@@ -365,15 +356,11 @@ useEffect(() => {
               <span className={`text-xs ${wsConnected ? 'text-green-600' : 'text-red-600'}`}>
                 {wsConnected ? 'Online' : 'Offline'}
               </span>
-              <button
-                onClick={handleClose}
-                className="text-black hover:text-gray-600"
-              >
+              <button onClick={handleClose} className="text-black hover:text-gray-600">
                 <FontAwesomeIcon icon={faTimes} />
               </button>
             </div>
           </div>
-          
           {/* Search */}
           <div className="relative">
             <FontAwesomeIcon 
@@ -389,9 +376,8 @@ useEffect(() => {
             />
           </div>
         </div>
-        
         <div className="flex-1 overflow-y-auto">
-          {filteredPatients.length > 0 ? (
+          {filteredPatients.length ? (
             filteredPatients.map(patient => (
               <div
                 key={patient.id}
@@ -472,62 +458,78 @@ useEffect(() => {
                     <p className="text-sm text-black">
                       ID: {selectedPatient.patientId} • {selectedPatient.condition}
                     </p>
+
                   </div>
                 </div>
-                
                 <div className="flex space-x-2">
                   <button 
-                    className="p-2 text-black hover:text-gray-600 hover:bg-gray-100 rounded-full"
+                    className={`p-2 text-black hover:text-gray-600 hover:bg-gray-100 rounded-full cursor-pointer`} 
                     onClick={() => {
-                      setShowWebRTC(true); 
-                      setCallOptions('audio'); 
-                      setHasSentCallIdMessage(false);
-                      setCallId('');
-                    }}
-                    title="Audio Call"
+                      setCallOptions('audio');
+                      createCall();
+                    }}                    // title="Audio Call"
+                    // disabled={!canCreateCall}
                   >
                     <FontAwesomeIcon icon={faPhone} />
                   </button>
-                  <button 
-                    className="p-2 text-black hover:text-gray-600 hover:bg-gray-100 rounded-full"
+                    <button 
+                    className={`p-2 text-black hover:text-gray-600 hover:bg-gray-100 rounded-full cursor-pointer`}
                     onClick={() => {
-                      setShowWebRTC(true); 
-                      setCallOptions('video'); 
-                      setHasSentCallIdMessage(false);
-                      setCallId('');
+                      setCallOptions('video');
+                      createCall();
                     }}
                     title="Video Call"
-                  >
+                    // disabled={!canCreateCall}
+                    >
                     <FontAwesomeIcon icon={faVideo} />
-                  </button>
+                    </button>
                 </div>
               </div>
-
             </div>
 
-            {/* Messages */}
+            {/* Messages List - FIX: Thêm button accept cho incoming CallId */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
-              {messages.map(message => (
-                <div
-                  key={message.id}
-                  className={`flex ${message.senderId === currentUser.id ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                    message.senderId === currentUser.id
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-white text-black border'
-                  }`}>
-                    <p className="text-sm">{message.content}</p>
-                    <p className={`text-xs mt-1 ${
-                      message.senderId === currentUser.id ? 'text-blue-100' : 'text-black'
+              {messages.map(message => {
+                const isCurrentUser = message.senderId === currentUser.id;
+                const isCallRequest = !isCurrentUser && message.content.startsWith('http');  // Incoming từ patient
+
+                return (
+                  <div
+                    key={message.id}
+                    className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                      isCurrentUser ? 'bg-blue-600 text-white' : 'bg-white text-black border'
                     }`}>
-                      {formatTime(message.timestamp)}
-                    </p>
+                      {isCallRequest ? (
+                        <div className="bg-green-100 border-l-4 border-green-500 p-2 mb-2">
+                          <span className="font-semibold text-green-700">Incoming Call Request</span>
+                          <div className="text-black mt-1 text-sm">
+                            <button
+                              className="ml-2 p-1 bg-green-500 text-white rounded text-xs hover:bg-green-600 mt-1 disabled:opacity-50"
+                              onClick={() => {
+                                openCallWindow(message.content);
+                              }}
+                              title="Accept Call"
+                            >
+                              Accept {callRequestOptions} Call
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-sm">{message.content}</p>
+                      )}
+                      <p className={`text-xs mt-1 ${isCurrentUser ? 'text-blue-100' : 'text-black'}`}>
+                        {formatTime(message.timestamp)}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
               <div ref={messagesEndRef} />
             </div>
+
+            {/* Message Input */}
             <div className="p-4 border-t border-gray-200 bg-white">
               <div className="flex space-x-4">
                 <input
@@ -548,11 +550,10 @@ useEffect(() => {
                   className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
                 />
                 <button
-                  type="button"  
+                  type="button"
                   disabled={!newMessage.trim()}
-                  onClick={handleSendMessageNoForm}  // Gắn gọi hàm gửi tin nhắn
+                  onClick={handleSendMessageNoForm}
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-
                 >
                   <FontAwesomeIcon icon={faPaperPlane} />
                 </button>
@@ -568,16 +569,8 @@ useEffect(() => {
           </div>
         )}
       </div>
+
       
-      {/* WebRTC Modal */}
-      <WebRTCModal
-        isOpen={showWebRTC}
-        onClose={() => setShowWebRTC(false)}
-        currentUserId={currentUser.id}
-        title={`Video Call with ${selectedPatient?.username || 'Patient'}`}
-        type = {callOptions}
-        onCallIdCreated={handleCallIdCreated}
-      />
     </div>
   );
 };

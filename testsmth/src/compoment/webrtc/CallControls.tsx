@@ -4,6 +4,7 @@ interface CallControlsProps {
   onCreateCall: () => void;
   onAnswerCall: (callId: string) => void;
   onHangup: () => void;
+  onHangupOnly?: () => void; // New: hangup without closing modal
   callId: string;
   setCallId: (id: string) => void;
   mediaStarted: boolean;
@@ -16,6 +17,7 @@ export const CallControls: React.FC<CallControlsProps> = ({
   onCreateCall,
   onAnswerCall,
   onHangup,
+  onHangupOnly,
   callId,
   setCallId,
   mediaStarted,
@@ -74,13 +76,24 @@ export const CallControls: React.FC<CallControlsProps> = ({
 
       <div className="text-center">
         <h2 className="text-xl font-mono mb-2 text-black">Hangup</h2>
-        <button
-          disabled={!hangupEnabled}
-          onClick={onHangup}
-          className="bg-red-600 text-white py-2 px-4 rounded font-mono hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Hangup
-        </button>
+        <div className="flex justify-center space-x-4">
+          {onHangupOnly && (
+            <button
+              disabled={!hangupEnabled}
+              onClick={onHangupOnly}
+              className="bg-orange-600 text-white py-2 px-4 rounded font-mono hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              End Call
+            </button>
+          )}
+          <button
+            disabled={!hangupEnabled}
+            onClick={onHangup}
+            className="bg-red-600 text-white py-2 px-4 rounded font-mono hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Hangup & Close
+          </button>
+        </div>
       </div>
     </div>
   );

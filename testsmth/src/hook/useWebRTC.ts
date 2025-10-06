@@ -26,10 +26,11 @@ export interface WebRTCState {
   localStream: MediaStream | null;
   remoteStream: MediaStream | null;
   pc: RTCPeerConnection;
+  isHungup: boolean;
 }
 
 export interface MediaConstraintsOptions {
-  mode: 'video' | 'audio' | 'screen';
+  mode: 'video' | 'audio';
   selectedAudioDevice?: string;
 }
 
@@ -46,6 +47,8 @@ export const useWebRTC = (config: WebRTCConfig) => {
   const pc = useRef<RTCPeerConnection>(new RTCPeerConnection(config.servers));
   const callDocRef = useRef<any>(null);
   const unsubscribeRef = useRef<(() => void) | null>(null);
+  const [isHungup, setIsHungup] = useState(false);  // Thêm state
+
 
   // User left detection
   const userLeft = useCallback(async () => {
@@ -86,6 +89,10 @@ export const useWebRTC = (config: WebRTCConfig) => {
 
   // Start media with different modes
   const startMedia = useCallback(async (options: MediaConstraintsOptions) => {
+    if (isHungup) {
+    console.warn('🚫 Cannot start media: Call already hung up');
+    return; 
+  }
     setMediaError("");
     
     try {
@@ -96,19 +103,6 @@ export const useWebRTC = (config: WebRTCConfig) => {
           video: { width: 640, height: 480 },
           audio: options.selectedAudioDevice ? { deviceId: options.selectedAudioDevice } : true
         };
-      } else if (options.mode === 'screen') {
-        try {
-          localStream.current = await navigator.mediaDevices.getDisplayMedia({
-            video: true,
-            audio: true
-          });
-        } catch (screenError) {
-          setMediaError("Screen sharing not available. Falling back to audio only.");
-          constraints = {
-            video: false,
-            audio: options.selectedAudioDevice ? { deviceId: options.selectedAudioDevice } : true
-          };
-        }
       } else {
         constraints = {
           video: false,
@@ -169,7 +163,7 @@ export const useWebRTC = (config: WebRTCConfig) => {
       console.error('Error starting media:', error);
       setMediaError(`Media error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-  }, []);
+  }, [isHungup]);
 
   // Create call
   const createCall = useCallback(async (): Promise<string | null> => {
@@ -243,6 +237,10 @@ export const useWebRTC = (config: WebRTCConfig) => {
 
   // Answer call
   const answerCall = useCallback(async (callIdToAnswer: string) => {
+    if (isHungup) {
+    console.warn('🚫 Cannot answer: Call already hung up');
+    return;
+  }
     try {
       const callsCollection = collection(config.firestore, 'calls');
       const callDoc = doc(callsCollection, callIdToAnswer);
@@ -312,24 +310,48 @@ export const useWebRTC = (config: WebRTCConfig) => {
       setMediaError(`Failed to answer call: ${error instanceof Error ? error.message : 'Unknown error'}`);
       setHangupEnabled(true);
     }
-  }, [config.firestore, config.currentUserId]);
+  }, [config.firestore, config.currentUserId,isHungup]);
 
   // Hangup call
   const hangupCall = useCallback(() => {
-    console.log('Hangup called');
-    
+    console.log('========== HANGUP STARTED ==========');
+    console.log('LocalStream before cleanup:', localStream.current);
+    console.log('RemoteStream before cleanup:', remoteStream.current);
+    setIsHungup(true);
     userLeft();
     
     if (unsubscribeRef.current) {
       unsubscribeRef.current();
       unsubscribeRef.current = null;
+      console.log('✅ Unsubscribed from Firestore');
     }
     
-    localStream.current?.getTracks().forEach((track) => track.stop());
+    // Stop all local tracks
+    if (localStream.current) {
+      const tracks = localStream.current.getTracks();
+      console.log(`🎥 Stopping ${tracks.length} local tracks...`);
+      
+      tracks.forEach((track) => {
+        console.log(`  - Stopping ${track.kind} track (enabled: ${track.enabled}, state: ${track.readyState})`);
+        track.stop();
+        console.log(`  - After stop: state = ${track.readyState}`);
+      });
+      
+      console.log('✅ All local tracks stopped');
+    } else {
+      console.warn('⚠️ No local stream to stop');
+    }
+    
+    // Close peer connection
+    console.log('🔌 Closing peer connection...');
     pc.current.close();
+    console.log('✅ Peer connection closed');
     
     remoteStream.current = null;
     localStream.current = null;
+    
+    console.log('LocalStream after cleanup:', localStream.current);
+    console.log('RemoteStream after cleanup:', remoteStream.current);
     
     setCallId("");
     setMediaStarted(false);
@@ -337,11 +359,12 @@ export const useWebRTC = (config: WebRTCConfig) => {
     setAnswerStarted(false);
     setHangupEnabled(false);
     setMediaError("");
-    
+      setIsHungup(true);  // Đảm bảo
+
     callDocRef.current = null;
     pc.current = new RTCPeerConnection(config.servers);
     
-    console.log('Hangup completed');
+    console.log('========== HANGUP COMPLETED ==========');
   }, [userLeft, config.servers]);
 
   // Fallback ICE connection monitoring
@@ -372,6 +395,7 @@ export const useWebRTC = (config: WebRTCConfig) => {
     localStream: localStream.current,
     remoteStream: remoteStream.current,
     pc: pc.current,
+    isHungup,
     
     // Actions
     startMedia,
