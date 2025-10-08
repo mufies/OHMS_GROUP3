@@ -7,13 +7,14 @@ export default function DashboardCalendar() {
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [showModal, setShowModal] = useState(false);
     const [newNote, setNewNote] = useState('');
-    const [noteData] = useState([
+    const [noteData, setNoteData] = useState([
         { date: '2025-09-15', note: 'Follow up with patient John Doe regarding test results.',time:'12:00',status:'Scheduled' },
         { date: '2025-09-19', note: 'Team meeting at 3 PM to discuss new protocols.',time:'12:00',status:'Scheduled' },
         { date: '2025-09-22', note: 'Review patient Jane Smith\'s MRI scans.' ,time:'12:00',status:'Scheduled'},
         { date: '2025-09-25', note: 'Prepare presentation for the upcoming medical conference.',time:'12:00',status:'Scheduled' },
         { date: '2025-09-28', note: 'Annual health check-up for staff members.' ,time:'12:00',status:'Scheduled'},
     ]);
+    
 
     const months = [
         'January', 'February', 'March', 'April', 'May', 'June',
@@ -79,6 +80,12 @@ export default function DashboardCalendar() {
         setShowModal(false);
     };
 
+    const handleToggleNote = (index: number) => {
+        const updatedNotes = [...noteData];
+        updatedNotes[index].status = updatedNotes[index].status === 'Completed' ? 'Scheduled' : 'Completed';
+        setNoteData(updatedNotes);
+    };
+
     // const handleStatusChange = (index: number, status: string) => {
     //     const updatedNotes = [...noteData];
     //     updatedNotes[index].status = status;
@@ -120,94 +127,117 @@ export default function DashboardCalendar() {
     const days = getDaysInMonth(currentDate);
 
     return (
-        <div className="bg-[#eafdff] rounded-lg shadow max-w-[60w] mx-auto min-h-[70vh] max-h-[50vh] flex flex-col">
-            <div className="px-6 py-4 border-b sticky top-0 bg-[#eafdff] z-10">
+        <div className="bg-white rounded-lg shadow max-w-[60w] mx-auto flex flex-col">
+            <div className="px-6 py-4 border-b bg-white rounded-t-2xl shadow-sm ">
+                {/* navigator */}
                 <div className="flex items-center justify-between">
+                    <h2 className="font-semibold text-gray-900">Calendar</h2>
+
+                    <div className="flex items-center gap-2">
                     <button
                         onClick={() => navigateMonth('prev')}
-                        className="p-2 hover:bg-white rounded-lg transition-colors cursor-pointer"
+                        className="w-8 h-8 flex items-center justify-center bg-white border rounded-xl shadow-sm hover:shadow-md hover:bg-gray-50 transition-all"
                     >
-                        <FontAwesomeIcon icon={faChevronLeft} className="text-gray-600 text-sm" />
+                        <FontAwesomeIcon icon={faChevronLeft} className="text-gray-600 text-xs" />
                     </button>
-
-                    <h2 className="text-lg font-semibold text-gray-800">
-                        {months[currentDate.getMonth()]} {currentDate.getFullYear()}
-                    </h2>
 
                     <button
                         onClick={() => navigateMonth('next')}
-                        className="p-2 hover:bg-white rounded-lg transition-colors cursor-pointer"
+                        className="w-8 h-8 flex items-center justify-center bg-white border rounded-xl shadow-sm hover:shadow-md hover:bg-gray-50 transition-all"
                     >
-                        <FontAwesomeIcon icon={faChevronRight} className="text-gray-600 text-sm" />
+                        <FontAwesomeIcon icon={faChevronRight} className="text-gray-600 text-xs" />
                     </button>
+                    </div>
+                </div>
+
+                {/* Hàng thứ hai: tháng và năm */}
+                <div className="mt-2 text-center">
+                    <h2 className="text-sm font-medium text-gray-800">
+                    {months[currentDate.getMonth()]} {currentDate.getFullYear()}
+                    </h2>
                 </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto max-h-[35vh]">
-                <div className="grid grid-cols-7 border-b  ">
-                    {weekDays.map(day => (
-                        <div key={day} className="p-3 text-center text-sm font-medium text-gray-600">
-                            {day}
-                        </div>
-                    ))}
-                </div>
 
-                <div className="grid grid-cols-7">
-                    {days.map((date, index) => (
-                        <div
-                            key={index}
-                            className="h-12 border-r border-b last:border-r-0 p-2 cursor-pointer hover:bg-gray-50 transition-colors"
-                            onClick={() => date && setSelectedDate(date)}
-                        >
-                            {date && (
-                                <div className="h-full flex items-center justify-center">
-                                    <div className={`flex items-center justify-center w-8 h-8 text-sm rounded-full ${
-                                        isToday(date) 
-                                            ? 'bg-[#0085b9] text-white font-semibold' 
-                                            : isSelected(date)
-                                            ? 'bg-blue-100 text-[#0085b9] font-semibold'
-                                            : 'text-gray-700 hover:bg-gray-100'
-                                    }`}>
-                                        {date.getDate()}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    ))}
-                </div>
-            </div>
-
-            <div className=" bg-[#eafdff] p-4 min-h-[28vh] overflow-y-auto text-gray-600">
-                <div className="flex items-center justify-between">
-                <h3 className="font-semibold mb-2">
-                    Notes for {selectedDate.toLocaleDateString()}
-                </h3>
-                    <button className="mb-4 px-3 py-1 text-xs rounded-lg bg-[#0085b9] text-white hover:bg-[#006f8f] transition-colors cursor-pointer" onClick={() => setShowModal(true)} >
-                        Add Note
-                    </button>
-                </div>
-
-                {noteData.filter(n => n.date === dateKey(selectedDate)).map((n, idx) => (
-                <div key={idx} className="mb-2 p-3 bg-white rounded-lg shadow flex ">
-                    <p className="text-sm">{n.note}</p>
-                    <button  className="ml-4 px-3 py-1 text-xs rounded-lg   transition-colors text-gray-600 cursor-pointer">
-                    <span className={`ml-auto px-2 py-1 rounded-full text-xs font-semibold ${
-                        n.status === "Scheduled"
-                            ? "bg-blue-100 text-blue-800"
-                            : n.status === "Completed"
-                                ? "bg-green-100 text-green-800"
-                                : n.status === "In Progress"
-                                    ? "bg-yellow-100 text-yellow-800"
-                                    : "bg-gray-100 text-gray-800"
-                    }`}>
-                        {n.status} at {n.time}
-                    </span>
-                    </button>
+            <div className="overflow-y-auto h-[48vh]">
+            <div className="grid grid-cols-7 border-b bg-white">
+                {weekDays.map(day => (
+                <div
+                    key={day}
+                    className="p-3 text-center text-sm font-semibold text-gray-600 uppercase tracking-wide"
+                >
+                    {day}
                 </div>
                 ))}
-
-
             </div>
+
+            <div className="grid grid-cols-7 bg-white">
+                {days.map((date, index) => (
+                <div
+                    key={index}
+                    className="h-16 border-r border-b last:border-r-0 p-2 cursor-pointer hover:bg-gray-50 transition-all duration-200"
+                    onClick={() => date && setSelectedDate(date)}
+                >
+                    {date && (
+                    <div className="h-full flex items-center justify-center">
+                        <div
+                        className={`flex items-center justify-center w-11 h-11 text-base rounded-2xl font-bold transition-all duration-300 ${
+                            isToday(date)
+                            ? 'bg-[#0085b9] text-white shadow-md scale-105'
+                            : isSelected(date)
+                            ? 'bg-blue-100 text-[#0085b9] shadow-sm scale-105'
+                            : 'text-gray-700 hover:bg-blue-50 hover:scale-105'
+                        }`}
+                        >
+                        {date.getDate()}
+                        </div>
+                    </div>
+                    )}
+                </div>
+                ))}
+            </div>
+            </div>
+
+
+            <div className="bg-white p-6  border-t border-gray-200 ">
+            <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-gray-800 text-lg">Today's Notes</h3>
+                <button className="px-3 py-1 text-sm rounded-md bg-[#0085b9] text-white hover:bg-[#006f8f] transition-colors">
+                + Add Note
+                </button>
+            </div>
+
+            <div className="space-y-3">
+                {noteData.map((n, i) => (
+                <div
+                    key={i}
+                    className={`p-3 rounded-lg border ${
+                    n.status === "Completed" ? "bg-[#f9f9f9]" : "bg-[#fdfefe]"
+                    } flex items-start gap-3`}
+                >
+                    <input
+                    type="checkbox"
+                    checked={n.status === "Completed"}
+                    onChange={() => handleToggleNote(i)}
+                    className="mt-[2px] w-4 h-4 appearance-none bg-white border-2 border-gray-300 rounded-sm checked:bg-[#0085b9] checked:border-[#0085b9] checked:before:content-['✓'] checked:before:text-white checked:before:text-xs checked:before:flex checked:before:items-center checked:before:justify-center checked:before:w-full checked:before:h-full cursor-pointer"
+                    />
+                    <div className="flex flex-col">
+                    <p
+                        className={`text-sm leading-snug ${
+                        n.status === "Completed" ? "text-gray-500" : "text-gray-800"
+                        }`}
+                        style={n.status === "Completed" ? { textDecoration: 'line-through' } : {}}
+                    >
+                        {n.note}
+                    </p>
+                    <span className="text-xs text-gray-400 mt-1">{n.time}</span>
+                    </div>
+                </div>
+                ))}
+            </div>
+            </div>
+
+
 
             {addNoteModal()}
 

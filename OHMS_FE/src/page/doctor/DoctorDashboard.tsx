@@ -1,6 +1,7 @@
 import Navigator from "../../compoment/doctor/navigator";
 import TodayPatientList from "../../compoment/doctor/dashboard/todayPatientList.tsx";
 import DashboardCalendar from "../../compoment/doctor/dashboard/dashboardCalendar.tsx";
+import DutySchedule from "../../compoment/doctor/dashboard/DutySchedule.tsx";
 
 function DoctorDashboard() {
     return (
@@ -10,7 +11,7 @@ function DoctorDashboard() {
             />
 
             <div className="flex-1 ml-64" style={{minWidth: 'calc(99vw - 16rem)'}}>
-                <div className="p-6 space-y-6 bg-white">
+                <div className="p-6 space-y-6 bg-[#f9fcff]">
                     {/*<div className="grid gap-6 mb-8 grid-cols-1 md:grid-cols-2 lg:grid-cols-2">*/}
 
                     {/*    <div className="flex flex-col justify-between bg-[#eefdff] rounded-lg border border-[#d2f0f7] shadow-sm p-5">*/}
@@ -56,10 +57,13 @@ function DoctorDashboard() {
                     {/*</div>*/}
 
 
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 w-full justify-center h-[92vh]">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 w-full justify-center ">
 
                         <div className="lg:col-span-2 ">
                             <TodayPatientList />
+                            <div className="w-full mt-6">
+                                <DutySchedule/>
+                            </div>
                         </div>
                         <div className="lg:col-span-1">
                             <DashboardCalendar/>
