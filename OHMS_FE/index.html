@@ -7,6 +7,12 @@
     <title>Vite + React + TS</title>
   </head>
   <body>
+    <script>
+      // Fix for SockJS global issue in Vite
+      if (typeof global === 'undefined') {
+        var global = globalThis;
+      }
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

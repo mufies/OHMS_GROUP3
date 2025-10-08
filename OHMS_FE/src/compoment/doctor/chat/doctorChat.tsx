@@ -1,277 +1,677 @@
-import {useState, useEffect} from "react";
-import '../customScrollBar.css'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import axios from 'axios';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import {faSearch, faVideo, faPhone, faEllipsisV} from '@fortawesome/free-solid-svg-icons';
-export default function doctorChatPage() {
-    const initialUserList = [
-        { id: 1, name: 'John Doe', lastMessage: 'Hello, how are you?', time: '2:30 PM' },
-        { id: 2, name: 'Jane Smith', lastMessage: 'Can we reschedule?', time: '1:15 PM' },
-        { id: 3, name: 'Mike Johnson', lastMessage: 'Thank you!', time: 'Yesterday' },
-        { id: 4, name: 'Emily Davis', lastMessage: 'See you soon.', time: 'Monday' },
-        { id: 5, name: 'Chris Brown', lastMessage: 'Got it, thanks!', time: 'Sunday' },
-        { id: 6, name: 'Sarah Wilson', lastMessage: 'Looking forward to our meeting.', time: 'Saturday' },
-        { id: 7, name: 'David Lee', lastMessage: 'Please send the report.', time: 'Friday' },
-        { id: 8, name: 'Laura Martinez', lastMessage: 'Happy Birthday!', time: 'Thursday' },
-        { id: 9, name: 'James Taylor', lastMessage: 'Let me know your thoughts.', time: 'Wednesday' },
-        { id: 10, name: 'Linda Anderson', lastMessage: 'Good luck with your presentation!', time: 'Tuesday' },
-        { id: 11, name: 'Kevin White', lastMessage: 'Can you call me back?', time: '1:00 PM' },
-        { id: 12, name: 'Jessica Harris', lastMessage: 'I will be there in 10 minutes.', time: '12:45 PM' },
-        { id: 13, name: 'Brian Clark', lastMessage: 'Thanks for the update.', time: '11:30 AM' },
-    ];
+import { 
+  faPaperPlane, 
+  faUserInjured, 
+  faTimes,
+  faSearch,
+  faPhone,
+  faVideo
+} from '@fortawesome/free-solid-svg-icons';
 
-    const messages = [
-        { id: 1, sender: 'doctor', text: 'Hello, how can I help you today?', time: '2:30 PM' },
-        { id: 2, sender: 'patient', text: 'I have a headache and fever.', time: '2:32 PM' },
-        { id: 3, sender: 'doctor', text: 'How long have you been feeling this way?', time: '2:33 PM' },
-        { id: 4, sender: 'patient', text: 'For about two days now.', time: '2:34 PM' },
-        { id: 5, sender: 'doctor', text: 'I recommend you take some rest and stay hydrated.', time: '2:35 PM' },
-    ];
+import { useWebSocketService } from '../../../services/webSocketServices';
 
-    // State for user list and loading
-    const [userList, setUserList] = useState(initialUserList);
-    const [loading, setLoading] = useState(false);
-    const [selectedUser, setSelectedUser] = useState(initialUserList[0]);
 
-    const doctorChatList = async () => {
-        try {
-            setLoading(true);
+interface Message {
+  id: string;
+  senderId: string;
+  senderName: string;
+  content: string;
+  timestamp: Date;
+  isRead: boolean;
+}
 
-            const response = await fetch('/api/doctor/chat/users');
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
-            const data = await response.json();
-            setUserList(data);
-            return data;
-        } catch (error) {
-            console.error('Error fetching chat list:', error);
-            setUserList(initialUserList);
-            throw error;
-        } finally {
-            setLoading(false);
-        }
+interface Patient {
+  id: string;
+  username: string;
+  email: string;
+  patientId: string;
+  lastMessage?: string;
+  lastMessageTime?: Date;
+  unreadCount?: number;
+  isOnline?: boolean;
+  condition?: string;
+}
+
+interface User {
+  id: string;
+  username: string;
+  email: string;
+  specialization?: string;
+}
+
+interface RoomChatResponse {
+  roomChatID: string;
+  user: User[];
+}
+
+interface DoctorChatProps {
+  currentUser: User;
+  onClose: () => void;
+}
+
+const DoctorChat = ({ currentUser, onClose }: DoctorChatProps) => {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [chatRooms, setChatRooms] = useState<RoomChatResponse[]>([]);
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [wsConnected, setWsConnected] = useState(false);
+
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Helper: Find current chat room by selectedPatient
+  const getCurrentRoom = useCallback(() => {
+    if (!selectedPatient) return null;
+    return chatRooms.find(room =>
+      room.user.some(user => user.id === selectedPatient.id)
+    ) || null;
+  }, [selectedPatient, chatRooms]);
+
+  // Send new message (without form submit) - Memoize đầy đủ
+  const handleSendMessageNoForm = useCallback(() => {
+    if (!newMessage.trim() || !selectedPatient) {
+      console.warn('Cannot send: No message or patient selected');
+      return;
     }
 
-    useEffect(() => {
-        doctorChatList();
-    }, []);
+    const currentRoom = getCurrentRoom();
+    if (!currentRoom) {
+      console.error('No room found for the selected patient');
+      return;
+    }
+
+    const message: Message = {
+      id: Date.now().toString(),
+      senderId: currentUser.id,
+      senderName: currentUser.username,
+      content: newMessage.trim(),
+      timestamp: new Date(),
+      isRead: false
+    };
+
+    // Optimistic update
+    setMessages(prev => {
+      const updated = [...prev, message];
+      return updated.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+    });
+
+    const conversationRequest = {
+      message: newMessage.trim(),
+      user: currentUser.id
+    };
+
+    try {
+      const success = send(`/app/chat/${currentRoom.roomChatID}`, conversationRequest);
+      if (!success) {
+        console.error('Failed to send message via WebSocket');
+        setMessages(prev => prev.filter(msg => msg.id !== message.id));
+      } else {
+        console.log('✅ Message sent via WebSocket successfully:', conversationRequest);
+        
+        // Update patient's last message time when we send a message
+        setPatients(prevPatients => 
+          prevPatients.map(patient => 
+            patient.id === selectedPatient.id 
+              ? {
+                  ...patient,
+                  lastMessage: newMessage.trim(),
+                  lastMessageTime: new Date()
+                }
+              : patient
+          )
+        );
+      }
+    } catch (error) {
+      console.error('❌ Error sending message via WebSocket:', error);
+      setMessages(prev => prev.filter(msg => msg.id !== message.id));
+    }
+
+    setNewMessage('');
+  }, [currentUser.id, currentUser.username, newMessage, selectedPatient, getCurrentRoom]);
 
 
-     const showUserList = () =>
-         (
-                <div className="w-full border-r border-gray-200 overflow-y-auto max-h-[97vh] custom-scrollbar bg-white">
-                    <div className="bg-white sticky top-0 z-10 border-b border-gray-200">
-                        <div className="p-4 pb-2">
-                            <p className="text-gray-800 font-semibold text-lg">Messages</p>
-                        </div>
-                        <div className="px-4 pb-4">
-                            <div className="relative">
-                                <FontAwesomeIcon
-                                    icon={faSearch}
-                                    className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"
-                                />
-                                <input
-                                    type="text"
-                                    placeholder="Search conversations..."
-                                    className="w-full pl-10 pr-4 py-2 border border-gray-300 text-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
-                                />
-                            </div>
-                        </div>
-                    </div>
 
-                    <div className="space-y-1 p-2">
-                        {loading ? (
-                            <div className="flex justify-center p-4">
-                                <span className="text-gray-500">Loading chats...</span>
-                            </div>
-                        ) : (
-                            userList.map((user, index) => (
-                                <div
-                                    key={user.id}
-                                    className={`p-3 cursor-pointer rounded-lg flex space-x-3 hover:bg-blue-50 text-gray-600 transition-colors ${selectedUser.id === user.id ? 'bg-blue-100 border-l-4 border-blue-500' : ''}`}
-                                    onClick={() => setSelectedUser(user)}
-                                >
-                                <div className="relative">
-                                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                                        <span className="text-blue-600 font-semibold text-sm">
-                                            {user.name.split(' ').map(n => n[0]).join('')}
-                                        </span>
-                                    </div>
-                                    <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex justify-between items-center">
-                                        <h3 className="text-sm font-medium text-gray-900 truncate">{user.name}</h3>
-                                        <span className="text-xs text-gray-500">{user.time}</span>
-                                    </div>
-                                    <p className="text-xs text-gray-500 truncate mt-1">{user.lastMessage}</p>
+  const webSocketUrl = 'http://localhost:8080/ws';
+  
+  // Memoize callbacks
+  const onConnected = useCallback(() => setWsConnected(true), []);
+  const onError = useCallback(() => setWsConnected(false), []);
+  
+  const { connect, subscribe, send, unsubscribe } = useWebSocketService(
+    webSocketUrl,
+    onConnected,
+    onError
+  );
 
-                                </div>
-                            </div>
-                            ))
-                        )}
-                    </div>
-                </div>
-         )
+  // Connect WebSocket on mount
+  useEffect(() => {
+    connect();
+  }, [connect]); 
 
-    const showChatWindow = () =>
-        (
-            <div className="w-full flex flex-col h-full custom-scrollbar border-gray-200 shadow bg-white">
-                <div className="p-4 border-b bg-white">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                            <div className="relative">
-                                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                                    <span className="text-blue-600 font-semibold text-sm">
-                                        {selectedUser.name.split(' ').map(n => n[0]).join('')}
-                                    </span>
-                                </div>
-                                <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
-                            </div>
-                            <div>
-                                <h2 className="text-lg font-semibold text-gray-900">{selectedUser.name}</h2>
-                                <div className="flex items-center space-x-2">
-                                    <span className="text-sm text-green-600">Online</span>
-                                    <span className="text-sm text-gray-500">Patient ID: #28475</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                            <button className="p-2 hover:bg-gray-100 rounded-full transition-colors cursor-pointer">
-                                <FontAwesomeIcon icon={faPhone} className="text-gray-600 text-lg" />
-                            </button>
-                            <button className="p-2 hover:bg-gray-100 rounded-full transition-colors cursor-pointer">
-                                <FontAwesomeIcon icon={faVideo} className="text-gray-600 text-lg" />
-                            </button>
+  // Subscribe to chat room topic on selectedPatient or chatRooms change
+  useEffect(() => {
+    const currentRoom = getCurrentRoom();
+    if (!currentRoom) return;
 
-                        </div>
-                    </div>
-                </div>
-                <div className="flex-1 p-4 overflow-y-auto space-y-4 custom-scrollbar bg-gray-50">
-                    <div className="flex justify-start">
-                        <div className="flex items-start space-x-2">
-                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                                <span className="text-blue-600 font-semibold text-xs">ER</span>
-                            </div>
-                            <div className="bg-white rounded-lg p-3 shadow-sm max-w-xs">
-                                <p className="text-sm text-gray-800">Hello Dr. Anderson, I wanted to follow up on my recent visit</p>
-                                <span className="text-xs text-gray-500 mt-1 block">10:30 AM</span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div className="flex justify-end">
-                        <div className="bg-blue-500 rounded-lg p-3 max-w-xs">
-                            <p className="text-sm text-white">Hello Emily! Of course, how are you feeling today?</p>
-                            <span className="text-xs text-blue-100 mt-1 block">10:32 AM</span>
-                        </div>
-                    </div>
+    const subscriptionCallback = (message: any) => {
+      if (message.user?.id === currentUser.id) return; // Skip own messages
 
-                    <div className="flex justify-start">
-                        <div className="flex items-start space-x-2">
-                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                                <span className="text-blue-600 font-semibold text-xs">ER</span>
-                            </div>
-                            <div className="bg-white rounded-lg p-3 shadow-sm max-w-xs">
-                                <p className="text-sm text-gray-800">Much better actually. The medication you prescribed is working well</p>
-                                <span className="text-xs text-gray-500 mt-1 block">10:33 AM</span>
-                            </div>
-                        </div>
-                    </div>
+      const incomingMessage: Message = {
+        id: Date.now().toString(),
+        senderId: message.user?.id ?? 'unknown',
+        senderName: message.user?.username ?? 'Unknown',
+        content: message.message,
+        timestamp: new Date(message.createdAt ?? Date.now()),
+        isRead: false,
+      };
 
-                    <div className="flex justify-start">
-                        <div className="flex items-start space-x-2">
-                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                                <span className="text-blue-600 font-semibold text-xs">ER</span>
-                            </div>
-                            <div className="bg-white rounded-lg p-3 shadow-sm max-w-xs">
-                                <p className="text-sm text-gray-800">I wanted to ask about the dosage though</p>
-                                <span className="text-xs text-gray-500 mt-1 block">10:33 AM</span>
-                            </div>
-                        </div>
-                    </div>
+      setMessages(prev => {
+        const updatedMessages = [...prev, incomingMessage];
+        return updatedMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+      });
 
-                    <div className="flex justify-end">
-                        <div className="bg-blue-500 rounded-lg p-3 max-w-sm">
-                            <p className="text-sm text-white">That's great to hear! What would you like to know about the dosage?</p>
-                            <span className="text-xs text-blue-100 mt-1 block">10:35 AM</span>
-                        </div>
-                    </div>
-
-                    <div className="flex justify-start">
-                        <div className="flex items-start space-x-2">
-                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                                <span className="text-blue-600 font-semibold text-xs">ER</span>
-                            </div>
-                            <div className="bg-white rounded-lg p-3 shadow-sm max-w-xs">
-                                <p className="text-sm text-gray-800">Should I continue taking it twice a day or can I reduce it to once?</p>
-                                <span className="text-xs text-gray-500 mt-1 block">10:36 AM</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="flex justify-end">
-                        <div className="bg-blue-500 rounded-lg p-3 max-w-lg">
-                            <p className="text-sm text-white">Let's continue with twice a day for another week, then we can reassess. It's important to maintain consistent levels in your system.</p>
-                            <span className="text-xs text-blue-100 mt-1 block">10:38 AM</span>
-                        </div>
-                    </div>
-
-                    <div className="flex justify-start">
-                        <div className="flex items-start space-x-2">
-                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                                <span className="text-blue-600 font-semibold text-xs">ER</span>
-                            </div>
-                            <div className="bg-white rounded-lg p-3 shadow-sm max-w-xs">
-                                <p className="text-sm text-gray-800">Thank you doctor, I'm feeling much better now</p>
-                                <span className="text-xs text-gray-500 mt-1 block">10:40 AM</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div className="p-4 border-t bg-white">
-                    <div className="flex items-center space-x-2">
-                        <button className="p-2 text-gray-400 hover:text-gray-600">
-                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd"/>
-                            </svg>
-                        </button>
-                        <input
-                            type="text"
-                            placeholder="Type your message..."
-                            className="flex-1 border border-gray-300 rounded-full px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-700"
-                        />
-                        <button className="p-2 text-gray-400 hover:text-gray-600">
-                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                                <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/>
-                            </svg>
-                        </button>
-                        <button
-                            type="submit"
-                            className="bg-blue-500 text-white p-2 rounded-full hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                                <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"/>
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-            </div>
+      // Update patient's last message time and content for sorting
+      setPatients(prevPatients => 
+        prevPatients.map(patient => 
+          patient.id === message.user?.id 
+            ? {
+                ...patient,
+                lastMessage: message.message,
+                lastMessageTime: new Date(message.createdAt ?? Date.now())
+              }
+            : patient
         )
+      );
+    };
 
-    return (
-        <div className="grid grid-cols-1 lg:grid-cols-4 w-full rounded-xl">
+    const subscribeTimer = setTimeout(() => {
+      subscribe(`/topic/room/${currentRoom.roomChatID}`, subscriptionCallback);
+    }, 1000);
 
-            <div className="lg:col-span-1">
-                {showUserList()}
-            </div>
-            <div className="ml-[20px] lg:col-span-3 min-h-[694px] ">
-                {showChatWindow()}
-            </div>
+    return () => {
+      clearTimeout(subscribeTimer);
+      unsubscribe(`/topic/room/${currentRoom.roomChatID}`);
+    };
+  }, [selectedPatient, chatRooms, subscribe, unsubscribe, currentUser.id, getCurrentRoom]);
+
+  // Subscribe to ALL chat rooms for real-time updates
+  useEffect(() => {
+    if (chatRooms.length === 0) return;
+
+    const subscriptions: string[] = [];
+    const timers: NodeJS.Timeout[] = [];
+
+    chatRooms.forEach(room => {
+      const topic = `/topic/room/${room.roomChatID}`;
+      
+      const globalCallback = (message: any) => {
+        if (message.user?.id === currentUser.id) return; // Skip own messages
+
+        // Update patient list for ANY room, not just current room
+        setPatients(prevPatients => 
+          prevPatients.map(patient => 
+            patient.id === message.user?.id 
+              ? {
+                  ...patient,
+                  lastMessage: message.message,
+                  lastMessageTime: new Date(message.createdAt ?? Date.now())
+                }
+              : patient
+          )
+        );
+
+        // Only update messages if this is the current room
+        const currentRoom = getCurrentRoom();
+        if (currentRoom && room.roomChatID === currentRoom.roomChatID) {
+          const incomingMessage: Message = {
+            id: Date.now().toString(),
+            senderId: message.user?.id ?? 'unknown',
+            senderName: message.user?.username ?? 'Unknown',
+            content: message.message,
+            timestamp: new Date(message.createdAt ?? Date.now()),
+            isRead: false,
+          };
+
+          setMessages(prev => {
+            const updatedMessages = [...prev, incomingMessage];
+            return updatedMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+          });
+        }
+      };
+
+      const subscribeTimer = setTimeout(() => {
+        subscribe(topic, globalCallback);
+        subscriptions.push(topic);
+      }, 1000 + Math.random() * 500); 
+      
+      timers.push(subscribeTimer);
+    });
+
+    return () => {
+      timers.forEach(timer => clearTimeout(timer));
+      subscriptions.forEach(topic => {
+        unsubscribe(topic);
+      });
+    };
+  }, [chatRooms, subscribe, unsubscribe, currentUser.id, selectedPatient?.id, getCurrentRoom]);
+
+  // Load existing messages on selectedPatient or chatRooms change
+  useEffect(() => {
+    const loadExistingMessages = async () => {
+      const currentRoom = getCurrentRoom();
+      if (!currentRoom) {
+        setMessages([]);
+        return;
+      }
+
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        const response = await axios.get(`http://localhost:8080/conversation/${currentRoom.roomChatID}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (response.data?.results) {
+          const loadedMessages: Message[] = response.data.results.map((conv: any) => ({
+            id: conv.id ?? Date.now().toString(),
+            senderId: conv.user?.id ?? 'unknown',
+            senderName: conv.user?.username ?? 'Unknown',
+            content: conv.message,
+            timestamp: new Date(conv.createdAt ?? new Date()),
+            isRead: true
+          }));
+
+          loadedMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+          setMessages(loadedMessages);
+
+          // Update patient's last message info based on loaded messages
+          if (loadedMessages.length > 0 && selectedPatient) {
+            const lastMessage = loadedMessages[loadedMessages.length - 1];
+            setPatients(prevPatients => 
+              prevPatients.map(patient => 
+                patient.id === selectedPatient.id 
+                  ? {
+                      ...patient,
+                      lastMessage: lastMessage.content,
+                      lastMessageTime: lastMessage.timestamp
+                    }
+                  : patient
+              )
+            );
+          }
+        }
+      } catch (error) {
+        console.error('Error loading messages:', error);
+        setMessages([]);
+      }
+    };
+
+    loadExistingMessages();
+  }, [selectedPatient, chatRooms, currentUser.id, getCurrentRoom]);
+
+  // Fetch chat rooms and extract patients list
+  const fetchChatRooms = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const response = await axios.get(`http://localhost:8080/chat/${currentUser.id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.data?.results) {
+        setChatRooms(response.data.results);
+
+        const patientsMap = new Map<string, Patient>();
+        
+        // Process each chat room to get patient info and last message
+        for (const room of response.data.results) {
+          for (const user of room.user) {
+            if (user.id !== currentUser.id) {
+              // Fetch last message for this room
+              try {
+                const conversationResponse = await axios.get(`http://localhost:8080/conversation/${room.roomChatID}`, {
+                  headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                  },
+                });
+
+                let lastMessage = 'No messages yet';
+                let lastMessageTime = new Date(Date.now() - Math.random() * 86400000); // Default to within last day
+
+                if (conversationResponse.data?.results && conversationResponse.data.results.length > 0) {
+                  const messages = conversationResponse.data.results;
+                  const lastMsg = messages[messages.length - 1];
+                  
+                  lastMessage = lastMsg.message;
+                  lastMessageTime = new Date(lastMsg.createdAt);
+                }
+
+                patientsMap.set(user.id, {
+                  id: user.id,
+                  username: user.username,
+                  email: user.email,
+                  patientId: `P${user.id.substring(0, 3).toUpperCase()}`,
+                  isOnline: Math.random() > 0.3, // 70% chance of being online
+                  condition: 'General Consultation',
+                  lastMessage,
+                  lastMessageTime
+                });
+              } catch (msgError) {
+                console.warn('Error fetching messages for room:', room.roomChatID, msgError);
+                // Fallback patient data if message fetch fails
+                patientsMap.set(user.id, {
+                  id: user.id,
+                  username: user.username,
+                  email: user.email,
+                  patientId: `P${user.id.substring(0, 3).toUpperCase()}`,
+                  condition: 'General Consultation',
+                  lastMessage: 'No messages yet',
+                  lastMessageTime: new Date(Date.now() - Math.random() * 86400000)
+                });
+              }
+            }
+          }
+        }
+        
+        setPatients(Array.from(patientsMap.values()));
+      }
+    } catch (error: any) {
+      console.error('Error fetching chat rooms:', error.response?.data ?? error.message ?? error);
+    }
+  }, [currentUser.id]);
+
+  useEffect(() => {
+    fetchChatRooms();
+  }, [fetchChatRooms]);
+
+  // Scroll messages to bottom on message list change
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, []);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, scrollToBottom]);
+
+  // Filtered patients by searchTerm (case insensitive) and sorted by last message time
+  const filteredPatients = useMemo(() => {
+    let filtered = patients;
+    
+    // Filter by search term if provided
+    if (searchTerm.trim()) {
+      filtered = patients.filter(p =>
+        p.username.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+    
+    // Sort by last message time (most recent first)
+    return filtered.sort((a, b) => {
+      const timeA = a.lastMessageTime ? a.lastMessageTime.getTime() : 0;
+      const timeB = b.lastMessageTime ? b.lastMessageTime.getTime() : 0;
+      return timeB - timeA; // Descending order (newest first)
+    });
+  }, [patients, searchTerm]);
+
+  const formatTime = (date: Date) => date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  const formatLastMessageTime = (date: Date) => {
+    const now = new Date();
+    const diffMinutes = Math.floor((now.getTime() - date.getTime()) / 60000);
+    if (diffMinutes < 60) return `${diffMinutes}m ago`;
+    if (diffMinutes < 1440) return `${Math.floor(diffMinutes / 60)}h ago`;
+    return `${Math.floor(diffMinutes / 1440)}d ago`;
+  };
+
+
+
+  
+
+
+
+    const createCall = (type: 'audio' | 'video') => {
+    var currentRoom = getCurrentRoom();
+      const variable = {
+          roomId: currentRoom?.roomChatID,
+          currentUser: currentUser.id,
+          callType: type  // Use the parameter directly instead of state
+      }
+      openCallWindow(`http://localhost:5173/video?roomId=${variable.roomId}&currentUser=${variable.currentUser}&callType=${variable.callType}`)
+
+  }
+
+  const openCallWindow = (url: string) =>
+  {
+  const windowFeatures = "width=790,height=800,resizable=yes,scrollbars=no,left=" + 
+    (screen.width / 2 - 500) + ",top=" + (screen.height / 2 - 400);
+  const callWindow = window.open(url, "callWindow", windowFeatures);
+  if (callWindow) {
+    callWindow.focus(); // Focus the new window
+  }
+  }
+
+  return (
+    <div className="h-full w-full bg-white flex">
+      {/* Patients List */}
+      <div className="w-1/4 bg-white border-r border-gray-200 flex flex-col">
+        <div className="border-b border-gray-200">
+          {/* Search */}
+          <div className="bg-white sticky top-0 z-10">
+              <div className="p-4 pb-2">
+                  <p className="text-gray-900 font-semibold text-lg">Messages</p>
+              </div>
+              <div className="px-4 pb-4">
+                  <div className="relative">
+                      <FontAwesomeIcon
+                          icon={faSearch}
+                          className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"
+                      />
+                      <input
+                          type="text"
+                          placeholder="Search conversations..."
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          className="w-full pl-10 pr-4 py-2 border border-gray-300 text-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
+                      />
+                  </div>
+              </div>
+          </div>
         </div>
-    );
+        <div className="space-y-0 flex-1 overflow-y-auto">
+          {filteredPatients.length ? (
+            filteredPatients.map(patient => (
+              <div
+                key={patient.id}
+                onClick={() => {
+                  setSelectedPatient(patient);
+                }}
+                className={`p-4 cursor-pointer flex items-center space-x-3 hover:bg-gray-100 transition-colors border-b border-gray-100 ${
+                  selectedPatient?.id === patient.id ? 'bg-blue-50 border-r-4 border-r-blue-500' : 'bg-white'
+                }`}
+              >
+                <div className="relative flex-shrink-0">
+                  <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
+                    <span className="text-white font-semibold text-sm">
+                      {patient.username.split(' ').map(n => n[0]).join('')}
+                    </span>
+                  </div>
+                </div>
 
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between items-start">
+                    <h3 className="text-sm font-semibold text-gray-900 truncate">{patient.username}</h3>
+                    {patient.lastMessageTime && (
+                      <span className="text-xs text-gray-400 whitespace-nowrap ml-2">
+                        {formatLastMessageTime(patient.lastMessageTime)}
+                      </span>
+                    )}
+                  </div>
 
-}
+                  <div className="flex justify-between items-center mt-1">
+                    <p className="text-sm text-gray-600 truncate">
+                      {patient.lastMessage 
+                        ? (patient.lastMessage.includes('currentUser=') && patient.lastMessage.includes('callType=')
+                            ? 'Call Request'
+                            : patient.lastMessage)
+                        : 'No messages yet'}
+                    </p>
+                  </div>
+                </div>
+
+              </div>
+            ))
+          ) : (
+            <div className="flex justify-center p-4">
+              <span className="text-gray-500">No patients available</span>
+            </div>
+          )}
+        </div>
+
+      </div>
+
+      {/* Chat Area */}
+      <div className="flex-1 flex flex-col">
+        {selectedPatient ? (
+          <>
+            {/* Chat Header */}
+            <div className="p-4 border-b border-gray-200 bg-white">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="relative">
+                    <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                      <FontAwesomeIcon icon={faUserInjured} className="text-green-600" />
+                    </div>
+                    {selectedPatient.isOnline && (
+                      <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="font-medium text-black">{selectedPatient.username}</h3>
+                    <p className="text-sm text-black">
+                      ID: {selectedPatient.patientId} • {selectedPatient.condition}
+                    </p>
+
+                  </div>
+                </div>
+                <div className="flex space-x-2">
+                  <button 
+                    className={`p-2 text-black hover:text-gray-600 hover:bg-gray-100 rounded-full cursor-pointer`} 
+                    onClick={() => createCall('audio')}
+                    title="Audio Call"
+                  >
+                    <FontAwesomeIcon icon={faPhone} />
+                  </button>
+                    <button 
+                    className={`p-2 text-black hover:text-gray-600 hover:bg-gray-100 rounded-full cursor-pointer`}
+                    onClick={() => createCall('video')}
+                    title="Video Call"
+                    >
+                    <FontAwesomeIcon icon={faVideo} />
+                    </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
+              {messages.map(message => {
+                const isCurrentUser = message.senderId === currentUser.id;
+                const isCallRequest = !isCurrentUser && message.content.startsWith('http') && message.content.includes('currentUser=') && message.content.includes('callType=');
+                const isCurrentUserCallRequest = isCurrentUser && message.content.startsWith('http') && message.content.includes('currentUser=') && message.content.includes('callType=');
+
+                return (
+                  <div
+                    key={message.id}
+                    className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                      isCurrentUser ? 'bg-blue-600 text-white' : 'bg-white text-black border'
+                    }`}>
+                      {isCallRequest ? (
+                        <div className="bg-green-100 border-l-4 border-green-500 p-2 mb-2">
+                          <span className="font-semibold text-green-700">Incoming Call Request</span>
+                          <div className="text-black mt-1 text-sm">
+                            <button
+                              className="ml-2 p-1 bg-green-500 text-white rounded text-xs hover:bg-green-600 mt-1 disabled:opacity-50"
+                              onClick={() => {
+                                openCallWindow(message.content);
+                              }}
+                              title="Accept Call"
+                            >
+                              Accept {message.content.includes('callType=video') ? 'Video' : 'Audio'} Call
+                            </button>
+                          </div>
+                        </div>
+                      ) : isCurrentUserCallRequest ? (
+                        <p className="text-sm">📞 Call Request Sent</p>
+                      ) : (
+                        <p className="text-sm">{message.content}</p>
+                      )}
+                      <p className={`text-xs mt-1 ${isCurrentUser ? 'text-blue-100' : 'text-black'}`}>
+                        {formatTime(message.timestamp)}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Message Input */}
+            <div className="p-4 border-t border-gray-200 bg-white">
+              <div className="flex space-x-4">
+                <input
+                  type="text"
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendMessageNoForm();
+                    }
+                  }}
+                  placeholder="Type your message..."
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck="false"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                />
+                <button
+                  type="button"
+                  disabled={!newMessage.trim()}
+                  onClick={handleSendMessageNoForm}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                >
+                  <FontAwesomeIcon icon={faPaperPlane} />
+                </button>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="flex-1 flex items-center justify-center bg-gray-50">
+            <div className="text-center">
+              <FontAwesomeIcon icon={faUserInjured} className="text-6xl text-gray-300 mb-4" />
+              <p className="text-gray-500 text-lg mb-2">Select a patient to start chatting</p>
+              <p className="text-gray-400 text-sm">Choose a patient from the list to begin your conversation</p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      
+    </div>
+  );
+};
+
+export default DoctorChat;
