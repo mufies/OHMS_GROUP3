@@ -25,7 +25,7 @@ const DoctorChatPage = () => {
         // Transform user object to match expected interface
         const transformedUser: User = {
           id: user.id,
-          username: user.username || user.name, // Handle both username and name fields
+          username: user.username || user.name, 
           role: user.role,
           email: user.email,
           specialization: user.specialization
@@ -41,10 +41,7 @@ const DoctorChatPage = () => {
     }
   }, [navigate]);
 
-  const handleClose = () => {
-    // Navigate back to main page
-    navigate('/');
-  };
+
 
   if (!currentUser) {
     return (
@@ -64,7 +61,6 @@ const DoctorChatPage = () => {
         <div className="w-full h-screen">
           <DoctorChat 
             currentUser={currentUser} 
-            onClose={handleClose} 
           />
         </div>
       </div>

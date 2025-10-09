@@ -46,6 +46,7 @@ const App: React.FC = () => {
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const [userRole,setUserRole] = useState<'patient' | 'doctor'>('patient');
 
   useEffect(() => {
     pc.current = new RTCPeerConnection(servers);
@@ -170,7 +171,10 @@ const App: React.FC = () => {
       
       // After call is created, send URL to other peer via WebSocket if roomId exists
       if (roomId && wsConnected) {
-        const videoCallUrl = `${window.location.origin}/video?callId=${callDoc.id}&currentUser=${urlCurrentUser}&callType=${mediaMode}`;
+        // Determine the role for the recipient (opposite of current user's role)
+        const recipientRole = userRole === 'doctor' ? 'patient' : 'doctor';
+        
+        const videoCallUrl = `${window.location.origin}/video?callId=${callDoc.id}&currentUser=${urlCurrentUser}&callType=${mediaMode}&role=${recipientRole}`;
         
         const messageData = {
           message: videoCallUrl,
@@ -357,16 +361,25 @@ const App: React.FC = () => {
     const urlUser = params.get('currentUser');
     const callType = params.get('callType');
     const urlCallId = params.get('callId');
+    const urlRole = params.get('role');
     
-    console.log('📋 URL Parameters:', { urlRoomId, urlUser, callType, urlCallId });
+    console.log('📋 URL Parameters:', { urlRoomId, urlUser, callType, urlCallId, urlRole });
     
     if (urlRoomId) setRoomId(urlRoomId);
     if (urlUser) setUrlCurrentUser(urlUser);
+    
+    if (urlRole === 'doctor' || urlRole === 'patient') {
+      setUserRole(urlRole);
+    } else {
+
+      setUserRole('patient');
+    }
     
     // Auto-configure media mode based on callType FIRST
     const finalMediaMode: 'video' | 'audio' = (callType === 'video' || callType === 'audio') ? callType as 'video' | 'audio' : 'video';
     setMediaMode(finalMediaMode);
     console.log('🎥 Media mode set to:', finalMediaMode);
+    console.log('👤 User role set to:', urlRole || 'patient (default)');
     
     // If callId is in URL, this is the answering peer - auto-answer
     if (urlCallId && !autoStartedRef.current) {
@@ -448,7 +461,8 @@ const App: React.FC = () => {
               connectionStatus.includes('disconnected') || connectionStatus.includes('ended') ? 'bg-red-300' :
               connectionStatus.includes('...') ? 'bg-yellow-300 animate-pulse' :
               'bg-gray-400'
-            }`}></div>
+            }`}>
+            </div>
             <span className="font-semibold">{connectionStatus}</span>
           </div>
         </div>

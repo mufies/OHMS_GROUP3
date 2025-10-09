@@ -28,6 +28,16 @@ h1 {
   line-height: 1.1;
 }
 
+/* Hide scrollbar for webkit browsers (Chrome, Safari, Edge) */
+.scrollbar-hide {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* Internet Explorer 10+ */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none; /* Safari and Chrome */
+}
+
 
 @media (prefers-color-scheme: light) {
   :root {

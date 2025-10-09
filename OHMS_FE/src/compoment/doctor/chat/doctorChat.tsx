@@ -48,10 +48,9 @@ interface RoomChatResponse {
 
 interface DoctorChatProps {
   currentUser: User;
-  onClose: () => void;
 }
 
-const DoctorChat = ({ currentUser, onClose }: DoctorChatProps) => {
+const DoctorChat = ({ currentUser }: DoctorChatProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
@@ -446,8 +445,9 @@ const DoctorChat = ({ currentUser, onClose }: DoctorChatProps) => {
           roomId: currentRoom?.roomChatID,
           currentUser: currentUser.id,
           callType: type  // Use the parameter directly instead of state
+          
       }
-      openCallWindow(`http://localhost:5173/video?roomId=${variable.roomId}&currentUser=${variable.currentUser}&callType=${variable.callType}`)
+      openCallWindow(`http://localhost:5173/video?roomId=${variable.roomId}&currentUser=${variable.currentUser}&callType=${variable.callType}&role=doctor`)
 
   }
 
@@ -496,14 +496,14 @@ const DoctorChat = ({ currentUser, onClose }: DoctorChatProps) => {
                 onClick={() => {
                   setSelectedPatient(patient);
                 }}
-                className={`p-4 cursor-pointer flex items-center space-x-3 hover:bg-gray-100 transition-colors border-b border-gray-100 ${
-                  selectedPatient?.id === patient.id ? 'bg-blue-50 border-r-4 border-r-blue-500' : 'bg-white'
+                className={`p-4 cursor-pointer flex items-center space-x-3 hover:bg-gray-100 transition-colors ${
+                  selectedPatient?.id === patient.id ? 'bg-blue-50' : 'bg-white'
                 }`}
               >
                 <div className="relative flex-shrink-0">
-                  <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
-                    <span className="text-white font-semibold text-sm">
-                      {patient.username.split(' ').map(n => n[0]).join('')}
+                  <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
+                    <span className="text-white font-semibold text-xs">
+                      {patient.username.split(' ').map(n => n[0]).join('').toUpperCase()}
                     </span>
                   </div>
                 </div>
@@ -552,38 +552,35 @@ const DoctorChat = ({ currentUser, onClose }: DoctorChatProps) => {
                     <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
                       <FontAwesomeIcon icon={faUserInjured} className="text-green-600" />
                     </div>
-                    {selectedPatient.isOnline && (
-                      <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
-                    )}
                   </div>
                   <div>
                     <h3 className="font-medium text-black">{selectedPatient.username}</h3>
                     <p className="text-sm text-black">
-                      ID: {selectedPatient.patientId} • {selectedPatient.condition}
+                      ID: {selectedPatient.patientId}
                     </p>
 
                   </div>
                 </div>
                 <div className="flex space-x-2">
                   <button 
-                    className={`p-2 text-black hover:text-gray-600 hover:bg-gray-100 rounded-full cursor-pointer`} 
+                    className="w-10 h-10 border border-gray-200 rounded-full flex items-center justify-center hover:bg-gray-50 transition-colors cursor-pointer" 
                     onClick={() => createCall('audio')}
                     title="Audio Call"
                   >
-                    <FontAwesomeIcon icon={faPhone} />
+                    <FontAwesomeIcon icon={faPhone} className="text-gray-600 text-sm" />
                   </button>
-                    <button 
-                    className={`p-2 text-black hover:text-gray-600 hover:bg-gray-100 rounded-full cursor-pointer`}
+                  <button 
+                    className="w-10 h-10 border border-gray-200 rounded-full flex items-center justify-center hover:bg-gray-50 transition-colors cursor-pointer"
                     onClick={() => createCall('video')}
                     title="Video Call"
-                    >
-                    <FontAwesomeIcon icon={faVideo} />
-                    </button>
+                  >
+                    <FontAwesomeIcon icon={faVideo} className="text-gray-600 text-sm" />
+                  </button>
                 </div>
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 scrollbar-hide">
               {messages.map(message => {
                 const isCurrentUser = message.senderId === currentUser.id;
                 const isCallRequest = !isCurrentUser && message.content.startsWith('http') && message.content.includes('currentUser=') && message.content.includes('callType=');
@@ -592,32 +589,60 @@ const DoctorChat = ({ currentUser, onClose }: DoctorChatProps) => {
                 return (
                   <div
                     key={message.id}
-                    className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'}`}
+                    className={`flex items-start space-x-3 ${isCurrentUser ? 'flex-row-reverse space-x-reverse' : ''}`}
                   >
-                    <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                      isCurrentUser ? 'bg-blue-600 text-white' : 'bg-white text-black border'
-                    }`}>
+                    {/* Avatar - Hidden but maintains spacing */}
+                    <div className="flex-shrink-0 h-8"></div>
+
+                    {/* Message Content */}
+                    <div className={`max-w-xs lg:max-w-md ${isCurrentUser ? 'items-end' : 'items-start'}`}>
                       {isCallRequest ? (
-                        <div className="bg-green-100 border-l-4 border-green-500 p-2 mb-2">
-                          <span className="font-semibold text-green-700">Incoming Call Request</span>
-                          <div className="text-black mt-1 text-sm">
-                            <button
-                              className="ml-2 p-1 bg-green-500 text-white rounded text-xs hover:bg-green-600 mt-1 disabled:opacity-50"
-                              onClick={() => {
-                                openCallWindow(message.content);
-                              }}
-                              title="Accept Call"
-                            >
-                              Accept {message.content.includes('callType=video') ? 'Video' : 'Audio'} Call
-                            </button>
+                        <div 
+                          className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm cursor-pointer hover:bg-gray-50 transition-colors"
+                          onClick={() => openCallWindow(message.content)}
+                        >
+                          <div className="flex items-center space-x-3">
+                            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                              <FontAwesomeIcon 
+                                icon={message.content.includes('callType=video') ? faVideo : faPhone} 
+                                className="text-blue-600 text-sm" 
+                              />
+                            </div>
+                            <div className="flex-1">
+                              <p className="font-medium text-gray-900 text-sm">
+                                {message.content.includes('callType=video') ? 'Video call' : 'Audio call'}
+                              </p>
+                            </div>
                           </div>
                         </div>
                       ) : isCurrentUserCallRequest ? (
-                        <p className="text-sm">📞 Call Request Sent</p>
+                        <div className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                              <FontAwesomeIcon 
+                                icon={message.content.includes('callType=video') ? faVideo : faPhone} 
+                                className="text-blue-600 text-sm" 
+                              />
+                            </div>
+                            <div className="flex-1">
+                              <p className="font-medium text-gray-900 text-sm">
+                                {message.content.includes('callType=video') ? 'Video call' : 'Audio call'}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
                       ) : (
-                        <p className="text-sm">{message.content}</p>
+                        <div className={`px-4 py-2 rounded-2xl ${
+                          isCurrentUser 
+                            ? 'bg-blue-500 text-white' 
+                            : 'bg-white text-black border border-gray-200'
+                        }`}>
+                          <p className="text-sm">{message.content}</p>
+                        </div>
                       )}
-                      <p className={`text-xs mt-1 ${isCurrentUser ? 'text-blue-100' : 'text-black'}`}>
+                      
+                      {/* Timestamp */}
+                      <p className={`text-xs mt-1 ${isCurrentUser ? 'text-right' : 'text-left'} text-gray-500`}>
                         {formatTime(message.timestamp)}
                       </p>
                     </div>
