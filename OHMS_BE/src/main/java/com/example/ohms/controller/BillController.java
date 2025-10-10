@@ -28,7 +28,7 @@ public class BillController {
    BillService billService;
 
    @PostMapping("/{patientId}")
-    @PreAuthorize("hasRole('DOCTOR')")
+   //  @PreAuthorize("hasRole('DOCTOR')")
    public ApiResponse<BillResponse> createBill(
       @PathVariable("patientId") String patientId,
       @RequestBody BillRequest billRequest
@@ -45,7 +45,7 @@ public class BillController {
       .results(billService.getListBill())
       .build();
    }
-   @PreAuthorize("hasRole('ADMIN') or hasRole('DOCTOR')")
+   // @PreAuthorize("hasRole('ADMIN') or hasRole('DOCTOR')")
    @GetMapping("/getBillByPatient/{patientId}")
    public ApiResponse<List<BillResponse>> getListBillByPatients(
       @PathVariable("patientId") String id
@@ -55,7 +55,7 @@ public class BillController {
       .results(billService.getBillByPatients(id))
       .build();
    }
-   @PreAuthorize("hasRole('DOCTOR')")
+   // @PreAuthorize("hasRole('DOCTOR')")
    @DeleteMapping("/{billId}")
    public ApiResponse<Void> deleteBill(
       @PathVariable("billId") String id
@@ -63,7 +63,7 @@ public class BillController {
       billService.deleteBill(id);
       return ApiResponse.<Void>builder().code(200).message("delete sucessful").build();
    }
-@PreAuthorize("hasRole('DOCTOR') or hasRole('PATIENT')")
+// @PreAuthorize("hasRole('DOCTOR') or hasRole('PATIENT')")
    @GetMapping("/{billId}")
    public ApiResponse<BillResponse> getDetailBill(@PathVariable("billId") String id){
       return ApiResponse.<BillResponse>builder()

@@ -9,4 +9,5 @@ import com.example.ohms.entity.MedicalExamination;
 
 public interface MedicleExaminatioRepository extends JpaRepository<MedicalExamination,String> {
    List<MedicalExamination> findAllByIdIn(Set<String> name);
+   
 }

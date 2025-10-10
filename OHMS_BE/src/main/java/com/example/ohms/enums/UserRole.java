@@ -4,5 +4,6 @@ package com.example.ohms.enums;
 public enum UserRole {
    ADMIN,
    DOCTOR, // sắp lịch làm cho bác sĩ
-   PATIENT // 
+   PATIENT,
+   STAFF
 }

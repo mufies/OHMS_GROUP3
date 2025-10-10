@@ -58,7 +58,7 @@ public ApiResponse<UserResponse> register(
             .results(userService.registerUser(userRequestDto, avatar))
             .build();
 }
-    // find user detail by admin
+    // find user detail by admin,doctor,staff
     @GetMapping("/findUser/{id}")
     public ApiResponse<UserResponse> findUser(@PathVariable("id") String id){
         return ApiResponse.<UserResponse>builder()
