@@ -44,12 +44,6 @@ public class UserService {
    MailService mailService;
    @Autowired
    RoleService roleService;
-   // create
-   // register 
-   // update
-   // delete
-   // cái này để quyền admin
-   // làm lại user với bảng mới
    @PreAuthorize("hasRole('ADMIN')")
 public UserResponse createUser(UserRequest userRequestDto, MultipartFile avatar) throws IOException {
     log.info("aaaaaaaaa{}", userRequestDto);
@@ -91,6 +85,9 @@ public UserResponse createUser(UserRequest userRequestDto, MultipartFile avatar)
          User user = userMapper.toUser(userRequestDto);
       if(avatar != null && !avatar.isEmpty()){
          user.setImageUrl(cloudinaryService.uploadFile(avatar));
+      }
+      if(userRepository.findByEmail(userRequestDto.getEmail()).isPresent()){
+         throw new AppException(ErrorCode.USER_EXISTED);
       }
       Role clientRole = roleRepository.findByName("PATIENT")
       .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
