@@ -32,7 +32,6 @@ function Navigator() {
                 <nav className="mx-auto flex h-14 max-w-7xl items-center gap-8 px-6">
                     {/* Logo */}
                     <a href="/" className="text-2xl font-bold text-black flex items-center">
-                        ┏┛
                     </a>
 
                     {/* Navigation links */}
@@ -67,8 +66,7 @@ function Navigator() {
                             <div className="relative group login-button">
                                 <button
                                     onClick={toggleLogin}
-                                    className="flex items-center justify-center text-black
-                             hover:text-pink-500 focus:text-pink-500 login-button cursor-pointer"
+                                    className="flex items-center justify-center text-black hover:text-pink-500 focus:text-pink-500 login-button cursor-pointer"
                                     title="User"
                                     style={{ fontSize: '1.25rem' }}
                                 >

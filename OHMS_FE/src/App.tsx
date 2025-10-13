@@ -28,25 +28,13 @@ function App() {
             {/*<AuthProvider>*/}
             <Routes>
                 <Route path="/" element={<Home />} />
-                {/*<Route index element={<MainPage/>}/>*/}
-                {/*<Route path="/deck" element={<ProtectRoute><ProfilePage/></ProtectRoute>}/>*/}
-                {/*<Route path="unpack" element={<UnPackPage/>}/>*/}
-                {/*<Route path="trade" element={<SearchUser/>}/>*/}
-                {/*<Route path="/login" element={<LoginPage />} />*/}
                 <Route path="/booking" element={<Booking />} />
-                {/*<Route path="/music" element={<DashboardPage />} />*/}
-                {/*<Route path="/register" element={<RegisterPage />} />*/}
-                {/*<Route path="/playlist/:id" element={<PlaylistPage />} />*/}
                 <Route path="/doctor/" element={<DoctorDashboard />} />
                 <Route path="/doctor/schedule" element={<DoctorSchedule />} />
                 <Route path="/doctor/chat" element={<DoctorChat />} />
                 <Route path='/video' element={<WebRTCApp/>} />
                 <Route path="/online-consult" element={<OnlineConsultSpecialty />} />
                 <Route path="/online-consult-time" element={<OnlineConsultTime />} />
-
-                {/*<Route path="/doctor/call" element={<DoctorCall />} />*/}
-                {/*<Route path="*" element={<HomePage />} />*/}
-
 
             </Routes>
             {/*</AuthProvider>*/}
