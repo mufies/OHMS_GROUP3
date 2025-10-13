@@ -3,8 +3,6 @@ export default function searchDoctor() {
     return (
         <section className="relative overflow-hidden bg-[#1273db] ">
             {/* Decorative curves */}
-
-
 <div className="mx-auto flex w-[99vw]  items-center gap-8 px-4 py-24 sm:grid-cols-2 lg:px-8 justify-center align-middle">
                 {/* Copy + search box */}
                 <div className="text-center  flex flex-col justify-items-center align-items-center ">

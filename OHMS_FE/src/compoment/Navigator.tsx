@@ -1,30 +1,74 @@
 import "./Navigator.css"
 import { useState, useEffect} from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faUser} from "@fortawesome/free-solid-svg-icons";
+
 import { validateJwt } from "../hook/useAuth.tsx";
 import Login from "./Login";
+import Register from "./register";
+import { LOGIN_USER } from "../constant/enum.ts";
+import { fetchLogoutUser, fetchGetProfile } from "../utils/fetchFromAPI.ts";
+
+export interface ProfileData {
+  id: string;
+  username: string;
+  imageUrl?: string;
+  email: string;
+  roles: Array<{
+    name: string;
+    description?: string;
+    permissions: string[];
+  }>;
+  phone?: string | null;
+  medicleSpecially?: string | null;
+}
+
 function Navigator() {
     const links = [
         { href: "/booking", label: "Đặt khám" },
         { href: "/", label: "" },
-        // { href: "/donate", label: "Donate" },
-        // { href: "/shop", label: "Shop" },
-        // { href: "/partners", label: "Partners" },
     ];
     const [showLogin, setShowLogin] = useState(false);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [showRegister, setShowRegister] = useState(false);
+    const [user, setUser] = useState<ProfileData | null>(null);
 
     useEffect(() => {
-        const token = localStorage.getItem('token');
-        setIsAuthenticated(token ? validateJwt(token) : false);
+        const token = localStorage.getItem(LOGIN_USER);
+        console.log(token);
+        
+        if (token && validateJwt(token)) {
+            fetchGetProfile()
+                .then((data: ProfileData) => {
+                    setUser(data);
+                    setIsAuthenticated(true);
+                })
+                .catch((error) => {
+                    console.error('Failed to fetch user profile:', error);
+                    setIsAuthenticated(false);
+                    localStorage.removeItem(LOGIN_USER);
+                });
+        } else {
+            setIsAuthenticated(false);
+            setUser(null);
+        }
     }, [showLogin]);
+
+    const getHighestRole = (roles?: ProfileData['roles']) => {
+        if (!roles || roles.length === 0) return 'N/A';
+        const priority = { ADMIN: 0, STAFF: 1, DOCTOR: 2, PATIENT: 3 } as const;
+        type PriorityKey = keyof typeof priority;
+        return roles.reduce((highest, role) => {
+            const currentP = priority[role.name as PriorityKey] ?? 4;
+            const highestP = priority[highest.name as PriorityKey] ?? 4;
+            return currentP < highestP ? role : highest;
+        }, roles[0]).name;
+    };
 
     const toggleLogin = () => setShowLogin(prev => !prev);
     /* ---------- logout ---------- */
     const handleLogout = () => {
-        localStorage.removeItem('token');
+        fetchLogoutUser();
         setIsAuthenticated(false);
+        setUser(null);
     };
     return (
         <>
@@ -61,21 +105,29 @@ function Navigator() {
                     </ul>
 
                     <div className="ml-auto flex items-center gap-6">
-
                         {isAuthenticated ? (
                             <div className="relative group login-button">
                                 <button
-                                    onClick={toggleLogin}
                                     className="flex items-center justify-center text-black hover:text-pink-500 focus:text-pink-500 login-button cursor-pointer"
                                     title="User"
                                     style={{ fontSize: '1.25rem' }}
                                 >
-                                    <FontAwesomeIcon icon={faUser} />
+                                                    <img
+                                src={user?.imageUrl || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y'}
+                                alt="User Avatar"
+                                className="w-8 h-8 rounded-full object-cover"
+                                />
+
                                 </button>
 
                                 <div className="absolute right-0 hidden pt-2 group-hover:block login-button">
                                     <div className="w-48 rounded-md bg-white shadow-lg ring-1
                                   ring-opacity-5 focus:outline-none text-gray-100 left-0">
+                                        <div className="px-4 py-2 text-sm text-gray-700 bg-gray-50 border-b">
+                                            <p className="font-medium">{user?.username || user?.email}</p>
+                                            <p className="text-xs opacity-75">{user?.email}</p>
+                                            <p className="text-xs opacity-75">Role: {getHighestRole(user?.roles)}</p>
+                                        </div>
                                         <a
                                             href="/profile"
                                             className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md block-text"
@@ -98,9 +150,8 @@ function Navigator() {
                                 </div>
                             </div>
                         ) : (
-                            <button
-                                onClick={toggleLogin}
-                                className="
+                            <div 
+                                  className="
                                 inline-flex items-center justify-center
                                 rounded-md
                                 border border-sky-500
@@ -111,15 +162,28 @@ function Navigator() {
                                 hover:bg-sky-50 hover:text-sky-700
                                 focus:outline-none focus:ring-2 focus:ring-sky-400/70 focus:ring-offset-1
                                 cursor-pointer
-      "
+      ">
+                            <button
+                                onClick={toggleLogin}
                             >
                                 Login
                             </button>
-                        )}
-                    </div>
-                </nav>
-            </header>
-            {showLogin && <Login onClose={toggleLogin} isProfileMode={isAuthenticated} />}
+                            |
+                            <button
+                                onClick={() => setShowRegister(true)}
+                            >
+                                Register
+                            </button>
+                        </div>
+                    )}
+                </div>
+            </nav>
+        </header>
+            {showLogin && <Login onClose={toggleLogin} />}
+            {showRegister && <Register onClose={() => setShowRegister(false)} onSwitch={() => {
+                setShowRegister(false);
+                setShowLogin(true);
+            }} />}
         </>
     );
 }
