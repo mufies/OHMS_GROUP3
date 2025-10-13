@@ -2,6 +2,7 @@ package com.example.ohms.service;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
@@ -70,7 +71,7 @@ public class AppointmentService {
         
         // Handle medical examinations nếu có trong request
         if (request.getMedicalExaminationIds() != null && !request.getMedicalExaminationIds().isEmpty()) {
-            Set<MedicalExamination> medicalExaminations = new HashSet<>();
+            List<MedicalExamination> medicalExaminations = new ArrayList<>();
             
             for (String examId : request.getMedicalExaminationIds()) {
                 MedicalExamination examination = medicleExaminatioRepository.findById(examId)

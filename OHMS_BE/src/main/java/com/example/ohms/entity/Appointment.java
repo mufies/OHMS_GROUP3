@@ -2,6 +2,8 @@ package com.example.ohms.entity;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import com.example.ohms.enums.PaymentStatus;
@@ -12,6 +14,9 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
@@ -41,8 +46,15 @@ public class Appointment {
    @ManyToOne
    User doctor;
 // book khám gì ?
-   @OneToMany
-   Set<MedicalExamination> medicalExamnination;
+   @ManyToMany
+   @JoinTable(
+      name = "appointment_medical_examnination",
+      joinColumns = @JoinColumn(name = "appointment_id"),
+      inverseJoinColumns = @JoinColumn(name = "medical_examnination_id")
+   )
+   @Builder.Default
+   List<MedicalExamination> medicalExamnination = new java.util.ArrayList<>();
+
    LocalDate workDate;
    LocalTime startTime;
    LocalTime endTime;

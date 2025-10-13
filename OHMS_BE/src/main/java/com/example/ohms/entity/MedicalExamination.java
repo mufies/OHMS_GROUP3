@@ -19,12 +19,23 @@ import lombok.experimental.FieldDefaults;
 @NoArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @Builder
-// tạo dịch vụ khám
-// mỗi dịch vụ khám lại có 1 cái giá riêng
 public class MedicalExamination {
    @Id
    @GeneratedValue(strategy = GenerationType.UUID)
    String id;
    String name;
    int price;
+
+   @Override
+   public boolean equals(Object o) {
+      if (this == o) return true;
+      if (o == null || getClass() != o.getClass()) return false;
+      MedicalExamination that = (MedicalExamination) o;
+      return id != null && id.equals(that.id);
+   }
+
+   @Override
+   public int hashCode() {
+      return id != null ? id.hashCode() : 0;
+   }
 }

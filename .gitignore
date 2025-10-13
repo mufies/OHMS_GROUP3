@@ -1,3 +1,4 @@
+docs/
 HELP.md
 target/
 .mvn/wrapper/maven-wrapper.jar
@@ -39,4 +40,4 @@ build/
 .env.production
 
 # doc
-
+.github/

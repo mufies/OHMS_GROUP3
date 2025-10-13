@@ -1,12 +1,14 @@
 package com.example.ohms.entity;
 
-import java.util.Set;
+import java.util.List;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.OneToMany;
+import jakarta.persistence.ManyToMany;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToOne;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -32,8 +34,15 @@ public class MedicalServicesRequest {
     String id;
     @OneToOne
     User patient;
-    @OneToMany
-    Set<MedicalExamination> medicalExamnination;
+    @OneToOne
+    User doctor;
+    @ManyToMany
+    @JoinTable(
+        name = "medical_services_request_medical_examnination",
+        joinColumns = @JoinColumn(name = "medical_services_request_id"),
+        inverseJoinColumns = @JoinColumn(name = "medical_examnination_id")
+    )
+    List<MedicalExamination> medicalExamnination;
     @Default
     boolean status = true;
 

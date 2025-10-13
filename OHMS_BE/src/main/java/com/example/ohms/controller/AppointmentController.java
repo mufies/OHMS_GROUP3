@@ -42,7 +42,6 @@ public class AppointmentController {
         
         try {
             AppointmentResponse response = appointmentService.createAppointment(request);
-            
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
         } catch (RuntimeException e) {
             log.error("Error creating appointment: {}", e.getMessage());
