@@ -159,6 +159,20 @@ public class AppointmentController {
         }
     }
     
+    // Assign doctor to appointment
+    @PutMapping("/{appointmentId}/assign-doctor/{doctorId}")
+    public ResponseEntity<Void> assignDoctorToAppointment(@PathVariable String appointmentId, @PathVariable String doctorId) {
+        log.info("Assigning doctor {} to appointment {}", doctorId, appointmentId);
+        
+        try {
+            appointmentService.assignDoctorToAppointment(appointmentId, doctorId);
+            return ResponseEntity.ok().build();
+        } catch (RuntimeException e) {
+            log.error("Error assigning doctor to appointment: {}", e.getMessage());
+            throw e;
+        }
+    }
+    
     // Lấy các khung giờ đã đặt của doctor
     @GetMapping("/doctor/{doctorId}/booked-slots")
     public ResponseEntity<List<String>> getBookedTimeSlots(

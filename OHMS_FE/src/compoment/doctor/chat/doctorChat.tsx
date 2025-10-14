@@ -318,7 +318,7 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
   // Fetch chat rooms and extract patients list
   const fetchChatRooms = useCallback(async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('accessToken');
       if (!token) return;
 
       const response = await axios.get(`http://localhost:8080/chat/${currentUser.id}`, {
