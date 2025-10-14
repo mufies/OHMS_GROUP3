@@ -1,0 +1,76 @@
+// src/constants/medicalSpecialty.ts
+
+// Const object (value world)
+export const MedicalSpecialty = {
+  INTERNAL_MEDICINE: 'INTERNAL_MEDICINE',
+  SURGERY: 'SURGERY',
+  CARDIOLOGY: 'CARDIOLOGY',
+  PEDIATRICS: 'PEDIATRICS',
+  DERMATOLOGY: 'DERMATOLOGY',
+  OBSTETRICS_GYNECOLOGY: 'OBSTETRICS_GYNECOLOGY',
+  GASTROENTEROLOGY: 'GASTROENTEROLOGY',
+  ORTHOPEDICS: 'ORTHOPEDICS',
+  ALLERGY_IMMUNOLOGY: 'ALLERGY_IMMUNOLOGY',
+  ANESTHESIOLOGY: 'ANESTHESIOLOGY',
+  OTOLARYNGOLOGY: 'OTOLARYNGOLOGY',
+  ONCOLOGY: 'ONCOLOGY',
+  GERIATRICS: 'GERIATRICS',
+  TRAUMA_ORTHOPEDICS: 'TRAUMA_ORTHOPEDICS',
+  EMERGENCY_MEDICINE: 'EMERGENCY_MEDICINE',
+  GENERAL_SURGERY: 'GENERAL_SURGERY',
+  PREVENTIVE_MEDICINE: 'PREVENTIVE_MEDICINE',
+  DENTISTRY: 'DENTISTRY',
+  INFECTIOUS_DISEASE: 'INFECTIOUS_DISEASE',
+  NEPHROLOGY: 'NEPHROLOGY',
+  ENDOCRINOLOGY: 'ENDOCRINOLOGY',
+  PSYCHIATRY: 'PSYCHIATRY',
+  PULMONOLOGY: 'PULMONOLOGY',
+  LABORATORY_MEDICINE: 'LABORATORY_MEDICINE',
+  HEMATOLOGY: 'HEMATOLOGY',
+  PSYCHOLOGY: 'PSYCHOLOGY',
+  NEUROLOGY: 'NEUROLOGY',
+  SPEECH_THERAPY: 'SPEECH_THERAPY',
+  PHYSICAL_THERAPY: 'PHYSICAL_THERAPY',
+  REPRODUCTIVE_MEDICINE: 'REPRODUCTIVE_MEDICINE',
+  TRADITIONAL_MEDICINE: 'TRADITIONAL_MEDICINE',
+  TUBERCULOSIS: 'TUBERCULOSIS'
+} as const;
+
+// Type derived từ const object (type world)
+export type MedicalSpecialtyType = typeof MedicalSpecialty[keyof typeof MedicalSpecialty];
+
+// Mapping Vietnamese labels - SỬA ĐỔI TÊN TYPE Ở ĐÂY
+export const MEDICAL_SPECIALTY_LABELS: Record<MedicalSpecialtyType, string> = {
+  [MedicalSpecialty.INTERNAL_MEDICINE]: 'Nội khoa',
+  [MedicalSpecialty.SURGERY]: 'Ngoại khoa',
+  [MedicalSpecialty.CARDIOLOGY]: 'Tim mạch',
+  [MedicalSpecialty.PEDIATRICS]: 'Nhi khoa',
+  [MedicalSpecialty.DERMATOLOGY]: 'Da liễu',
+  [MedicalSpecialty.OBSTETRICS_GYNECOLOGY]: 'Sản phụ khoa',
+  [MedicalSpecialty.GASTROENTEROLOGY]: 'Tiêu hóa',
+  [MedicalSpecialty.ORTHOPEDICS]: 'Cơ xương khớp',
+  [MedicalSpecialty.ALLERGY_IMMUNOLOGY]: 'Dị ứng - miễn dịch',
+  [MedicalSpecialty.ANESTHESIOLOGY]: 'Gây mê hồi sức',
+  [MedicalSpecialty.OTOLARYNGOLOGY]: 'Tai - mũi - họng',
+  [MedicalSpecialty.ONCOLOGY]: 'Ung bướu',
+  [MedicalSpecialty.GERIATRICS]: 'Lão khoa',
+  [MedicalSpecialty.TRAUMA_ORTHOPEDICS]: 'Chấn thương chỉnh hình',
+  [MedicalSpecialty.EMERGENCY_MEDICINE]: 'Hồi sức cấp cứu',
+  [MedicalSpecialty.GENERAL_SURGERY]: 'Ngoại tổng quát',
+  [MedicalSpecialty.PREVENTIVE_MEDICINE]: 'Y học dự phòng',
+  [MedicalSpecialty.DENTISTRY]: 'Răng - Hàm - Mặt',
+  [MedicalSpecialty.INFECTIOUS_DISEASE]: 'Truyền nhiễm',
+  [MedicalSpecialty.NEPHROLOGY]: 'Nội thận',
+  [MedicalSpecialty.ENDOCRINOLOGY]: 'Nội tiết',
+  [MedicalSpecialty.PSYCHIATRY]: 'Tâm thần',
+  [MedicalSpecialty.PULMONOLOGY]: 'Hô hấp',
+  [MedicalSpecialty.LABORATORY_MEDICINE]: 'Xét nghiệm',
+  [MedicalSpecialty.HEMATOLOGY]: 'Huyết học',
+  [MedicalSpecialty.PSYCHOLOGY]: 'Tâm lý',
+  [MedicalSpecialty.NEUROLOGY]: 'Nội thần kinh',
+  [MedicalSpecialty.SPEECH_THERAPY]: 'Ngôn ngữ trị liệu',
+  [MedicalSpecialty.PHYSICAL_THERAPY]: 'Phục hồi chức năng - Vật lý trị liệu',
+  [MedicalSpecialty.REPRODUCTIVE_MEDICINE]: 'Vô sinh hiếm muộn',
+  [MedicalSpecialty.TRADITIONAL_MEDICINE]: 'Y học cổ truyền',
+  [MedicalSpecialty.TUBERCULOSIS]: 'Lao - bệnh phổi'
+};

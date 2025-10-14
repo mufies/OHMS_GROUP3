@@ -16,7 +16,6 @@ import { useWebSocketService } from '../../../services/webSocketServices';
 interface Message {
   id: string;
   senderId: string;
-  senderName: string;
   content: string;
   timestamp: Date;
   isRead: boolean;
@@ -36,9 +35,6 @@ interface Patient {
 
 interface User {
   id: string;
-  username: string;
-  email: string;
-  specialization?: string;
 }
 
 interface RoomChatResponse {
@@ -85,7 +81,6 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
     const message: Message = {
       id: Date.now().toString(),
       senderId: currentUser.id,
-      senderName: currentUser.username,
       content: newMessage.trim(),
       timestamp: new Date(),
       isRead: false
@@ -129,7 +124,7 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
     }
 
     setNewMessage('');
-  }, [currentUser.id, currentUser.username, newMessage, selectedPatient, getCurrentRoom]);
+  }, [currentUser.id, newMessage, selectedPatient, getCurrentRoom]);
 
 
 
@@ -161,7 +156,6 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
       const incomingMessage: Message = {
         id: Date.now().toString(),
         senderId: message.user?.id ?? 'unknown',
-        senderName: message.user?.username ?? 'Unknown',
         content: message.message,
         timestamp: new Date(message.createdAt ?? Date.now()),
         isRead: false,
@@ -228,7 +222,6 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
           const incomingMessage: Message = {
             id: Date.now().toString(),
             senderId: message.user?.id ?? 'unknown',
-            senderName: message.user?.username ?? 'Unknown',
             content: message.message,
             timestamp: new Date(message.createdAt ?? Date.now()),
             isRead: false,
@@ -329,6 +322,8 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
       });
 
       if (response.data?.results) {
+        console.log('negi');
+        
         setChatRooms(response.data.results);
 
         const patientsMap = new Map<string, Patient>();
@@ -345,6 +340,8 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
                     'Content-Type': 'application/json',
                   },
                 });
+                console.log('concer');
+                
 
                 let lastMessage = 'No messages yet';
                 let lastMessageTime = new Date(Date.now() - Math.random() * 86400000); // Default to within last day

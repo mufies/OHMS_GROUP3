@@ -1,6 +1,10 @@
 package com.example.ohms.entity;
 
+import com.example.ohms.enums.MedicalSpecialty;
+
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -25,6 +29,9 @@ public class MedicalExamination {
    String id;
    String name;
    int price;
+   
+   @Enumerated(EnumType.STRING)
+   MedicalSpecialty medicalSpecialty;
 
    @Override
    public boolean equals(Object o) {

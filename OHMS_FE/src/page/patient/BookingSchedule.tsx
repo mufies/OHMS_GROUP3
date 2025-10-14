@@ -448,31 +448,15 @@ function BookingSchedule() {
             )}
 
             {/* Clinic Info */}
-            <div className="mb-6">
-              <div className="text-sm font-semibold text-gray-700 mb-3">Địa điểm khám:</div>
-              <div className="flex items-start gap-3">
-                <div className="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
-                  <svg className="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                </div>
-                <div className="flex-1">
-                  <div className="font-semibold text-sm text-gray-900">Phòng khám Đa khoa</div>
-                  <div className="text-xs text-gray-600 mt-1">
-                    53 Phạm Hữu Chí, Phường 12, Quận 5, Hồ Chí Minh
-                  </div>
-                </div>
-              </div>
-            </div>
+
 
             <button
               className={`w-full font-bold text-base border-none rounded-lg py-4 mb-3 transition-all ${
-                selectedSlot && selectedServices.length > 0 && selectedDoctor
+                selectedSlot && selectedServices.length > 0 
                   ? "bg-blue-600 text-white cursor-pointer hover:bg-blue-700"
                   : "bg-gray-300 text-gray-500 cursor-not-allowed"
               }`}
-              disabled={!selectedSlot || selectedServices.length === 0 || !selectedDoctor}
+              disabled={!selectedSlot || selectedServices.length === 0 }
             >
               Xác nhận đặt khám
             </button>
@@ -485,7 +469,7 @@ function BookingSchedule() {
 
       {/* Service Selection Modal */}
       {showServiceModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-100 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
             {/* Modal Header */}
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
@@ -557,7 +541,7 @@ function BookingSchedule() {
 
       {/* Doctor Selection Modal */}
       {showDoctorModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden">
             {/* Modal Header */}
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
@@ -753,7 +737,7 @@ function BookingSchedule() {
                 </div>
                 <button
                   onClick={handleDoctorModalClose}
-                  disabled={!selectedDoctor}
+                  // disabled={!selectedDoctor}
                   className={`px-6 py-3 font-semibold rounded-lg transition-colors ${
                     selectedDoctor
                       ? "bg-blue-600 text-white hover:bg-blue-700"

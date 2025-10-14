@@ -36,5 +36,7 @@ public class AppointmentRequest {
     LocalTime endTime;
 
     List<String> medicalExaminationIds; // List các ID của medical examinations
+    @Builder.Default
+    String status = "Scheduled";
 
 }

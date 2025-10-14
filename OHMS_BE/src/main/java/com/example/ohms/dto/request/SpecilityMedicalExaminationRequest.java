@@ -11,10 +11,7 @@ import lombok.experimental.FieldDefaults;
 @Data
 @Builder
 @RequiredArgsConstructor
-@FieldDefaults(level = AccessLevel.PRIVATE,makeFinal = true)
-public class MedicleExaminationRequest {
-   String name;
-   int price;
-   MedicalSpecialty medicalSpecialty;
-
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+public class SpecilityMedicalExaminationRequest {
+   MedicalSpecialty specility;
 }

@@ -138,4 +138,6 @@ public interface AppointmentRepository extends JpaRepository<Appointment, String
     @Modifying
     @Query("UPDATE Appointment a SET a.doctor.id = :doctorId WHERE a.id = :appointmentId")
     int assignDoctorToAppointment(@Param("appointmentId") String appointmentId, @Param("doctorId") String doctorId);
+
+    
 }

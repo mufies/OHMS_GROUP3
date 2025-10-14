@@ -71,6 +71,7 @@ public class AppointmentService {
             .workDate(request.getWorkDate())
             .startTime(request.getStartTime())
             .endTime(request.getEndTime())
+            .status("Schedule")
             .build();
         
         // Handle medical examinations nếu có trong request
@@ -265,7 +266,7 @@ public class AppointmentService {
             .workDate(appointment.getWorkDate())
             .startTime(appointment.getStartTime())
             .endTime(appointment.getEndTime())
-            .status("SCHEDULED"); // Default status
+            .status(appointment.getStatus()); // Default status
         
         // Map patient info
         if (appointment.getPatient() != null) {

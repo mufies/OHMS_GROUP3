@@ -2,6 +2,8 @@ package com.example.ohms.dto.request;
 
 import java.util.List;
 
+import com.example.ohms.enums.MedicalSpecialty;
+
 import jakarta.validation.constraints.NotNull;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -24,5 +26,7 @@ public class MedicalServicesRequestRequest {
     String doctorId;
 
     List<String> medicalExaminationIds; // List các ID của medical examinations
+    
+    MedicalSpecialty medicalSpecialty; // Chuyên khoa y tế
     
 }

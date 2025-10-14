@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.ohms.dto.request.MedicleExaminationRequest;
+import com.example.ohms.dto.request.SpecilityMedicalExaminationRequest;
 import com.example.ohms.dto.response.ApiResponse;
 import com.example.ohms.dto.response.MedicleExaminationResponse;
 import com.example.ohms.service.MedicleExaminatoinSerivce;
@@ -71,6 +72,15 @@ public class MedicleExaminationController {
       .code(200)
       .results(medicleExaminatoinSerivce.updateMedicleExamination(medicleExaminationRequest, id))
       .build();
-
+   }
+   
+   @PostMapping("/by-specialty")
+   public ApiResponse<List<MedicleExaminationResponse>> getMedicalExaminationsBySpecialty(
+      @RequestBody SpecilityMedicalExaminationRequest request
+   ){
+      return ApiResponse.<List<MedicleExaminationResponse>>builder()
+      .code(200)
+      .results(medicleExaminatoinSerivce.getMedicalExaminationsByMedicalSpecialy(request))
+      .build();
    }
 }

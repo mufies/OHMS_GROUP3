@@ -6,6 +6,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
 import com.example.ohms.dto.request.MedicleExaminationRequest;
+import com.example.ohms.dto.request.SpecilityMedicalExaminationRequest;
 import com.example.ohms.dto.response.MedicleExaminationResponse;
 import com.example.ohms.entity.MedicalExamination;
 import com.example.ohms.exception.AppException;
@@ -55,6 +56,16 @@ public class MedicleExaminatoinSerivce{
       }
       medicleExaminationRepository.save(medicalExamination);
       return medicalExaminationMapper.toMedicleExaminationResponse(medicalExamination);
+   }
+
+   public List<MedicleExaminationResponse> getMedicalExaminationsByMedicalSpecialy(
+      SpecilityMedicalExaminationRequest request
+   )
+   {
+      return medicleExaminationRepository.findAllByMedicalSpecialty(request.getSpecility())
+         .stream()
+         .map(medicalExaminationMapper::toMedicleExaminationResponse)
+         .toList();
    }
 
 }

@@ -22,6 +22,8 @@ import WebRTCApp from './page/WebRTCApp.tsx';
 import OnlineConsultSpecialty from "./page/patient/OnlineConsultSpecialty";
 import OnlineConsultTime from "./page/patient/OnlineConsultTime";
 import BookingSchedule from "./page/patient/BookingSchedule";
+import BookingScheduleNew from "./page/patient/BookingSchedule_New";
+import PaymentCallback from "./page/patient/PaymentCallback";
 import Doctor from "./page/patient/Doctor";
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -42,6 +44,8 @@ function App() {
                 <Route path="/online-consult-time" element={<OnlineConsultTime />} />
                 <Route path="/online-doctor" element={<Doctor/>}/>
                 <Route path="/booking-schedule" element={<BookingSchedule/>}/>
+                <Route path="/booking-schedule-new" element={<BookingScheduleNew/>}/>
+                <Route path="/payment-callback" element={<PaymentCallback/>}/>
                 <Route path="*" element={<Home />} />
 
             </Routes>

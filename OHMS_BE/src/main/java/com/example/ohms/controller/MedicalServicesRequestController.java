@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.ohms.dto.request.MedicalServicesRequestRequest;
+import com.example.ohms.dto.request.UpdateStatusRequest;
+import com.example.ohms.dto.request.UpdateMedicalServicesRequestStatusRequest;
 import com.example.ohms.dto.response.MedicalServicesRequestResponse;
 import com.example.ohms.service.MedicalServicesRequestService;
 
@@ -102,6 +104,23 @@ public class MedicalServicesRequestController {
             return ResponseEntity.noContent().build();
         } catch (RuntimeException e) {
             log.error("Error deleting medical services request: {}", e.getMessage());
+            throw e;
+        }
+    }
+
+    // Cập nhật trạng thái yêu cầu dịch vụ y tế
+    @PutMapping("/{id}/status")
+    public ResponseEntity<MedicalServicesRequestResponse> updateMedicalServicesRequestStatus(
+            @PathVariable String id,
+            @Valid @RequestBody UpdateStatusRequest request) {
+        log.info("Updating status of medical services request: {} to {}", id, request.getStatus());
+        
+        try {
+            MedicalServicesRequestResponse response = medicalServicesRequestService
+                    .updateMedicalServicesRequestStatus(id, request.getStatus());
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            log.error("Error updating status: {}", e.getMessage());
             throw e;
         }
     }
