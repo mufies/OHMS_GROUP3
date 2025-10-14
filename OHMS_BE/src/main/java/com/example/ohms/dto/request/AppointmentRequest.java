@@ -23,7 +23,7 @@ public class AppointmentRequest {
     @NotBlank(message = "Patient ID is required")
     String patientId;
     
-    @NotBlank(message = "Doctor ID is required")
+    // @NotBlank(message = "Doctor ID is required")
     String doctorId;
     
     @NotNull(message = "Work date is required")

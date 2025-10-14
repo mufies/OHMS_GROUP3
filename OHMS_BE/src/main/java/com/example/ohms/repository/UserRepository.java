@@ -1,5 +1,6 @@
 package com.example.ohms.repository;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -15,4 +16,7 @@ public interface UserRepository extends JpaRepository<User,String> {
    
    @Query("SELECT u FROM User u LEFT JOIN FETCH u.roles WHERE u.id = :id")
    Optional<User> findByIdWithRoles(@Param("id") String id);
+
+   @Query("SELECT u FROM User u JOIN u.roles r WHERE r.name = :roleName")
+   List<User> findByRoleName(@Param("roleName") String roleName);
 }

@@ -38,7 +38,6 @@ public class AppointmentController {
     // Tạo appointment mới
     @PostMapping
     public ResponseEntity<AppointmentResponse> createAppointment(@Valid @RequestBody AppointmentRequest request) {
-        log.info("Creating new appointment for patient: {} with doctor: {}", request.getPatientId(), request.getDoctorId());
         
         try {
             AppointmentResponse response = appointmentService.createAppointment(request);
@@ -155,6 +154,20 @@ public class AppointmentController {
             return ResponseEntity.noContent().build();
         } catch (RuntimeException e) {
             log.error("Error deleting appointment: {}", e.getMessage());
+            throw e;
+        }
+    }
+    
+    // Assign doctor to appointment
+    @PutMapping("/{appointmentId}/assign-doctor/{doctorId}")
+    public ResponseEntity<Void> assignDoctorToAppointment(@PathVariable String appointmentId, @PathVariable String doctorId) {
+        log.info("Assigning doctor {} to appointment {}", doctorId, appointmentId);
+        
+        try {
+            appointmentService.assignDoctorToAppointment(appointmentId, doctorId);
+            return ResponseEntity.ok().build();
+        } catch (RuntimeException e) {
+            log.error("Error assigning doctor to appointment: {}", e.getMessage());
             throw e;
         }
     }

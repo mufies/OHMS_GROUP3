@@ -17,7 +17,7 @@ const DoctorChatPage = () => {
 
   useEffect(() => {
     const storedUser = localStorage.getItem('currentUser');
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('accessToken');
     
     if (storedUser && token) {
       const user = JSON.parse(storedUser);

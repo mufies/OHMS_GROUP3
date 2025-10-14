@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import com.example.ohms.enums.PaymentStatus;
@@ -43,7 +44,7 @@ public class Appointment {
    String id; // hide
    @ManyToOne
    User patient;
-   @ManyToOne
+   @ManyToOne(optional = true)
    User doctor;
 // book khám gì ?
    @ManyToMany

@@ -55,8 +55,12 @@ public class AppointmentService {
         }
         
         // Lấy thông tin doctor và patient
-        User doctor = userRepository.findById(request.getDoctorId())
-            .orElseThrow(() -> new RuntimeException("Doctor not found with id: " + request.getDoctorId()));
+        User doctor = null; // Khởi tạo doctor là null
+        if (request.getDoctorId() != null && !request.getDoctorId().isBlank()) {
+            log.info("Assigning doctor with id: {}", request.getDoctorId());
+            doctor = userRepository.findById(request.getDoctorId())
+                .orElseThrow(() -> new RuntimeException("Doctor not found with id: " + request.getDoctorId()));
+        }
         User patient = userRepository.findById(request.getPatientId())
             .orElseThrow(() -> new RuntimeException("Patient not found with id: " + request.getPatientId()));
         
@@ -212,6 +216,33 @@ public class AppointmentService {
         
         appointmentRepository.deleteById(appointmentId);
         log.info("Appointment deleted successfully: {}", appointmentId);
+    }
+
+    // Assign doctor to appointment
+    public void assignDoctorToAppointment(String appointmentId, String doctorId) {
+        log.info("Assigning doctor {} to appointment {}", doctorId, appointmentId);
+
+        // Check if appointment exists
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+            .orElseThrow(() -> new RuntimeException("Appointment not found with id: " + appointmentId));
+
+        // Check if doctor exists
+        if (!userRepository.existsById(doctorId)) {
+            throw new RuntimeException("Doctor not found with id: " + doctorId);
+        }
+
+        // // Check if appointment already has a doctor
+        // if (appointment.getDoctor() != null) {
+        //     throw new RuntimeException("Appointment already has a doctor assigned");
+        // }
+
+        // Assign doctor
+        int updated = appointmentRepository.assignDoctorToAppointment(appointmentId, doctorId);
+        if (updated == 0) {
+            throw new RuntimeException("Failed to assign doctor to appointment");
+        }
+
+        log.info("Doctor {} assigned to appointment {} successfully", doctorId, appointmentId);
     }
     
     
