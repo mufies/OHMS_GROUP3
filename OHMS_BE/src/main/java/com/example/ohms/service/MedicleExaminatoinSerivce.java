@@ -11,36 +11,23 @@ import com.example.ohms.dto.response.MedicleExaminationResponse;
 import com.example.ohms.entity.MedicalExamination;
 import com.example.ohms.exception.AppException;
 import com.example.ohms.exception.ErrorCode;
-import com.example.ohms.mapper.MedicalExaminationMapper;
+import com.example.ohms.mapper.MedicalExaminationMappers;
 import com.example.ohms.repository.MedicleExaminatioRepository;
 
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
-import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 @FieldDefaults(level =  AccessLevel.PRIVATE, makeFinal = true)
 public class MedicleExaminatoinSerivce{
    MedicleExaminatioRepository medicleExaminationRepository;
-   MedicalExaminationMapper medicalExaminationMapper;
+   MedicalExaminationMappers medicalExaminationMapper;
 // tạo dịch vụ khám bệnh mới, này chắc để quyền admin
   @PreAuthorize("hasRole('ADMIN')")
    public MedicleExaminationResponse createMedicleExamination(MedicleExaminationRequest medicleExaminationRequest){
       MedicalExamination medicalExamination = medicalExaminationMapper.toMedicalExamination(medicleExaminationRequest);
-      // get cái mới, check trong đó xem có chưa, chưa có thì in ra lỗi
- if(medicleExaminationRepository.findByName(medicalExamination.getName()).isPresent()){
-            throw new AppException(ErrorCode.MEDICINE_EXITEDS);
-      }
-     if(medicalExamination.getPrice() <= 0){
-         throw new AppException(ErrorCode.PRICE_INVALID);
-     }
-     if(medicalExamination.getMedicalSpecialty() == null){
-         throw new AppException(ErrorCode.FIELD_NOT_NULL);
-     }
-      medicalExamination.setMedicalSpecialty(medicleExaminationRequest.getMedicalSpecialty());
       medicleExaminationRepository.save(medicalExamination);
       return medicalExaminationMapper.toMedicleExaminationResponse(medicalExamination);
    }
@@ -69,12 +56,6 @@ public class MedicleExaminatoinSerivce{
       }
       medicleExaminationRepository.save(medicalExamination);
       return medicalExaminationMapper.toMedicleExaminationResponse(medicalExamination);
-   }
-// lấy cái medicalExamination theo medicalSpecialty
-   public List<MedicalExamination> getMedicalExaminationsByMedicalSpecialy(
-      SpecilityMedicalExaminationRequest request
-   ){
-      return medicleExaminationRepository.findAllByMedicalSpecialty(request.getSpecility());
    }
 
    public List<MedicleExaminationResponse> getMedicalExaminationsByMedicalSpecialy(
