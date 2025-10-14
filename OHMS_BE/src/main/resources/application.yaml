@@ -34,9 +34,6 @@ spring:
 
 app:
   signal-key: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
-gemini:
-  api:
-    key: "AIzaSyB-0HN-VKJZpE7E2zNNIifXQymDSTMwcsY"
 
     
 
