@@ -28,7 +28,6 @@ import Doctor from "./page/patient/Doctor";
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 // import DoctorCall from "./page/doctor/DoctorCall.tsx";
-
 function App() {
     return (
         <Router>

@@ -38,6 +38,7 @@ public class AppointmentController {
     // Tạo appointment mới
     @PostMapping
     public ResponseEntity<AppointmentResponse> createAppointment(@Valid @RequestBody AppointmentRequest request) {
+        log.info("Creating new appointment for patient: {} with doctor: {}", request.getPatientId(), request.getDoctorId());
         
         try {
             AppointmentResponse response = appointmentService.createAppointment(request);

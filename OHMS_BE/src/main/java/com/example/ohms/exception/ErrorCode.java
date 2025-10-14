@@ -48,7 +48,7 @@ PRESCRIP_NOT_FOUND(1038,"Prescrip not found", HttpStatus.NOT_FOUND),
 DATE_NOT_VAILID(1039,"Date not vailid", HttpStatus.BAD_REQUEST),
 KHONG_DU_THUOC(1040,"medicine not enough", HttpStatus.BAD_REQUEST),
 METHOD_NOT_ALLOW(1040,"method not allow",HttpStatus.BAD_REQUEST),
-
+   PRICE_INVALID(1041,"Price must be greater than 0",HttpStatus.BAD_REQUEST),
    UNAUTHENTICATED(1009,"UNAUTHENTICATED ERROR!!",HttpStatus.BAD_REQUEST);
    
    private int code;

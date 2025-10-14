@@ -15,6 +15,7 @@ import com.example.ohms.dto.request.MedicleExaminationRequest;
 import com.example.ohms.dto.request.SpecilityMedicalExaminationRequest;
 import com.example.ohms.dto.response.ApiResponse;
 import com.example.ohms.dto.response.MedicleExaminationResponse;
+import com.example.ohms.entity.MedicalExamination;
 import com.example.ohms.service.MedicleExaminatoinSerivce;
 
 import lombok.AccessLevel;

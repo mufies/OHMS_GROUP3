@@ -8,6 +8,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.ManyToOne;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -38,7 +39,7 @@ public class MedicalExamination {
       if (this == o) return true;
       if (o == null || getClass() != o.getClass()) return false;
       MedicalExamination that = (MedicalExamination) o;
-      return id != null && id.equals(that.id);
+      return id != null && id.equals   (that.id);
    }
 
    @Override
