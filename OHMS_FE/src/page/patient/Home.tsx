@@ -10,7 +10,7 @@ function Home() {
                     background: "linear-gradient(180deg, #f6f9ff 0%, #ffffff 100%)"
                 }}>
                     <div style={{
-                        maxWidth: 1200,
+                        maxWidth: "100vw",
                         margin: "0 auto",
                         display: "grid",
                         gridTemplateColumns: "1.2fr 1fr",
@@ -128,18 +128,6 @@ function Home() {
 
                 
 
-                <section id="apps" style={{ padding: "16px" }}>
-                    <div style={{ maxWidth: 1200, margin: "0 auto", background: "#0ea5e9", color: "white", borderRadius: 16, display: "flex", alignItems: "center", justifyContent: "space-between", padding: 24 }}>
-                        <div>
-                            <div style={{ fontSize: 22, fontWeight: 700 }}>Tải ứng dụng Đặt khám nhanh</div>
-                            <div style={{ opacity: 0.9, marginTop: 6 }}>Trải nghiệm đặt khám thuận tiện, nhanh chóng ở mọi nơi</div>
-                        </div>
-                        <div style={{ display: "flex", gap: 12 }}>
-                            <button style={{ background: "white", color: "#0ea5e9", border: 0, padding: "10px 14px", borderRadius: 10, fontWeight: 700, cursor: "pointer" }}>App Store</button>
-                            <button style={{ background: "white", color: "#0ea5e9", border: 0, padding: "10px 14px", borderRadius: 10, fontWeight: 700, cursor: "pointer" }}>Google Play</button>
-                        </div>
-                    </div>
-                </section>
             </main>
             <footer style={{ padding: 24, borderTop: "1px solid #e2e8f0", marginTop: 24 }}>
                 <div style={{ maxWidth: 1200, margin: "0 auto" }}>

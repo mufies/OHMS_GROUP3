@@ -21,6 +21,15 @@ import DoctorChat from "./page/doctor/DoctorChat.tsx";
 import WebRTCApp from './page/WebRTCApp.tsx';
 import OnlineConsultSpecialty from "./page/patient/OnlineConsultSpecialty";
 import OnlineConsultTime from "./page/patient/OnlineConsultTime";
+import BookingSchedule from "./page/patient/BookingSchedule.tsx";
+import ViewDoctor from "./page/patient/Doctor.tsx";
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import PatientProfile from "./compoment/patient/PatientProfile.tsx";
+import PatientAppointments from "./compoment/patient/PatientAppointments.tsx";
+import PatientTransactions from "./compoment/patient/PatientTransactions.tsx";
+import PatientAccount from "./compoment/patient/PatientAccount.tsx";
+
 // import DoctorCall from "./page/doctor/DoctorCall.tsx";
 function App() {
     return (
@@ -28,28 +37,34 @@ function App() {
             {/*<AuthProvider>*/}
             <Routes>
                 <Route path="/" element={<Home />} />
-                {/*<Route index element={<MainPage/>}/>*/}
-                {/*<Route path="/deck" element={<ProtectRoute><ProfilePage/></ProtectRoute>}/>*/}
-                {/*<Route path="unpack" element={<UnPackPage/>}/>*/}
-                {/*<Route path="trade" element={<SearchUser/>}/>*/}
-                {/*<Route path="/login" element={<LoginPage />} />*/}
                 <Route path="/booking" element={<Booking />} />
-                {/*<Route path="/music" element={<DashboardPage />} />*/}
-                {/*<Route path="/register" element={<RegisterPage />} />*/}
-                {/*<Route path="/playlist/:id" element={<PlaylistPage />} />*/}
+                <Route path="/booking-schedule" element={<BookingSchedule />} />
                 <Route path="/doctor/" element={<DoctorDashboard />} />
                 <Route path="/doctor/schedule" element={<DoctorSchedule />} />
                 <Route path="/doctor/chat" element={<DoctorChat />} />
                 <Route path='/video' element={<WebRTCApp/>} />
                 <Route path="/online-consult" element={<OnlineConsultSpecialty />} />
                 <Route path="/online-consult-time" element={<OnlineConsultTime />} />
-
-                {/*<Route path="/doctor/call" element={<DoctorCall />} />*/}
-                {/*<Route path="*" element={<HomePage />} />*/}
-
-
+                <Route path="/ViewDoctor" element={<ViewDoctor />} />
+                <Route path="/profile" element={<PatientProfile />} />
+            <Route path="/appointments" element={<PatientAppointments />} />
+            <Route path="/payments" element={<PatientTransactions />} />
+            <Route path="/account" element={<PatientAccount />} />
             </Routes>
             {/*</AuthProvider>*/}
+           <ToastContainer
+                position="bottom-left"
+                autoClose={3000}
+                hideProgressBar={false}
+                newestOnTop={false}
+                closeOnClick
+                rtl={false}
+                pauseOnFocusLoss
+                draggable
+                pauseOnHover
+                theme="light"
+                style={{ zIndex: 1000 }}
+            />
         </Router>
     );
 }

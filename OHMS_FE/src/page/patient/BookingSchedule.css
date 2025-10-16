@@ -1,0 +1,158 @@
+.booking-bg {
+  background: #fafafa;
+  min-height: 100vh;
+  padding: 32px 0;
+}
+.booking-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  gap: 32px;
+}
+.booking-main {
+  flex: 1;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.06);
+  padding: 32px;
+}
+.booking-title {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+.booking-card {
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  padding: 24px;
+  margin-bottom: 24px;
+}
+.booking-warning {
+  color: #ef4444;
+  font-size: 15px;
+  margin-bottom: 12px;
+}
+.booking-label {
+  font-weight: 600;
+  font-size: 17px;
+  margin-bottom: 16px;
+}
+.booking-days {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+.booking-day-btn {
+  padding: 16px 24px;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  color: #111827;
+  font-weight: 500;
+  font-size: 16px;
+  cursor: pointer;
+  margin-right: 8px;
+  min-width: 120px;
+  text-align: center;
+}
+.booking-day-btn.selected {
+  border: 2px solid #111827;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+.booking-day-btn.full {
+  background: #f3f4f6;
+  color: #ef4444;
+  cursor: not-allowed;
+}
+.booking-day-slot {
+  font-size: 13px;
+  margin-top: 4px;
+}
+.booking-day-slot.full {
+  color: #ef4444;
+}
+.booking-day-slot.available {
+  color: #22c55e;
+}
+.booking-slot-label {
+  font-weight: 700;
+  margin-right: 8px;
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #111827;
+  color: #fff;
+  text-align: center;
+  line-height: 24px;
+}
+.booking-slots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.booking-slot-btn {
+  padding: 16px 24px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  background: #f3f4f6;
+  color: #111827;
+  font-weight: 600;
+  font-size: 16px;
+  cursor: pointer;
+}
+.booking-slot-btn.selected {
+  border: 2px solid #2563eb;
+  background: #2563eb;
+  color: #fff;
+}
+.booking-sidebar {
+  width: 350px;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.06);
+  padding: 32px;
+  height: fit-content;
+}
+.booking-sidebar-title {
+  font-weight: 700;
+  font-size: 18px;
+  margin-bottom: 12px;
+}
+.booking-doctor-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.booking-doctor-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #e5e7eb;
+  overflow: hidden;
+}
+.booking-confirm-btn {
+  width: 100%;
+  font-weight: 700;
+  font-size: 16px;
+  border: none;
+  border-radius: 8px;
+  padding: 14px 0;
+  margin-bottom: 12px;
+  cursor: pointer;
+  background: #d1d5db;
+  color: #111827;
+}
+.booking-confirm-btn.enabled {
+  background: #2563eb;
+  color: #fff;
+  cursor: pointer;
+}
+.booking-sidebar-note {
+  font-size: 13px;
+  color: #6b7280;
+}

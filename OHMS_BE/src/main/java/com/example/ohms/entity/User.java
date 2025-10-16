@@ -1,5 +1,6 @@
 package com.example.ohms.entity;
 
+import java.sql.Date;
 import java.util.Set;
 
 import com.example.ohms.enums.MedicalSpecialty;
@@ -33,6 +34,8 @@ public class User {
    String imageUrl;
    String email;
    Integer phone;
+   String gender;
+   Date dob;
 // mấy cái này tí nhớ ẩn trong mapper
    @ManyToMany
    Set<Role> roles;
