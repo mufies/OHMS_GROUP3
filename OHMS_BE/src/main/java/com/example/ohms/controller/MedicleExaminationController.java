@@ -84,4 +84,14 @@ public class MedicleExaminationController {
       .results(medicleExaminatoinSerivce.getMedicalExaminationsByMedicalSpecialy(request))
       .build();
    }
+
+   @PostMapping("/by-name")
+   public ApiResponse<MedicleExaminationResponse> getMedicalExaminationByName(
+      @RequestBody MedicleExaminationRequest request
+   ){
+      return ApiResponse.<MedicleExaminationResponse>builder()
+      .code(200)
+      .results(medicleExaminatoinSerivce.getMedicalExaminationByName(request.getName()))
+      .build();
+   }
 }

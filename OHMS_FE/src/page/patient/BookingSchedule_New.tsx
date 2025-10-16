@@ -90,7 +90,7 @@ function BookingSchedule() {
   useEffect(() => {
     const checkMedicalRequests = async () => {
       try {
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('accessToken');
         const userId = localStorage.getItem('userId');
         
         if (!userId || !token) return;
@@ -127,7 +127,7 @@ function BookingSchedule() {
   // Handle using existing medical request
   const handleUseExistingRequest = async (request: MedicalServicesRequest) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('accessToken');
       
       // Update status to false
       await axios.put(

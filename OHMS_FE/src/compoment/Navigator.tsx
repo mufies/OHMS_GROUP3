@@ -24,6 +24,7 @@ export interface ProfileData {
 function Navigator() {
     const links = [
         { href: "/booking", label: "Đặt khám" },
+        { href: "/chat", label: "Nhắn tin" },
         { href: "/", label: "" },
     ];
     const [showLogin, setShowLogin] = useState(false);
@@ -75,7 +76,27 @@ function Navigator() {
             <header className="fixed inset-x-0 top-0 z-50 bg-black-800/95 bg-white">
                 <nav className="mx-auto flex h-14 max-w-7xl items-center gap-8 px-6">
                     {/* Logo */}
-                    <a href="/" className="text-2xl font-bold text-black flex items-center">
+                    <a 
+                        href="/" 
+                        className="
+                            text-x
+                            font-medium 
+                            text-black/90 
+                            flex 
+                            items-center
+                            relative
+                            after:absolute
+                            after:inset-x-0
+                            after:-bottom-1
+                            after:h-0.5
+                            after:scale-x-0
+                            after:bg-pink-500
+                            after:transition-transform
+                            after:duration-200
+                            hover:after:scale-x-100
+                        "
+                    >
+                        Home
                     </a>
 
                     {/* Navigation links */}
@@ -133,6 +154,12 @@ function Navigator() {
                                             className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md block-text"
                                         >
                                             Profile
+                                        </a>
+                                        <a
+                                            href="/chat"
+                                            className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md block-text"
+                                        >
+                                            Chat
                                         </a>
                                         <a
                                             href="/settings"

@@ -47,6 +47,7 @@ public class AppointmentController {
             log.error("Error creating appointment: {}", e.getMessage());
             throw e;
         }
+        
     }
     
     // Lấy appointment theo ID
@@ -169,6 +170,22 @@ public class AppointmentController {
             return ResponseEntity.ok().build();
         } catch (RuntimeException e) {
             log.error("Error assigning doctor to appointment: {}", e.getMessage());
+            throw e;
+        }
+    }
+    
+    // Update appointment status
+    @PutMapping("/{appointmentId}/status")
+    public ResponseEntity<AppointmentResponse> updateAppointmentStatus(
+            @PathVariable String appointmentId,
+            @RequestParam String status) {
+        log.info("Updating status of appointment {} to {}", appointmentId, status);
+        
+        try {
+            AppointmentResponse response = appointmentService.updateAppointmentStatus(appointmentId, status);
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            log.error("Error updating appointment status: {}", e.getMessage());
             throw e;
         }
     }

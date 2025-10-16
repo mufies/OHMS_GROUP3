@@ -33,6 +33,7 @@ public class RoomChatController {
       .results(roomChatService.createRoomChat(roomChatRequest))
       .build();
    }
+   
    @GetMapping("{id1}/{id2}")
    public ApiResponse<RoomChatResponse> checkRoomChat(
       @PathVariable("id1") String id1,

@@ -35,7 +35,8 @@ public class AppointmentService {
     
     AppointmentRepository appointmentRepository;
     UserRepository userRepository;
-    MedicleExaminatioRepository medicleExaminatioRepository; // Thêm dependency
+    MedicleExaminatioRepository medicleExaminatioRepository;
+    RoomChatService roomChatService; // Thêm RoomChatService
     
     // Tạo appointment mới
     public AppointmentResponse createAppointment(AppointmentRequest request) {
@@ -92,7 +93,31 @@ public class AppointmentService {
         Appointment savedAppointment = appointmentRepository.save(appointment);
         log.info("Appointment created successfully with id: {}", savedAppointment.getId());
 
-
+        // Kiểm tra nếu có dịch vụ "Tư vấn online" thì tạo chat room
+        if (request.getMedicalExaminationIds() != null && !request.getMedicalExaminationIds().isEmpty()) {
+            boolean isOnlineConsult = request.getMedicalExaminationIds().stream()
+                .anyMatch(id -> {
+                    Optional<MedicalExamination> exam = medicleExaminatioRepository.findById(id);
+                    return exam.isPresent() && "Tư vấn online".equals(exam.get().getName());
+                });
+            
+            if (isOnlineConsult && request.getDoctorId() != null && !request.getDoctorId().isBlank()) {
+                try {
+                    // Tạo chat room cho patient và doctor
+                    com.example.ohms.dto.request.RoomChatRequest roomChatRequest = 
+                        com.example.ohms.dto.request.RoomChatRequest.builder()
+                            .user(Set.of(request.getPatientId(), request.getDoctorId()))
+                            .build();
+                    
+                    roomChatService.createRoomChat(roomChatRequest);
+                    
+                    log.info("✅ Chat room created for online consultation appointment: {}", savedAppointment.getId());
+                } catch (Exception e) {
+                    log.error("❌ Failed to create chat room for appointment: {}", savedAppointment.getId(), e);
+                    // Không throw exception để không rollback appointment
+                }
+            }
+        }
         
         return toAppointmentResponse(savedAppointment);
     }
@@ -217,6 +242,20 @@ public class AppointmentService {
         
         appointmentRepository.deleteById(appointmentId);
         log.info("Appointment deleted successfully: {}", appointmentId);
+    }
+    
+    // Update appointment status
+    public AppointmentResponse updateAppointmentStatus(String appointmentId, String status) {
+        log.info("Updating status of appointment {} to {}", appointmentId, status);
+        
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+            .orElseThrow(() -> new RuntimeException("Appointment not found with id: " + appointmentId));
+        
+        appointment.setStatus(status);
+        Appointment updatedAppointment = appointmentRepository.save(appointment);
+        
+        log.info("Appointment status updated successfully: {} -> {}", appointmentId, status);
+        return toAppointmentResponse(updatedAppointment);
     }
 
     // Assign doctor to appointment

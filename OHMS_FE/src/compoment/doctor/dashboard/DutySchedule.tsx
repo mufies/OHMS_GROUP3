@@ -29,7 +29,7 @@ const DutySchedule: React.FC = () => {
     const fetchSchedule = async () => {
       try {
         // Get doctor ID from token
-        const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
+        const token =localStorage.getItem('accessToken');
         if (!token) {
           console.error('No token found');
           setLoading(false);

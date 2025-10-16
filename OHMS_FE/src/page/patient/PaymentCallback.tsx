@@ -36,7 +36,24 @@ function PaymentCallback() {
       if (vnp_ResponseCode === '00' && vnp_TransactionStatus === '00') {
         try {
           const token = localStorage.getItem('accessToken');
-          const userId = localStorage.getItem('userId');
+          if (!token) {
+            setStatus('failure');
+            setMessage('Không tìm thấy token xác thực. Vui lòng đăng nhập lại.');
+            setTimeout(() => navigate('/login'), 3000);
+            return;
+          }
+            // Decode JWT to get userId
+            const decodeJWT = (token: string) => {
+            try {
+              const payload = token.split('.')[1];
+              const decoded = JSON.parse(atob(payload));
+              return decoded;
+            } catch (error) {
+              throw new Error('Invalid JWT token');
+            }
+            };
+            const decodedToken = decodeJWT(token);
+            const userId = decodedToken.userId;
           
           const appointmentData = {
             patientId: userId,

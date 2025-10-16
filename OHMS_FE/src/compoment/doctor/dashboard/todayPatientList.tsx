@@ -4,7 +4,7 @@ import axios from "axios";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faComments, faEye } from '@fortawesome/free-solid-svg-icons';
 
-type PatientStatus = "SCHEDULED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
+type PatientStatus = "Schedule" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "SCHEDULED";
 
 type MedicalExamination = {
     id: string;
@@ -50,7 +50,7 @@ export default function TodayPatientList() {
 
     // Get userId from token
     useEffect(() => {
-        const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
+        const token = localStorage.getItem('accessToken');
         if (token) {
             try {
                 const payload = token.split('.')[1];
@@ -75,7 +75,7 @@ useEffect(() => {
         setError(null);
 
         try {
-            const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
+            const token = localStorage.getItem('accessToken');
             
             if (!token) {
                 throw new Error('No authentication token');
@@ -154,42 +154,47 @@ useEffect(() => {
 }, [userId]);
 
 
-    // const changeStatus = async (appointmentId: string, newStatus: PatientStatus) => {
-    //     try {
-    //         const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
-            
-    //         // Update status via API
-    //         await axios.patch(
-    //             `http://localhost:8080/appointments/${appointmentId}/status`,
-    //             { status: newStatus },
-    //             {
-    //                 headers: {
-    //                     'Authorization': `Bearer ${token}`,
-    //                     'Content-Type': 'application/json',
-    //                 },
-    //             }
-    //         );
+const changeStatus = async (appointmentId: string, newStatus: PatientStatus) => {
+    try {
+        const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
+        
+        // Update status via API - Dùng PUT với params
+        await axios.put(
+            `http://localhost:8080/appointments/${appointmentId}/status`,
+            null, // không có request body
+            {
+                params: {
+                    status: newStatus // query parameter
+                },
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                }
+            }
+        );
 
-    //         // Update local state
-    //         setData(prev =>
-    //             prev.map(p => (p.appointmentId === appointmentId ? {...p, status: newStatus} : p))
-    //         );
-    //         setOpenId(null);
+        // Update local state
+        setData(prev =>
+            prev.map(p => (p.appointmentId === appointmentId ? {...p, status: newStatus} : p))
+        );
+        setOpenId(null);
 
-    //     } catch (err: any) {
-    //         console.error('Error updating status:', err);
-    //         alert('Failed to update appointment status');
-    //     }
-    // };
+    } catch (err: any) {
+        console.error('Error updating status:', err);
+        alert('Failed to update appointment status');
+    }
+};
+
 
     const handleClickOutside = () => setOpenId(null);
 
     const getStatusDisplay = (status: PatientStatus) => {
         const statusMap: Record<PatientStatus, string> = {
-            'SCHEDULED': 'Scheduled',
-            'IN_PROGRESS': 'In Progress',
-            'COMPLETED': 'Completed',
-            'CANCELLED': 'Cancelled'
+            'Schedule': 'Lên lịch',
+            'IN_PROGRESS': 'Đang tiến hành',
+            'COMPLETED': 'Hoàn thành',
+            'CANCELLED': 'Đã hủy',
+            'SCHEDULED': 'Lên lịch'  
         };
         return statusMap[status] || status;
     };
@@ -198,12 +203,14 @@ useEffect(() => {
         switch(status) {
             case "SCHEDULED":
                 return "bg-blue-100 text-blue-800";
+            case "Schedule":
+                return "bg-blue-100 text-blue-800";
             case "COMPLETED":
                 return "bg-green-100 text-green-800";
             case "IN_PROGRESS":
                 return "bg-yellow-100 text-yellow-800";
             case "CANCELLED":
-                return "bg-gray-100 text-gray-800";
+                return "bg-gray-100 text-red-800";
             default:
                 return "bg-gray-100 text-gray-800";
         }
@@ -282,7 +289,7 @@ useEffect(() => {
                                 <div className="flex flex-col justify-center items-center w-24 gap-2">
                                     <p className="text-sm font-medium text-gray-600">{patient.time}</p>
                                     <span
-                                        className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(patient.status)}`}
+                                        className={`px-1 py-1 rounded-full text-xs font-semibold  ${getStatusColor(patient.status)}`}
                                     >
                                         {getStatusDisplay(patient.status)}
                                     </span>
@@ -307,17 +314,22 @@ useEffect(() => {
 
                                 {openId === patient.appointmentId && (
                                     <div className="absolute right-0 top-14 bg-white border border-gray-300 rounded-lg shadow-lg p-2 w-40 z-20">
-                                        {(["SCHEDULED", "IN_PROGRESS", "COMPLETED", "CANCELLED"] as PatientStatus[]).map(s => (
+                                        {[
+                                            { label: "Lên lịch", value: "SCHEDULED" as PatientStatus },
+                                            { label: "Đang khám", value: "IN_PROGRESS" as PatientStatus },
+                                            { label: "Hoàn thành", value: "COMPLETED" as PatientStatus },
+                                            { label: "Hủy bỏ", value: "CANCELLED" as PatientStatus }
+                                        ].map(({ label, value }) => (
                                             <button
-                                                key={s}
+                                                key={value}
                                                 className="w-full text-left px-3 py-2 rounded hover:bg-gray-100 text-xs cursor-pointer text-gray-700"
-                                                // onClick={() => changeStatus(patient.appointmentId, s)}
+                                                onClick={() => changeStatus(patient.appointmentId, value)}
                                             >
-                                                {getStatusDisplay(s)}
+                                                {label}
                                             </button>
                                         ))}
                                         <div className="border-t border-gray-200 my-1"></div>
-                                        <button 
+                                        <button
                                             className="w-full text-left px-3 py-2 rounded hover:bg-gray-100 text-xs cursor-pointer text-gray-700"
                                             onClick={() => window.location.href="/doctor/chat/"}
                                         >

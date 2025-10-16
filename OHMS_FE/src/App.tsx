@@ -27,6 +27,7 @@ import PaymentCallback from "./page/patient/PaymentCallback";
 import Doctor from "./page/patient/Doctor";
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import PatientChatPage from './page/patient/PatientChatPage.tsx';
 // import DoctorCall from "./page/doctor/DoctorCall.tsx";
 function App() {
     return (
@@ -46,6 +47,7 @@ function App() {
                 <Route path="/booking-schedule-new" element={<BookingScheduleNew/>}/>
                 <Route path="/payment-callback" element={<PaymentCallback/>}/>
                 <Route path="*" element={<Home />} />
+                <Route path="/chat" element={<PatientChatPage />} />
 
             </Routes>
             {/*</AuthProvider>*/}

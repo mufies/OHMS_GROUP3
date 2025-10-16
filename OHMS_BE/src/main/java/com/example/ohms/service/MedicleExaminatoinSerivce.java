@@ -68,4 +68,10 @@ public class MedicleExaminatoinSerivce{
          .toList();
    }
 
+   public MedicleExaminationResponse getMedicalExaminationByName(String name) {
+      MedicalExamination medicalExamination = medicleExaminationRepository.findByName(name)
+         .orElseThrow(() -> new AppException(ErrorCode.MEDICLE_NOT_FOUND));
+      return medicalExaminationMapper.toMedicleExaminationResponse(medicalExamination);
+   }
+
 }
