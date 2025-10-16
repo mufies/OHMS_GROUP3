@@ -25,6 +25,10 @@ import BookingSchedule from "./page/patient/BookingSchedule.tsx";
 import ViewDoctor from "./page/patient/Doctor.tsx";
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import PatientProfile from "./compoment/patient/PatientProfile.tsx";
+import PatientAppointments from "./compoment/patient/PatientAppointments.tsx";
+import PatientTransactions from "./compoment/patient/PatientTransactions.tsx";
+import PatientAccount from "./compoment/patient/PatientAccount.tsx";
 
 // import DoctorCall from "./page/doctor/DoctorCall.tsx";
 function App() {
@@ -42,7 +46,10 @@ function App() {
                 <Route path="/online-consult" element={<OnlineConsultSpecialty />} />
                 <Route path="/online-consult-time" element={<OnlineConsultTime />} />
                 <Route path="/ViewDoctor" element={<ViewDoctor />} />
-
+                <Route path="/profile" element={<PatientProfile />} />
+            <Route path="/appointments" element={<PatientAppointments />} />
+            <Route path="/payments" element={<PatientTransactions />} />
+            <Route path="/account" element={<PatientAccount />} />
             </Routes>
             {/*</AuthProvider>*/}
            <ToastContainer

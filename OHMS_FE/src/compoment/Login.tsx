@@ -6,6 +6,7 @@ import { toast } from 'react-toastify';
 // login với register ông nào làm hơi bừa nhenn =))
 interface LoginProps {
   onClose: () => void;
+  isProfileMode?: boolean;
 }
 
 const Login = ({ onClose }: LoginProps) => {
