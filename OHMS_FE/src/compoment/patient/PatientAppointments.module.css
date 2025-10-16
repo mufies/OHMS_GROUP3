@@ -1,0 +1,94 @@
+/* PatientAppointments.module.css */
+.section {
+  padding: 0 0 0 32px;
+}
+
+.title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #22223b;
+  margin-bottom: 24px;
+}
+
+.searchBox {
+  width: 420px;
+  margin-bottom: 24px;
+}
+
+.searchBox input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 15px;
+  background: #fff;
+}
+
+.emptyBox {
+  background: #fff;
+  border-radius: 12px;
+  min-height: 320px;
+  padding: 32px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  color: #64748b;
+  font-size: 16px;
+  margin-top: 24px;
+  gap: 12px;
+}
+
+.emptyIcon {
+  font-size: 48px;
+  color: #cbd5e1;
+}
+
+.appointmentDetail {
+  display: flex;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  padding: 32px;
+  gap: 32px;
+  margin-top: 16px;
+}
+
+.left {
+  min-width: 220px;
+  border-right: 1px solid #e5e7eb;
+  padding-right: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.doctorName {
+  font-weight: 600;
+  font-size: 16px;
+  margin-bottom: 4px;
+}
+
+.sttBox {
+  margin-top: 12px;
+  background: #f1f5f9;
+  border-radius: 8px;
+  padding: 8px 16px;
+  display: inline-block;
+  text-align: center;
+}
+
+.right {
+  flex: 1;
+  padding-left: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.detailRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 15px;
+  padding: 4px 0;
+}

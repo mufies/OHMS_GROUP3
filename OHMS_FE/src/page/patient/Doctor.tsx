@@ -2,7 +2,7 @@ import { useLocation } from "react-router-dom";
 import Navigator from "../../compoment/Navigator";
 import { useNavigate } from "react-router-dom";
 
-function Doctor() {
+function ViewDoctor() {
     const location = useLocation();
     const navigate = useNavigate();
     const params = new URLSearchParams(location.search);
@@ -60,8 +60,8 @@ function Doctor() {
     return (
         <div>
             <Navigator />
-            <main style={{ padding: "96px 16px 32px" }}>
-                <div style={{ maxWidth: 800, margin: "0 auto" }}>
+            <main style={{ minHeight: "100vh", display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "48px 0" }}>
+                <div style={{ width: "100%", maxWidth: 800 }}>
                     {/* Header Section */}
                     <div style={{ textAlign: "center", marginBottom: 32 }}>
                         <h1 style={{
@@ -311,4 +311,4 @@ function Doctor() {
     );
 }
 
-export default Doctor;
+export default ViewDoctor;

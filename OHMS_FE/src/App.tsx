@@ -21,8 +21,11 @@ import DoctorChat from "./page/doctor/DoctorChat.tsx";
 import WebRTCApp from './page/WebRTCApp.tsx';
 import OnlineConsultSpecialty from "./page/patient/OnlineConsultSpecialty";
 import OnlineConsultTime from "./page/patient/OnlineConsultTime";
+import BookingSchedule from "./page/patient/BookingSchedule.tsx";
+import ViewDoctor from "./page/patient/Doctor.tsx";
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+
 // import DoctorCall from "./page/doctor/DoctorCall.tsx";
 function App() {
     return (
@@ -31,12 +34,14 @@ function App() {
             <Routes>
                 <Route path="/" element={<Home />} />
                 <Route path="/booking" element={<Booking />} />
+                <Route path="/booking-schedule" element={<BookingSchedule />} />
                 <Route path="/doctor/" element={<DoctorDashboard />} />
                 <Route path="/doctor/schedule" element={<DoctorSchedule />} />
                 <Route path="/doctor/chat" element={<DoctorChat />} />
                 <Route path='/video' element={<WebRTCApp/>} />
                 <Route path="/online-consult" element={<OnlineConsultSpecialty />} />
                 <Route path="/online-consult-time" element={<OnlineConsultTime />} />
+                <Route path="/ViewDoctor" element={<ViewDoctor />} />
 
             </Routes>
             {/*</AuthProvider>*/}

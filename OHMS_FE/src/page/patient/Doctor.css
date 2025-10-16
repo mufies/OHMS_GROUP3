@@ -1,0 +1,173 @@
+.doctor-main {
+    padding: 96px 16px 32px;
+}
+.doctor-container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+.doctor-header {
+    text-align: center;
+    margin-bottom: 32px;
+}
+.doctor-title {
+    font-size: 32px;
+    font-weight: 700;
+    color: #1f2937;
+    margin: 0 0 8px 0;
+}
+.doctor-desc {
+    font-size: 16px;
+    color: #6b7280;
+    margin: 0 auto;
+    max-width: 500px;
+}
+.doctor-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+.doctor-card {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+.doctor-card-grid {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 20px;
+    align-items: start;
+}
+.doctor-info {
+    display: flex;
+    gap: 16px;
+}
+.doctor-avatar {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: #f3f4f6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.doctor-avatar-inner {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #d1d5db;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #6b7280;
+    font-size: 18px;
+    font-weight: 600;
+}
+.doctor-details {
+    flex: 1;
+}
+.doctor-name {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1f2937;
+    margin: 0 0 4px 0;
+}
+.doctor-title-text {
+    font-size: 14px;
+    color: #374151;
+    margin: 0 0 8px 0;
+}
+.doctor-exp-rating {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 8px;
+}
+.doctor-exp, .doctor-rating {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.doctor-exp-text, .doctor-rating-text {
+    font-size: 13px;
+    color: #6b7280;
+}
+.doctor-specialty {
+    display: inline-block;
+    background: #3b82f6;
+    color: white;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+.doctor-hospital {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.doctor-hospital-text {
+    font-size: 13px;
+    color: #6b7280;
+}
+.doctor-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 12px;
+}
+.doctor-price {
+    text-align: right;
+}
+.doctor-price-value {
+    font-size: 20px;
+    font-weight: 700;
+    color: #1f2937;
+}
+.doctor-price-label {
+    font-size: 12px;
+    color: #6b7280;
+}
+.doctor-action-buttons {
+    display: flex;
+    gap: 8px;
+}
+.doctor-btn-outline {
+    border: 1px solid #3b82f6;
+    background: white;
+    color: #3b82f6;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+}
+.doctor-btn-primary {
+    background: #3b82f6;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+}
+.doctor-availability {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid #f3f4f6;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.doctor-availability-text {
+    font-size: 14px;
+    color: #6b7280;
+}

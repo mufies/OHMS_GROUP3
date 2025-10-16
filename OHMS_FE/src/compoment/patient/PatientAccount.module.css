@@ -1,0 +1,80 @@
+.accountSection {
+  display: flex;
+  gap: 32px;
+  margin: 0 32px;
+}
+
+.accountInfoCard {
+  flex: 1;
+  background: #fff;
+  border-radius: 12px;
+  padding: 32px;
+  min-width: 340px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+
+.infoRow {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  font-size: 15px;
+}
+
+.editLink {
+  color: #0ea5e9;
+  font-weight: 500;
+  text-decoration: underline;
+  font-size: 15px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  margin-top: 18px;
+}
+
+.changePasswordCard {
+  flex: 1;
+  background: #fff;
+  border-radius: 12px;
+  padding: 32px;
+  min-width: 340px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+
+.changePasswordCard h3 {
+  margin-bottom: 24px;
+}
+
+.changePasswordCard form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.changePasswordCard input {
+  width: 100%;
+  margin-top: 6px;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 15px;
+}
+
+.changeBtn {
+  width: 100%;
+  background: #2563eb;
+  color: #fff;
+  font-weight: 700;
+  font-size: 16px;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 0;
+  margin-top: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.changeBtn:disabled {
+  background: #e5e7eb;
+  color: #a1a1aa;
+  cursor: not-allowed;
+}
