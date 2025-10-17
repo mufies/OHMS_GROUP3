@@ -3,27 +3,45 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTimes, faUser, faLock } from '@fortawesome/free-solid-svg-icons';
 import { fetchLoginUser } from '../utils/fetchFromAPI';
 import { toast } from 'react-toastify';
-// login với register ông nào làm hơi bừa nhenn =))
+import { useNavigate } from 'react-router-dom';
+
 interface LoginProps {
   onClose: () => void;
 }
 
+// Helper function set cookie (thêm vào đầu file hoặc utils)
+const setCookie = (name: string, value: string, days: number = 1) => {
+  const expires = new Date(Date.now() + days * 864e5).toUTCString();
+  document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; domain=localhost`;
+};
+
 const Login = ({ onClose }: LoginProps) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const navigate = useNavigate();
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    fetchLoginUser(email, password).then((data) => {
-      console.log('Login successful:', data);
-      localStorage.setItem('token', data.token);
-      onClose();
-    }).catch((error) => {
-      console.error('Login failed:', error);
-      toast.error('Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.');
-    });
+    fetchLoginUser(email, password)
+      .then((data) => {
+        localStorage.setItem('token', data.token);
+        toast.success('Đăng nhập thành công!');
+        onClose();
+        navigate('/profile');
+      })
+      .catch((error) => {
+        console.error('Login failed:', error);
+        toast.error('Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.');
+      });
   };
-// thay cái Login thành Profile thật
-  
+
+  const handleGoogleLogin = () => {
+    // Set cookie cho backend đọc: redirect về FE path sau auth
+  //  setCookie('redirect_uri', 'http://localhost:5173/oauth2/redirect', 1);
+
+  // Custom endpoint theo config backend
+window.location.href = 'http://localhost:8080/oauth2/authorization/google';
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
@@ -71,6 +89,14 @@ const Login = ({ onClose }: LoginProps) => {
             className="w-full bg-blue-600 text-black py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium"
           >
             Đăng nhập
+          </button>
+
+          <button
+            type="button"
+            onClick={handleGoogleLogin}
+            className="w-full mt-2 bg-red-500 text-white py-2 rounded-lg hover:bg-red-600 transition-colors font-medium"
+          >
+            Login with Google
           </button>
         </form>
       </div>

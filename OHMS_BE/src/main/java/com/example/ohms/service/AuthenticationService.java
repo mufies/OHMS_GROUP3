@@ -1,15 +1,17 @@
 package com.example.ohms.service;
 
+import java.security.SecureRandom;
 import java.text.ParseException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Date;
+import java.util.Set;
 import java.util.StringJoiner;
-
+import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.util.CollectionUtils;
-
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.example.ohms.exception.AppException;
 import com.example.ohms.dto.request.AuthenticationRequest;
@@ -17,6 +19,7 @@ import com.example.ohms.dto.request.IntroSpectRequest;
 import com.example.ohms.dto.response.AuthenticationResponse;
 import com.example.ohms.dto.response.IntroSpectResponse;
 import com.example.ohms.entity.User;
+import com.example.ohms.enums.AuthProvider;
 import com.example.ohms.exception.ErrorCode;
 import com.example.ohms.repository.UserRepository;
 import com.nimbusds.jose.JOSEException;
@@ -38,86 +41,133 @@ import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
-@FieldDefaults(level = AccessLevel.PRIVATE,makeFinal = true)
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @Slf4j
 public class AuthenticationService {
-      UserRepository userRepository;
-      PasswordEncoder passwordEncoder;
-      @NonFinal // đánh dấu nonfinal để nó không inject vào lombok ở trên
-      protected static final String SIGNAL_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9";
+    UserRepository userRepository;
+    PasswordEncoder passwordEncoder;
+    @NonFinal // đánh dấu nonfinal để nó không inject vào lombok ở trên
+    protected static final String SIGNAL_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9";
+    private static final String CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()";
+    private static final int DEFAULT_LENGTH = 12; // độ dài password
+    private static final SecureRandom random = new SecureRandom();
 
-      public AuthenticationResponse loginUser(AuthenticationRequest authenticationRequest){
-      log.error("aaaaaaaaaaaaaaaaaaaaaaa{}",authenticationRequest);
-      User user = userRepository.findByEmail(authenticationRequest.getEmail()).orElseThrow(()->new AppException(ErrorCode.USER_NOT_FOUND));
-         boolean results = passwordEncoder.matches(authenticationRequest.getPassword(), user.getPassword());
+    public AuthenticationResponse loginUser(AuthenticationRequest authenticationRequest) {
+        log.error("aaaaaaaaaaaaaaaaaaaaaaa{}", authenticationRequest);
+        User user = userRepository.findByEmailWithRoles(authenticationRequest.getEmail()) // Sửa: Dùng fetch with roles
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+        boolean results = passwordEncoder.matches(authenticationRequest.getPassword(), user.getPassword());
         if (!results) {
-    throw new AppException(ErrorCode.UNAUTHENTICATED);
-}
+            throw new AppException(ErrorCode.UNAUTHENTICATED);
+        }
 
-         var token = generateToken(user);
-      return AuthenticationResponse.builder().authenticated(results).token(token).build();
-      }
-        private String generateToken(User user){
-         JWSHeader header = new JWSHeader(JWSAlgorithm.HS256);
-      // claim 
-         
-         JWTClaimsSet jwtClaimsSet  = new JWTClaimsSet.Builder()
-       // đại diện cho user đăng nhập 
-         .subject(user.getId())
-         //.issuer(name) //  xác định token được issuer từ ai, thông thường nó sẽ lấy từ domain service
-         .issueTime(new Date())
-         .expirationTime(new Date(
-            Instant.now().plus(1,ChronoUnit.DAYS).toEpochMilli()
-         ))
-         .claim("scope", buildScope(user))
-         .claim("userId", user.getId()) // mã hóa cái thông tin mà người đăng nhập nhét vào
-      
-         .build();
-         Payload payload = new Payload(jwtClaimsSet.toJSONObject());
+        var token = generateToken(user);
+        return AuthenticationResponse.builder().authenticated(results).token(token).build();
+    }
 
+    @Transactional(readOnly = true) // Thêm: Mở session để lazy load nếu cần, nhưng ưu tiên eager
+    private String generateToken(User user) {
+        JWSHeader header = new JWSHeader(JWSAlgorithm.HS256);
+        // claim 
+        JWTClaimsSet jwtClaimsSet = new JWTClaimsSet.Builder()
+                // đại diện cho user đăng nhập 
+                .subject(user.getId())
+                //.issuer(name) //  xác định token được issuer từ ai, thông thường nó sẽ lấy từ domain service
+                .issueTime(new Date())
+                .expirationTime(new Date(
+                        Instant.now().plus(1, ChronoUnit.DAYS).toEpochMilli()
+                ))
+                .claim("scope", buildScope(user))
+                .claim("userId", user.getId()) // mã hóa cái thông tin mà người đăng nhập nhét vào
 
-         JWSObject jwsObject = new JWSObject(header,payload);
-         try {
+                .build();
+        Payload payload = new Payload(jwtClaimsSet.toJSONObject());
+
+        JWSObject jwsObject = new JWSObject(header, payload);
+        try {
             jwsObject.sign(new MACSigner(SIGNAL_KEY.getBytes()));
-            return jwsObject.serialize(); 
-         } catch (JOSEException args) {
+            return jwsObject.serialize();
+        } catch (JOSEException args) {
             throw new AppException(ErrorCode.SIGNAL_KEY_NOT_VAILID);
-         }
-          // kí khóa giải mã mã hóa, này dùng khóa đối xứng
-   }
+        }
+        // kí khóa giải mã mã hóa, này dùng khóa đối xứng
+    }
 
-      private String buildScope(User user){ // ép
-         StringJoiner stringJoiner = new StringJoiner(" ");
-         if(!CollectionUtils.isEmpty(user.getRoles()))
-            user.getRoles().forEach(role->{
-               stringJoiner.add(""+role.getName().toLowerCase());
-               if(!CollectionUtils.isEmpty(role.getPermissions()))
-                  role.getPermissions().forEach(permission -> 
-                     stringJoiner.add(permission.getName())  // 
-               );
+    public String generateTokenFromOAuth2(User user) {
+        // Reload user với roles để đảm bảo eager fetch (nếu caller pass user chưa load roles)
+        User loadedUser = userRepository.findByEmailWithRoles(user.getEmail())
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+        return generateToken(loadedUser);
+    }
+
+    private String buildScope(User user) { // ép
+        StringJoiner stringJoiner = new StringJoiner(" ");
+        if (!CollectionUtils.isEmpty(user.getRoles()))
+            user.getRoles().forEach(role -> {
+                stringJoiner.add("ROLE_" + role.getName().toLowerCase()); // Thêm prefix ROLE_ chuẩn Spring
+                if (!CollectionUtils.isEmpty(role.getPermissions()))
+                    role.getPermissions().forEach(permission ->
+                            stringJoiner.add(permission.getName())  // 
+                    );
             });
-         return stringJoiner.toString();
-  }
-  
-   public IntroSpectResponse introspect(IntroSpectRequest request)
-         throws JOSEException, ParseException {
-   String token = request.getToken();
+        return stringJoiner.toString();
+    }
 
-    // Tạo verifier với secret key
-   JWSVerifier verifier = new MACVerifier(SIGNAL_KEY.getBytes());
+    public IntroSpectResponse introspect(IntroSpectRequest request)
+            throws JOSEException, ParseException {
+        String token = request.getToken();
 
-    // Parse token (Signed JWT)
-   SignedJWT signedJWT = SignedJWT.parse(token);
+        // Tạo verifier với secret key
+        JWSVerifier verifier = new MACVerifier(SIGNAL_KEY.getBytes());
 
-    // Lấy thời gian hết hạn từ payload
-   Date expiryTime = signedJWT.getJWTClaimsSet().getExpirationTime();
+        // Parse token (Signed JWT)
+        SignedJWT signedJWT = SignedJWT.parse(token);
 
-    // Xác thực chữ ký
-    boolean verified = signedJWT.verify(verifier);
+        // Lấy thời gian hết hạn từ payload
+        Date expiryTime = signedJWT.getJWTClaimsSet().getExpirationTime();
 
-    // Trả về kết quả introspection
-    return IntroSpectResponse.builder()
-            .valid(verified && expiryTime.after(new Date()))
-            .build();
-}
+        // Xác thực chữ ký
+        boolean verified = signedJWT.verify(verifier);
+
+        // Trả về kết quả introspection
+        return IntroSpectResponse.builder()
+                .valid(verified && expiryTime.after(new Date()))
+                .build();
+    }
+
+    @Transactional(readOnly = true) // Thêm: Đảm bảo session cho lazy nếu cần
+    public AuthenticationResponse createTokenFromOAuth2User(OAuth2User oauth2User) {
+        String email = oauth2User.getAttribute("email");
+
+        // Tìm user theo email với roles, nếu chưa có thì tạo mới
+        User user = userRepository.findByEmailWithRoles(email).orElseGet(() -> {
+            User newUser = new User();
+            newUser.setEmail(email);
+            newUser.setPassword(passwordEncoder.encode(generatePass()));
+            newUser.setUsername(oauth2User.getAttribute("name"));
+            newUser.setAuthProvider(AuthProvider.GOOGLE); // Thêm nếu cần, khớp với CustomOAuth2UserService
+            // Thêm role mặc định nếu cần (như PATIENT)
+            // Role defaultRole = roleRepository.findByName("PATIENT").orElseThrow(...);
+            // newUser.setRoles(Set.of(defaultRole));
+            return userRepository.save(newUser);
+        });
+
+        // Generate token
+        var token = generateToken(user);
+
+        // Trả về response
+        return AuthenticationResponse.builder()
+                .authenticated(true)
+                .token(token)
+                .build();
+    }
+
+    public static String generatePass() {
+        StringBuilder sb = new StringBuilder(DEFAULT_LENGTH);
+        for (int i = 0; i < DEFAULT_LENGTH; i++) {
+            int index = random.nextInt(CHARACTERS.length());
+            sb.append(CHARACTERS.charAt(index));
+        }
+        return sb.toString();
+    }
 }

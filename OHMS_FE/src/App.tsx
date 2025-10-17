@@ -23,6 +23,7 @@ import OnlineConsultSpecialty from "./page/patient/OnlineConsultSpecialty";
 import OnlineConsultTime from "./page/patient/OnlineConsultTime";
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import OAuth2RedirectHandler from './compoment/HandleGoogleLogin.tsx';
 // import DoctorCall from "./page/doctor/DoctorCall.tsx";
 function App() {
     return (
@@ -37,7 +38,7 @@ function App() {
                 <Route path='/video' element={<WebRTCApp/>} />
                 <Route path="/online-consult" element={<OnlineConsultSpecialty />} />
                 <Route path="/online-consult-time" element={<OnlineConsultTime />} />
-
+                <Route path="/oauth2/redirect" element={<OAuth2RedirectHandler />} />
             </Routes>
             {/*</AuthProvider>*/}
            <ToastContainer
