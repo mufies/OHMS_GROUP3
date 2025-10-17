@@ -135,39 +135,4 @@ public class AuthenticationService {
                 .build();
     }
 
-    @Transactional(readOnly = true) // Thêm: Đảm bảo session cho lazy nếu cần
-    public AuthenticationResponse createTokenFromOAuth2User(OAuth2User oauth2User) {
-        String email = oauth2User.getAttribute("email");
-
-        // Tìm user theo email với roles, nếu chưa có thì tạo mới
-        User user = userRepository.findByEmailWithRoles(email).orElseGet(() -> {
-            User newUser = new User();
-            newUser.setEmail(email);
-            newUser.setPassword(passwordEncoder.encode(generatePass()));
-            newUser.setUsername(oauth2User.getAttribute("name"));
-            newUser.setAuthProvider(AuthProvider.GOOGLE); // Thêm nếu cần, khớp với CustomOAuth2UserService
-            // Thêm role mặc định nếu cần (như PATIENT)
-            // Role defaultRole = roleRepository.findByName("PATIENT").orElseThrow(...);
-            // newUser.setRoles(Set.of(defaultRole));
-            return userRepository.save(newUser);
-        });
-
-        // Generate token
-        var token = generateToken(user);
-
-        // Trả về response
-        return AuthenticationResponse.builder()
-                .authenticated(true)
-                .token(token)
-                .build();
-    }
-
-    public static String generatePass() {
-        StringBuilder sb = new StringBuilder(DEFAULT_LENGTH);
-        for (int i = 0; i < DEFAULT_LENGTH; i++) {
-            int index = random.nextInt(CHARACTERS.length());
-            sb.append(CHARACTERS.charAt(index));
-        }
-        return sb.toString();
-    }
 }
