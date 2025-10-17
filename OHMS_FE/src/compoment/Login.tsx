@@ -4,7 +4,7 @@ import { faTimes, faUser, faLock } from '@fortawesome/free-solid-svg-icons';
 import { fetchLoginUser } from '../utils/fetchFromAPI';
 import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
-
+// login với register ông nào làm hơi bừa nhenn =))
 interface LoginProps {
   onClose: () => void;
 }
@@ -19,20 +19,16 @@ const Login = ({ onClose }: LoginProps) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const navigate = useNavigate();
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    fetchLoginUser(email, password)
-      .then((data) => {
-        localStorage.setItem('token', data.token);
-        toast.success('Đăng nhập thành công!');
-        onClose();
-        navigate('/profile');
-      })
-      .catch((error) => {
-        console.error('Login failed:', error);
-        toast.error('Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.');
-      });
+    fetchLoginUser(email, password, navigate).then((data) => {
+      console.log('Login successful:', data);
+          
+      onClose();
+    }).catch((error) => {
+      console.error('Login failed:', error);
+      toast.error('Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.');
+    });
   };
 
   const handleGoogleLogin = () => {

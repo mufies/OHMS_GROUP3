@@ -59,4 +59,5 @@ public class Appointment {
    LocalDate workDate;
    LocalTime startTime;
    LocalTime endTime;
+   String status;
 }

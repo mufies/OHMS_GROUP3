@@ -33,7 +33,7 @@ public class AppointmentResponse {
     LocalTime startTime;
     LocalTime endTime;
     
-    String status; // Trạng thái appointment: SCHEDULED, COMPLETED, CANCELLED, etc.
+    String status; 
     List<MedicalExaminationInfo> medicalExaminations; // Changed to use nested class
     
     // Nested classes cho thông tin chi tiết

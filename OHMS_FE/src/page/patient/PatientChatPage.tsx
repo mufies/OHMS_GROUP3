@@ -1,0 +1,68 @@
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import PatientChat from '../../compoment/patient/PatientChat';
+import Navigator from '../../compoment/Navigator';
+
+interface User {
+  id: string;
+  role: 'doctor' | 'patient';
+}
+
+const PatientChatPage = () => {
+  const navigate = useNavigate();
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    const token = localStorage.getItem('accessToken');
+    
+    if (token) {
+      const payload = token.split('.')[1];
+      const decodedPayload = JSON.parse(atob(payload));   
+      
+      if (decodedPayload.scope === 'patient') {
+        const transformedUser: User = {
+          id: decodedPayload.userId,
+          role: 'patient',
+        };
+        setCurrentUser(transformedUser);
+      } else {
+        // If not a patient, redirect to doctor chat
+        navigate('/doctor/chat');
+      }
+    } else {
+      // No user logged in, redirect to main page
+      navigate('/');
+    }
+  }, [navigate]);
+
+  const handleClose = () => {
+    // Navigate back to main page
+    navigate('/');
+  };
+
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading chat...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <Navigator />
+      <div className="pt-14">
+        <PatientChat 
+          currentUser={currentUser} 
+          onClose={handleClose} 
+        />
+      </div>
+    </>
+  );
+
+};
+
+export default PatientChatPage;

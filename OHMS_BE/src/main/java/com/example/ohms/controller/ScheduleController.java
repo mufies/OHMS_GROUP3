@@ -60,4 +60,11 @@ public ApiResponse<Void> deleteSchedule(@PathVariable("scheduleId") String sched
    .message("delete successful")
    .build();
 }
+@GetMapping("/doctor/{doctorId}/weekly")
+public ApiResponse<List<ScheduleResponse>> getWeeklyScheduleForDoctor(@PathVariable("doctorId") String doctorId){
+   return ApiResponse.<List<ScheduleResponse>>builder()
+   .code(200)
+   .results(scheduleService.getWeeklyScheduleForDoctor(doctorId))
+   .build();
+}
 }

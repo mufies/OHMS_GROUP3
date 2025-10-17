@@ -1,5 +1,6 @@
 import axios from "axios";
 import { LOGIN_USER } from "../constant/enum";
+import { data } from "react-router-dom";
 export const BASE_URL = "http://localhost:8080";
 
 export const axiosInstance = axios.create({
@@ -30,8 +31,7 @@ export const fetchFromAPI = async (url:string) => {
 };
 
 
-export const fetchLoginUser = async (email: string, password: string) => {
-   console.log(email,password);
+export const fetchLoginUser = async (email: string, password: string, navigate?: (path: string) => void) => {
    
   const res = await axiosInstance.post(
       `/auth/login`,
@@ -40,9 +40,33 @@ export const fetchLoginUser = async (email: string, password: string) => {
       headers: { "Content-Type": "application/json" }, // cần dòng này
     }
   );
-  console.log(res);
   
   localStorage.setItem(LOGIN_USER, res.data.results.token);
+  
+  try {
+    const tokenString = res.data.results.token; // Lấy token string từ object
+    const payload = tokenString.split('.')[1];
+    const decodedPayload = JSON.parse(atob(payload));
+    
+    console.log('Decoded payload:', decodedPayload); // Debug
+    
+    // Check scope và navigate
+    if (navigate) {
+      if (decodedPayload.scope === 'doctor') {
+        navigate('/doctor');
+      } else if (decodedPayload.scope === 'patient') {
+        navigate('/patient');
+      } else {
+        navigate('/'); // Default route
+      }
+    }
+    
+
+    
+  } catch (error) {
+    console.error('Error decoding token:', error);
+  }
+
   return res.data;
 };
 export const fetchRegisterUser = async ( payload:object) => {

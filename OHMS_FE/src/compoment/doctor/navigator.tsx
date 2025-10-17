@@ -1,14 +1,11 @@
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-// import {
-//
-//
-// } from "@fortawesome/free-regular-svg-icons";
-
 import {
     faTableColumns,
     faStethoscope,
-    faVideo,    faComment,
+    faVideo,
+    faComment,
     faCalendar,
+    faRightFromBracket, // Logout icon
 } from "@fortawesome/free-solid-svg-icons";
 
 interface NavigatorProps {
@@ -19,17 +16,25 @@ function Navigator({ doctorSpecialty = "General Medicine" }: NavigatorProps) {
     const navigationItems = [
         { icon: faTableColumns, label: "Dashboard", path: "/doctor"},
         { icon: faComment, label: "Chat", path: "/doctor/chat" },
-        { icon: faVideo, label: "Call", path: "/doctor/call"},
         { icon: faCalendar, label: "Schedule", path: "/doctor/schedule" },
     ];
 
     const handleNavigation = (path: string) => {
         window.location.href = path;
+    };
 
+    const handleLogout = () => {
+        // Remove the access token from localStorage
+        localStorage.removeItem('accessToken');
+        
+        // Optionally remove refresh token if you're storing it
+        localStorage.removeItem('refreshToken');
+        
+        // Redirect to login page
+        window.location.href = '/';
     };
 
     const currentPath = window.location.pathname;
-
 
     return (
         <div className="fixed left-0 top-0 h-full w-64 bg-white border-r border-gray-200 shadow-lg z-50 flex flex-col">
@@ -47,7 +52,7 @@ function Navigator({ doctorSpecialty = "General Medicine" }: NavigatorProps) {
 
             {/* Navigation Items */}
             <nav className="flex-1 py-6">
-                <p className="text-gray-500 px-3 font-bold mb-2 px-3 text-sm">GENERAL</p>
+                <p className="text-gray-500 px-3 font-bold mb-2 text-sm">GENERAL</p>
                 <ul className="space-y-1 px-3">
                     {navigationItems.map((item, index) => (
                         <li key={index}>
@@ -70,9 +75,21 @@ function Navigator({ doctorSpecialty = "General Medicine" }: NavigatorProps) {
                         </li>
                     ))}
                 </ul>
+
+                {/* Logout Button */}
+                <div className="px-3 mt-4">
+                    <button
+                        onClick={handleLogout}
+                        className="w-full flex items-center space-x-2 px-3 py-2 rounded-lg text-left transition-all duration-200 cursor-pointer text-red-600 hover:bg-red-50"
+                    >
+                        <FontAwesomeIcon
+                            icon={faRightFromBracket}
+                            className="text-base text-red-500"
+                        />
+                        <span className="text-sm font-medium">Logout</span>
+                    </button>
+                </div>
             </nav>
-
-
 
             {/* Footer */}
             <div className="p-4 border-t border-gray-200 bg-gray-50">

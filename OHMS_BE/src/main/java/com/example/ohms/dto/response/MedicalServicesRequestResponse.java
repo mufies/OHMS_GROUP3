@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import com.example.ohms.dto.response.AppointmentResponse.DoctorInfo;
+import com.example.ohms.enums.MedicalSpecialty;
 
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -22,6 +23,7 @@ public class MedicalServicesRequestResponse {
     PatientInfo patient;
     DoctorInfo doctor;
     List<MedicalExaminationInfo> medicalExaminations;
+    MedicalSpecialty medicalSpecialty;
     boolean status;
     LocalDateTime createdAt;
     @Data

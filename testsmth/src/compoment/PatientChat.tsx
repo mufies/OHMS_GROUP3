@@ -319,9 +319,11 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
       const variable = {
           roomId: currentRoom?.roomChatID,
           currentUser: currentUser.id,
-          callType: type  // Use the parameter directly instead of state
+          callType: type,
+          anotherUser: selectedDoctor?.id
+  // Use the parameter directly instead of state
       }
-      openCallWindow(`http://localhost:5173/video?roomId=${variable.roomId}&currentUser=${variable.currentUser}&callType=${variable.callType}`)
+      openCallWindow(`http://localhost:5173/video?roomId=${variable.roomId}&currentUser=${variable.currentUser}&callType=${variable.callType}&role=patient&anotherUser=${variable.anotherUser}`)
 
   }
 

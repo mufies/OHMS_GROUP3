@@ -12,5 +12,5 @@ import com.example.ohms.enums.MedicalSpecialty;
 public interface MedicleExaminatioRepository extends JpaRepository<MedicalExamination,String> {
    List<MedicalExamination> findAllByIdIn(Set<String> name);
    Optional<MedicalExamination> findByName(String name);
-   List<MedicalExamination> findAllByMedicalSpecialty(MedicalSpecialty name);
+   List<MedicalExamination> findAllByMedicalSpecialty(MedicalSpecialty specialty);
 }

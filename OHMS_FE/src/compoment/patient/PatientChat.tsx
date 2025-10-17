@@ -3,14 +3,13 @@ import axios from 'axios';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faPaperPlane, 
-  faUserInjured, 
-  faTimes,
+  faUserMd, 
   faSearch,
   faPhone,
   faVideo
 } from '@fortawesome/free-solid-svg-icons';
 
-import { useWebSocketService } from '../../../services/webSocketServices';
+import { useWebSocketService } from '../../services/webSocketServices';
 
 
 interface Message {
@@ -21,20 +20,13 @@ interface Message {
   isRead: boolean;
 }
 
-interface Patient {
-  id: string;
-  username: string;
-  email: string;
-  patientId: string;
-  lastMessage?: string;
-  lastMessageTime?: Date;
-  unreadCount?: number;
-  isOnline?: boolean;
-  condition?: string;
-}
-
 interface User {
   id: string;
+  username?: string;
+  email?: string;
+  isOnline?: boolean;
+  lastSeen?: Date;
+  specialization?: string;
 }
 
 interface RoomChatResponse {
@@ -42,39 +34,38 @@ interface RoomChatResponse {
   user: User[];
 }
 
-interface DoctorChatProps {
+interface PatientChatProps {
   currentUser: User;
+  onClose: () => void;
 }
 
-const DoctorChat = ({ currentUser }: DoctorChatProps) => {
+const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
-  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  const [selectedDoctor, setSelectedDoctor] = useState<User | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [chatRooms, setChatRooms] = useState<RoomChatResponse[]>([]);
-  const [patients, setPatients] = useState<Patient[]>([]);
+  const [availableDoctors, setAvailableDoctors] = useState<User[]>([]);
   const [wsConnected, setWsConnected] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Helper: Find current chat room by selectedPatient
   const getCurrentRoom = useCallback(() => {
-    if (!selectedPatient) return null;
+    if (!selectedDoctor) return null;
     return chatRooms.find(room =>
-      room.user.some(user => user.id === selectedPatient.id)
+      room.user.some(user => user.id === selectedDoctor.id)
     ) || null;
-  }, [selectedPatient, chatRooms]);
+  }, [selectedDoctor, chatRooms]);
 
-  // Send new message (without form submit) - Memoize đầy đủ
   const handleSendMessageNoForm = useCallback(() => {
-    if (!newMessage.trim() || !selectedPatient) {
-      console.warn('Cannot send: No message or patient selected');
+    if (!newMessage.trim() || !selectedDoctor) {
+      console.warn('Cannot send: No message or doctor selected');
       return;
     }
 
     const currentRoom = getCurrentRoom();
     if (!currentRoom) {
-      console.error('No room found for the selected patient');
+      console.error('No room found for the selected doctor');
       return;
     }
 
@@ -104,19 +95,6 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
         setMessages(prev => prev.filter(msg => msg.id !== message.id));
       } else {
         console.log('✅ Message sent via WebSocket successfully:', conversationRequest);
-        
-        // Update patient's last message time when we send a message
-        setPatients(prevPatients => 
-          prevPatients.map(patient => 
-            patient.id === selectedPatient.id 
-              ? {
-                  ...patient,
-                  lastMessage: newMessage.trim(),
-                  lastMessageTime: new Date()
-                }
-              : patient
-          )
-        );
       }
     } catch (error) {
       console.error('❌ Error sending message via WebSocket:', error);
@@ -124,15 +102,22 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
     }
 
     setNewMessage('');
-  }, [currentUser.id, newMessage, selectedPatient, getCurrentRoom]);
+  }, [currentUser.id, currentUser.username, newMessage, selectedDoctor, getCurrentRoom]);
 
 
-
+  // WebSocket setup 
   const webSocketUrl = 'http://localhost:8080/ws';
   
   // Memoize callbacks
-  const onConnected = useCallback(() => setWsConnected(true), []);
-  const onError = useCallback(() => setWsConnected(false), []);
+  const onConnected = useCallback(() => {
+    console.log('WebSocket Connected!');
+    setWsConnected(true);
+  }, []);
+  
+  const onError = useCallback((error: string) => {
+    console.log('WebSocket Error:', error);
+    setWsConnected(false);
+  }, []);
   
   const { connect, subscribe, send, unsubscribe } = useWebSocketService(
     webSocketUrl,
@@ -140,44 +125,31 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
     onError
   );
 
-  // Connect WebSocket on mount
+  // Connect once on mount
   useEffect(() => {
     connect();
-  }, [connect]); 
+  }, [connect]);
 
-  // Subscribe to chat room topic on selectedPatient or chatRooms change
+  // Subscribe/unsubscribe on room changes
   useEffect(() => {
     const currentRoom = getCurrentRoom();
     if (!currentRoom) return;
 
     const subscriptionCallback = (message: any) => {
-      if (message.user?.id === currentUser.id) return; // Skip own messages
+      if (message.user?.id === currentUser.id) return;  // Skip own messages
 
       const incomingMessage: Message = {
         id: Date.now().toString(),
-        senderId: message.user?.id ?? 'unknown',
+        senderId: message.user?.id || 'unknown',
         content: message.message,
-        timestamp: new Date(message.createdAt ?? Date.now()),
+        timestamp: new Date(message.createdAt || Date.now()),
         isRead: false,
       };
 
       setMessages(prev => {
-        const updatedMessages = [...prev, incomingMessage];
-        return updatedMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+        const updated = [...prev, incomingMessage];
+        return updated.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
       });
-
-      // Update patient's last message time and content for sorting
-      setPatients(prevPatients => 
-        prevPatients.map(patient => 
-          patient.id === message.user?.id 
-            ? {
-                ...patient,
-                lastMessage: message.message,
-                lastMessageTime: new Date(message.createdAt ?? Date.now())
-              }
-            : patient
-        )
-      );
     };
 
     const subscribeTimer = setTimeout(() => {
@@ -188,71 +160,11 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
       clearTimeout(subscribeTimer);
       unsubscribe(`/topic/room/${currentRoom.roomChatID}`);
     };
-  }, [selectedPatient, chatRooms, subscribe, unsubscribe, currentUser.id, getCurrentRoom]);
+  }, [selectedDoctor, chatRooms, subscribe, unsubscribe, currentUser.id, getCurrentRoom]);
 
-  // Subscribe to ALL chat rooms for real-time updates
+  // Load existing messages when doctor changes
   useEffect(() => {
-    if (chatRooms.length === 0) return;
-
-    const subscriptions: string[] = [];
-    const timers: NodeJS.Timeout[] = [];
-
-    chatRooms.forEach(room => {
-      const topic = `/topic/room/${room.roomChatID}`;
-      
-      const globalCallback = (message: any) => {
-        if (message.user?.id === currentUser.id) return; // Skip own messages
-
-        // Update patient list for ANY room, not just current room
-        setPatients(prevPatients => 
-          prevPatients.map(patient => 
-            patient.id === message.user?.id 
-              ? {
-                  ...patient,
-                  lastMessage: message.message,
-                  lastMessageTime: new Date(message.createdAt ?? Date.now())
-                }
-              : patient
-          )
-        );
-
-        // Only update messages if this is the current room
-        const currentRoom = getCurrentRoom();
-        if (currentRoom && room.roomChatID === currentRoom.roomChatID) {
-          const incomingMessage: Message = {
-            id: Date.now().toString(),
-            senderId: message.user?.id ?? 'unknown',
-            content: message.message,
-            timestamp: new Date(message.createdAt ?? Date.now()),
-            isRead: false,
-          };
-
-          setMessages(prev => {
-            const updatedMessages = [...prev, incomingMessage];
-            return updatedMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-          });
-        }
-      };
-
-      const subscribeTimer = setTimeout(() => {
-        subscribe(topic, globalCallback);
-        subscriptions.push(topic);
-      }, 1000 + Math.random() * 500); 
-      
-      timers.push(subscribeTimer);
-    });
-
-    return () => {
-      timers.forEach(timer => clearTimeout(timer));
-      subscriptions.forEach(topic => {
-        unsubscribe(topic);
-      });
-    };
-  }, [chatRooms, subscribe, unsubscribe, currentUser.id, selectedPatient?.id, getCurrentRoom]);
-
-  // Load existing messages on selectedPatient or chatRooms change
-  useEffect(() => {
-    const loadExistingMessages = async () => {
+    const loadMessages = async () => {
       const currentRoom = getCurrentRoom();
       if (!currentRoom) {
         setMessages([]);
@@ -261,43 +173,23 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
 
       try {
         const token = localStorage.getItem('accessToken');
-        if (!token) return;
-
         const response = await axios.get(`http://localhost:8080/conversation/${currentRoom.roomChatID}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
-          },
+          }
         });
 
-        if (response.data?.results) {
+        if (response.data && response.data.results) {
           const loadedMessages: Message[] = response.data.results.map((conv: any) => ({
-            id: conv.id ?? Date.now().toString(),
-            senderId: conv.user?.id ?? 'unknown',
-            senderName: conv.user?.username ?? 'Unknown',
+            id: conv.id || Date.now().toString(),
+            senderId: conv.user?.id || 'unknown',
             content: conv.message,
-            timestamp: new Date(conv.createdAt ?? new Date()),
-            isRead: true
+            timestamp: new Date(conv.createdAt || new Date()),
+            isRead: true,
           }));
 
-          loadedMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-          setMessages(loadedMessages);
-
-          // Update patient's last message info based on loaded messages
-          if (loadedMessages.length > 0 && selectedPatient) {
-            const lastMessage = loadedMessages[loadedMessages.length - 1];
-            setPatients(prevPatients => 
-              prevPatients.map(patient => 
-                patient.id === selectedPatient.id 
-                  ? {
-                      ...patient,
-                      lastMessage: lastMessage.content,
-                      lastMessageTime: lastMessage.timestamp
-                    }
-                  : patient
-              )
-            );
-          }
+          setMessages(loadedMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime()));
         }
       } catch (error) {
         console.error('Error loading messages:', error);
@@ -305,30 +197,32 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
       }
     };
 
-    loadExistingMessages();
-  }, [selectedPatient, chatRooms, currentUser.id, getCurrentRoom]);
+    loadMessages();
+  }, [selectedDoctor, chatRooms, currentUser.id, getCurrentRoom]);
 
-  // Fetch chat rooms and extract patients list
+  // Fetch chat rooms assigned to this patient
   const fetchChatRooms = useCallback(async () => {
     try {
       const token = localStorage.getItem('accessToken');
-      if (!token) return;
+      if (!token) {
+        console.error('❌ No token found in localStorage');
+        return;
+      }
 
+      console.log('🌐 Making API call to:', `http://localhost:8080/chat/${currentUser.id}`);
+      
       const response = await axios.get(`http://localhost:8080/chat/${currentUser.id}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
-        },
+        }
       });
 
-      if (response.data?.results) {
-        console.log('negi');
-        
+      if (response.data && response.data.results) {
         setChatRooms(response.data.results);
+        const doctorsMap = new Map<string, User>();
 
-        const patientsMap = new Map<string, Patient>();
-        
-        // Process each chat room to get patient info and last message
+        // Process each chat room to get doctor info and last message
         for (const room of response.data.results) {
           for (const user of room.user) {
             if (user.id !== currentUser.id) {
@@ -340,11 +234,9 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
                     'Content-Type': 'application/json',
                   },
                 });
-                console.log('concer');
-                
 
                 let lastMessage = 'No messages yet';
-                let lastMessageTime = new Date(Date.now() - Math.random() * 86400000); // Default to within last day
+                let lastMessageTime = new Date(Date.now() - Math.random() * 86400000);
 
                 if (conversationResponse.data?.results && conversationResponse.data.results.length > 0) {
                   const messages = conversationResponse.data.results;
@@ -354,37 +246,37 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
                   lastMessageTime = new Date(lastMsg.createdAt);
                 }
 
-                patientsMap.set(user.id, {
+                doctorsMap.set(user.id, {
                   id: user.id,
                   username: user.username,
                   email: user.email,
-                  patientId: `P${user.id.substring(0, 3).toUpperCase()}`,
-                  isOnline: Math.random() > 0.3, // 70% chance of being online
-                  condition: 'General Consultation',
-                  lastMessage,
-                  lastMessageTime
+                  isOnline: Math.random() > 0.5,
+                  specialization: user.specialization || 'General Practitioner',
+                  lastSeen: new Date(Date.now() - Math.random() * 3600000)
                 });
               } catch (msgError) {
                 console.warn('Error fetching messages for room:', room.roomChatID, msgError);
-                // Fallback patient data if message fetch fails
-                patientsMap.set(user.id, {
+                doctorsMap.set(user.id, {
                   id: user.id,
                   username: user.username,
                   email: user.email,
-                  patientId: `P${user.id.substring(0, 3).toUpperCase()}`,
-                  condition: 'General Consultation',
-                  lastMessage: 'No messages yet',
-                  lastMessageTime: new Date(Date.now() - Math.random() * 86400000)
+                  isOnline: Math.random() > 0.5,
+                  specialization: user.specialization || 'General Practitioner',
+                  lastSeen: new Date(Date.now() - Math.random() * 3600000)
                 });
               }
             }
           }
         }
-        
-        setPatients(Array.from(patientsMap.values()));
+
+        setAvailableDoctors(Array.from(doctorsMap.values()));
       }
-    } catch (error: any) {
-      console.error('Error fetching chat rooms:', error.response?.data ?? error.message ?? error);
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        console.error('Error fetching chat rooms:', error.response?.data ?? error.message);
+      } else {
+        console.error('Unexpected error:', error);
+      }
     }
   }, [currentUser.id]);
 
@@ -392,7 +284,7 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
     fetchChatRooms();
   }, [fetchChatRooms]);
 
-  // Scroll messages to bottom on message list change
+  // Scroll to bottom
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, []);
@@ -401,50 +293,38 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
-  // Filtered patients by searchTerm (case insensitive) and sorted by last message time
-  const filteredPatients = useMemo(() => {
-    let filtered = patients;
-    
-    // Filter by search term if provided
-    if (searchTerm.trim()) {
-      filtered = patients.filter(p =>
-        p.username.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-    
-    // Sort by last message time (most recent first)
-    return filtered.sort((a, b) => {
-      const timeA = a.lastMessageTime ? a.lastMessageTime.getTime() : 0;
-      const timeB = b.lastMessageTime ? b.lastMessageTime.getTime() : 0;
-      return timeB - timeA; // Descending order (newest first)
-    });
-  }, [patients, searchTerm]);
-
+  // Format helpers
   const formatTime = (date: Date) => date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-  const formatLastMessageTime = (date: Date) => {
+  const formatLastSeen = (date: Date) => {
     const now = new Date();
-    const diffMinutes = Math.floor((now.getTime() - date.getTime()) / 60000);
-    if (diffMinutes < 60) return `${diffMinutes}m ago`;
-    if (diffMinutes < 1440) return `${Math.floor(diffMinutes / 60)}h ago`;
-    return `${Math.floor(diffMinutes / 1440)}d ago`;
+    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+    if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ago`;
+    return `${Math.floor(diffInMinutes / 1440)}d ago`;
   };
 
+  // Filtered doctors by searchTerm
+  const filteredDoctors = useMemo(() => {
+    if (!searchTerm.trim()) return availableDoctors;
+    
+    return availableDoctors.filter(d =>
+      d.username?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [availableDoctors, searchTerm]);  
 
 
-  
-
-
-
-    const createCall = (type: 'audio' | 'video') => {
+  //create query when create call, import data into it
+  const createCall = (type: 'audio' | 'video') => {
     var currentRoom = getCurrentRoom();
       const variable = {
           roomId: currentRoom?.roomChatID,
           currentUser: currentUser.id,
-          callType: type,  // Use the parameter directly instead of state
-          anotherUser: selectedPatient?.id
+          callType: type,
+          anotherUser: selectedDoctor?.id
+  // Use the parameter directly instead of state
       }
-      openCallWindow(`http://localhost:5173/video?roomId=${variable.roomId}&currentUser=${variable.currentUser}&callType=${variable.callType}&role=doctor&anotherUser=${variable.anotherUser}`)
+      openCallWindow(`http://localhost:5173/video?roomId=${variable.roomId}&currentUser=${variable.currentUser}&callType=${variable.callType}&role=patient&anotherUser=${variable.anotherUser}`)
 
   }
 
@@ -459,108 +339,105 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
   }
 
   return (
-    <div className="h-full w-full bg-white flex">
-      {/* Patients List */}
+    <div className="h-[calc(100vh-3.5rem)] bg-white flex">
+      {/* Doctors List */}
       <div className="w-1/4 bg-white border-r border-gray-200 flex flex-col">
         <div className="border-b border-gray-200">
           {/* Search */}
           <div className="bg-white sticky top-0 z-10">
-              <div className="p-4 pb-2">
-                  <p className="text-gray-900 font-semibold text-lg">Messages</p>
+            <div className="p-4 pb-2">
+              <p className="text-gray-900 font-semibold text-lg">Doctors</p>
+            </div>
+            <div className="px-4 pb-4">
+              <div className="relative">
+                <FontAwesomeIcon
+                  icon={faSearch}
+                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"
+                />
+                <input
+                  type="text"
+                  placeholder="Search doctors..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 text-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
+                />
               </div>
-              <div className="px-4 pb-4">
-                  <div className="relative">
-                      <FontAwesomeIcon
-                          icon={faSearch}
-                          className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"
-                      />
-                      <input
-                          type="text"
-                          placeholder="Search conversations..."
-                          value={searchTerm}
-                          onChange={(e) => setSearchTerm(e.target.value)}
-                          className="w-full pl-10 pr-4 py-2 border border-gray-300 text-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
-                      />
-                  </div>
-              </div>
+            </div>
           </div>
         </div>
+
         <div className="space-y-0 flex-1 overflow-y-auto">
-          {filteredPatients.length ? (
-            filteredPatients.map(patient => (
+          {filteredDoctors.length > 0 ? (
+            filteredDoctors.map(doctor => (
               <div
-                key={patient.id}
-                onClick={() => {
-                  setSelectedPatient(patient);
-                }}
+                key={doctor.id}
+                onClick={() => setSelectedDoctor(doctor)}
                 className={`p-4 cursor-pointer flex items-center space-x-3 hover:bg-gray-100 transition-colors ${
-                  selectedPatient?.id === patient.id ? 'bg-blue-50' : 'bg-white'
+                  selectedDoctor?.id === doctor.id ? 'bg-blue-50' : 'bg-white'
                 }`}
               >
                 <div className="relative flex-shrink-0">
                   <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
                     <span className="text-white font-semibold text-xs">
-                      {patient.username.split(' ').map(n => n[0]).join('').toUpperCase()}
+                      {doctor.username?.split(' ').map(n => n[0]).join('').toUpperCase() || 'DR'}
                     </span>
                   </div>
+                  <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${
+                    doctor.isOnline ? 'bg-green-500' : 'bg-gray-400'
+                  }`}></div>
                 </div>
 
                 <div className="flex-1 min-w-0">
-                  <div className="flex justify-between items-start">
-                    <h3 className="text-sm font-semibold text-gray-900 truncate">{patient.username}</h3>
-                    {patient.lastMessageTime && (
-                      <span className="text-xs text-gray-400 whitespace-nowrap ml-2">
-                        {formatLastMessageTime(patient.lastMessageTime)}
-                      </span>
+                  <h3 className="text-sm font-semibold text-gray-900 truncate">{doctor.username}</h3>
+                  <p className="text-xs text-gray-600 truncate">{doctor.specialization}</p>
+                  <p className="text-xs text-gray-500">
+                    {doctor.isOnline ? (
+                      <span className="text-green-600">Online</span>
+                    ) : doctor.lastSeen ? (
+                      `Last seen ${formatLastSeen(doctor.lastSeen)}`
+                    ) : (
+                      'Offline'
                     )}
-                  </div>
-
-                  <div className="flex justify-between items-center mt-1">
-                    <p className="text-sm text-gray-600 truncate">
-                      {patient.lastMessage 
-                        ? (patient.lastMessage.includes('currentUser=') && patient.lastMessage.includes('callType=')
-                            ? 'Call Request'
-                            : patient.lastMessage)
-                        : 'No messages yet'}
-                    </p>
-                  </div>
+                  </p>
                 </div>
-
               </div>
             ))
           ) : (
-            <div className="flex justify-center p-4">
-              <span className="text-gray-500">No patients available</span>
+            <div className="p-4 text-center text-gray-500">
+              <div className="mb-2">
+                <FontAwesomeIcon icon={faUserMd} className="text-4xl text-gray-300" />
+              </div>
+              <p className="text-sm">No doctors available</p>
             </div>
           )}
         </div>
-
       </div>
 
       {/* Chat Area */}
       <div className="flex-1 flex flex-col">
-        {selectedPatient ? (
+        {selectedDoctor ? (
           <>
             {/* Chat Header */}
             <div className="p-4 border-b border-gray-200 bg-white">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
                   <div className="relative">
-                    <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                      <FontAwesomeIcon icon={faUserInjured} className="text-green-600" />
+                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                      <FontAwesomeIcon icon={faUserMd} className="text-blue-600" />
                     </div>
+                    <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${
+                      selectedDoctor.isOnline ? 'bg-green-500' : 'bg-gray-400'
+                    }`}></div>
                   </div>
                   <div>
-                    <h3 className="font-medium text-black">{selectedPatient.username}</h3>
-                    <p className="text-sm text-black">
-                      ID: {selectedPatient.patientId}
-                    </p>
-
+                    <h3 className="font-medium text-black">{selectedDoctor.username}</h3>
+                    <p className="text-sm text-black">{selectedDoctor.specialization}</p>
                   </div>
                 </div>
+                
                 <div className="flex space-x-2">
                   <button 
-                    className="w-10 h-10 border border-gray-200 rounded-full flex items-center justify-center hover:bg-gray-50 transition-colors cursor-pointer" 
+                    className="w-10 h-10 border border-gray-200 rounded-full flex items-center justify-center hover:bg-gray-50 transition-colors cursor-pointer"
                     onClick={() => createCall('audio')}
                     title="Audio Call"
                   >
@@ -577,6 +454,7 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
               </div>
             </div>
 
+            {/* Messages */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 scrollbar-hide">
               {messages.map(message => {
                 const isCurrentUser = message.senderId === currentUser.id;
@@ -683,17 +561,15 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
         ) : (
           <div className="flex-1 flex items-center justify-center bg-gray-50">
             <div className="text-center">
-              <FontAwesomeIcon icon={faUserInjured} className="text-6xl text-gray-300 mb-4" />
-              <p className="text-gray-500 text-lg mb-2">Select a patient to start chatting</p>
-              <p className="text-gray-400 text-sm">Choose a patient from the list to begin your conversation</p>
+              <FontAwesomeIcon icon={faUserMd} className="text-6xl text-gray-300 mb-4" />
+              <p className="text-gray-500 text-lg mb-2">Select a doctor to start chatting</p>
+              <p className="text-gray-400 text-sm">Choose a doctor from the list to begin your conversation</p>
             </div>
           </div>
         )}
       </div>
-
-      
     </div>
   );
 };
 
-export default DoctorChat;
+export default PatientChat;
