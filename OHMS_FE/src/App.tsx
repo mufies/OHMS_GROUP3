@@ -28,11 +28,13 @@ import Doctor from "./page/patient/Doctor";
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import PatientChatPage from './page/patient/PatientChatPage.tsx';
+import AppWithChat from './provider/AppWithChat.tsx';
 // import DoctorCall from "./page/doctor/DoctorCall.tsx";
 function App() {
     return (
         <Router>
             {/*<AuthProvider>*/}
+            <AppWithChat>
             <Routes>
                 <Route path="/" element={<Home />} />
                 <Route path="/booking" element={<Booking />} />
@@ -50,6 +52,7 @@ function App() {
                 <Route path="/chat" element={<PatientChatPage />} />
 
             </Routes>
+            </AppWithChat>
             {/*</AuthProvider>*/}
            <ToastContainer
                 position="bottom-left"
