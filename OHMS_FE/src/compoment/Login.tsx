@@ -9,12 +9,6 @@ interface LoginProps {
   onClose: () => void;
 }
 
-// Helper function set cookie (thêm vào đầu file hoặc utils)
-const setCookie = (name: string, value: string, days: number = 1) => {
-  const expires = new Date(Date.now() + days * 864e5).toUTCString();
-  document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; domain=localhost`;
-};
-
 const Login = ({ onClose }: LoginProps) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -31,14 +25,10 @@ const Login = ({ onClose }: LoginProps) => {
     });
   };
 
-  const handleGoogleLogin = () => {
-    // Set cookie cho backend đọc: redirect về FE path sau auth
-  //  setCookie('redirect_uri', 'http://localhost:5173/oauth2/redirect', 1);
-
-  // Custom endpoint theo config backend
-window.location.href = 'http://localhost:8080/oauth2/authorization/google';
-  };
-
+// Sử dụng đúng
+const handleGoogleLogin = () => {
+  window.location.href =`http://localhost:8080/oauth2/authorization/google`; // Phải là /oauth2/authorization/google
+};
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div className="relative w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
