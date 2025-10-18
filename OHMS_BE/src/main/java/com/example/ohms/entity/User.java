@@ -40,13 +40,12 @@ public class User {
 // mấy cái này tí nhớ ẩn trong mapper
    @ManyToMany
    Set<Role> roles;
-   @Enumerated(EnumType.STRING)
-   @Builder.Default
-   AuthProvider authProvider = AuthProvider.LOCAL;
+   AuthProvider provider;
    String refreshToken;
    String resetToken;
 // mấy cái ở dưới là của role bác sĩ 
 // 1 bác sĩ có nhiều chuyên ngành
+    String providerId;
  Boolean enabled = true;
  @Enumerated(EnumType.STRING)
    Set<MedicalSpecialty> medicleSpecially;
