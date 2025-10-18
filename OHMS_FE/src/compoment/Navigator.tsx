@@ -5,7 +5,7 @@ import { validateJwt } from "../hook/useAuth.tsx";
 import Login from "./Login";
 import Register from "./register";
 import { LOGIN_USER } from "../constant/enum.ts";
-import { fetchLogoutUser, fetchGetProfile } from "../utils/fetchFromAPI.ts";
+import { fetchLogoutUser, fetchGetProfile, axiosInstance } from "../utils/fetchFromAPI.ts";
 
 export interface ProfileData {
   id: string;
@@ -70,6 +70,15 @@ function Navigator() {
         fetchLogoutUser();
         setIsAuthenticated(false);
         setUser(null);
+        localStorage.removeItem(LOGIN_USER);
+        
+  // Xóa query param khỏi URL (nếu có)
+  const currentUrl = new URL(window.location.href);
+  currentUrl.searchParams.delete('token');
+  window.history.replaceState({}, document.title, currentUrl.toString());
+  axiosInstance.post(`auth/logout`);
+  // Redirect về home sạch
+  window.location.href = '/';
     };
     return (
         <>

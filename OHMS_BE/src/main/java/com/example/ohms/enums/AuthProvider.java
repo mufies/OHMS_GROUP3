@@ -2,5 +2,6 @@ package com.example.ohms.enums;
 
 public enum AuthProvider {
     LOCAL,
-    GOOGLE
+    GOOGLE,
+    google
 }
