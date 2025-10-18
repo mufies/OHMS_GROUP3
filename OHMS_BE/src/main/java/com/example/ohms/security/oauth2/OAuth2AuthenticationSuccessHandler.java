@@ -5,6 +5,7 @@ import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.core.user.DefaultOAuth2User;
+import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -45,7 +46,7 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
                                         Authentication authentication) throws IOException, ServletException {
 
         // Lấy thông tin user từ Google
-        DefaultOAuth2User oAuth2User = (DefaultOAuth2User) authentication.getPrincipal();
+        OAuth2User oAuth2User = (OAuth2User) authentication.getPrincipal();
         String email = oAuth2User.getAttribute("email");
 
         log.info("OAuth2 login success for {}", email);
@@ -61,13 +62,13 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
 
         // Tạo JWT token
         String token = authenticationService.generateTokenFromOAuth2(user);
-
+        httpCookieOAuth2AuthorizationRequestRepository.removeAuthorizationRequestCookies(request, response);
         // Redirect về FE kèm token
         String redirectUrl = "http://localhost:5173/oauth2/redirect?token=" +
                 URLEncoder.encode(token, StandardCharsets.UTF_8);
 
         log.info("Redirecting to frontend: {}", redirectUrl);
-
+        
         getRedirectStrategy().sendRedirect(request, response, redirectUrl);
     }
 
