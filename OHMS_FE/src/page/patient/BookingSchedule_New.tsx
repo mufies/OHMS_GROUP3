@@ -3,6 +3,8 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import Navigator from "../../compoment/Navigator";
 
+
+
 interface MedicalExamination {
   id: string;
   name: string;
@@ -49,7 +51,9 @@ interface TimeSlot {
 interface DaySchedule {
   date: string;
   label: string;
+  weekLabel: string; // "Tuần này" or "Tuần sau"
   slots: TimeSlot[];
+  hasApiSchedule?: boolean; // true if this day has schedule from API
 }
 
 interface WeeklySchedule {
@@ -227,7 +231,7 @@ function BookingSchedule() {
         
         // Call API lấy weekly schedule
         const scheduleResponse = await axios.get(
-          `http://localhost:8080/schedule/doctor/${selectedDoctor.id}/weekly`,
+          `http://localhost:8080/schedule/${selectedDoctor.id}`,
           {
             headers: {
               'Authorization': `Bearer ${token}`,
@@ -237,6 +241,8 @@ function BookingSchedule() {
         );
         
         if (scheduleResponse.data?.code === 200 && scheduleResponse.data?.results) {
+          console.log('Weekly schedule fetched successfully:', scheduleResponse.data.results);
+          
           const weeklySchedules: WeeklySchedule[] = scheduleResponse.data.results;
           
           // Generate week schedule từ weekly schedules
@@ -258,102 +264,206 @@ function BookingSchedule() {
     doctorId: string,
     token: string
   ): Promise<DaySchedule[]> => {
-    const schedule: DaySchedule[] = [];
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Helper: build a week dates array (Mon-Fri only) starting from a reference date
+    const buildWeekDates = (refDate: Date) => {
+      const d = new Date(refDate);
+      // move to Monday
+      const day = d.getDay();
+      // const d = new Date(2025, 9, 16); // Tháng 10 (index 9), ngày 16, năm 2025
+      // const day = d.getDay();
+      const diffToMonday = (day === 0 ? -6 : 1) - day; // if Sunday(0) -> previous Monday = -6
+      const monday = new Date(d);
+      monday.setDate(d.getDate() + diffToMonday);
+      monday.setHours(0, 0, 0, 0);
 
-    // Group schedules by date
-    const schedulesByDate = weeklySchedules.reduce((acc, sch) => {
-      if (!acc[sch.workDate]) {
-        acc[sch.workDate] = [];
+      const weekDates: Date[] = [];
+      for (let i = 0; i < 5; i++) {  // Changed from 7 to 5 (Mon-Fri only)
+        const dt = new Date(monday);
+        dt.setDate(monday.getDate() + i);
+        weekDates.push(dt);
       }
-      acc[sch.workDate].push(sch);
-      return acc;
-    }, {} as Record<string, WeeklySchedule[]>);
+      return weekDates;
+    };
 
-    // Lấy appointments cho mỗi ngày
-    const appointmentsByDate: Record<string, Appointment[]> = {};
-    
-    for (const date of Object.keys(schedulesByDate)) {
-      try {
-        const response = await axios.get(
-          `http://localhost:8080/appointments/doctor/${doctorId}/date/${date}`,
-          {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            }
-          }
-        );
-        appointmentsByDate[date] = response.data || [];
-      } catch (error) {
-        console.error(`Error fetching appointments for date ${date}:`, error);
-        appointmentsByDate[date] = [];
-      }
-    }
-
-    // Generate schedule cho từng ngày
-    for (const [dateStr, daySchedules] of Object.entries(schedulesByDate)) {
-      const date = new Date(dateStr);
-      
-      // Skip ngày đã qua
-      if (date < today) {
-        continue;
-      }
-
-      const dayLabel = formatDayLabel(date);
-      const appointments = appointmentsByDate[dateStr] || [];
-      
-      // Generate slots cho ngày này
+    // Build slots for a day given working intervals (could be one or multiple intervals)
+    const buildSlotsForIntervals = (intervals: {startTime: string; endTime:string}[], appointments: Appointment[]) => {
       const slots: TimeSlot[] = [];
-      
-      for (const daySchedule of daySchedules) {
-        const startHour = parseInt(daySchedule.startTime.split(':')[0]);
-        const startMinute = parseInt(daySchedule.startTime.split(':')[1]);
-        const endHour = parseInt(daySchedule.endTime.split(':')[0]);
-        const endMinute = parseInt(daySchedule.endTime.split(':')[1]);
-        
-        const startTotalMinutes = startHour * 60 + startMinute;
-        const endTotalMinutes = endHour * 60 + endMinute;
-        
-        // Generate 30-minute slots
-        for (let minutes = startTotalMinutes; minutes < endTotalMinutes; minutes += 30) {
-          const slotStartHour = Math.floor(minutes / 60);
-          const slotStartMinute = minutes % 60;
-          const slotEndMinutes = minutes + 30;
-          const slotEndHour = Math.floor(slotEndMinutes / 60);
-          const slotEndMinute = slotEndMinutes % 60;
-          
-          const startTime = `${slotStartHour.toString().padStart(2, '0')}:${slotStartMinute.toString().padStart(2, '0')}:00`;
-          const endTime = `${slotEndHour.toString().padStart(2, '0')}:${slotEndMinute.toString().padStart(2, '0')}:00`;
-          
-          // Check if slot is already booked
-          const isBooked = appointments.some(apt => 
-            apt.startTime === startTime && apt.status !== 'CANCELLED'
-          );
-          
-          slots.push({
-            startTime,
-            endTime,
-            available: !isBooked
-          });
+      for (const interval of intervals) {
+        const startParts = interval.startTime.split(':').map(x => parseInt(x));
+        const endParts = interval.endTime.split(':').map(x => parseInt(x));
+        const startTotal = startParts[0] * 60 + (startParts[1] || 0);
+        const endTotal = endParts[0] * 60 + (endParts[1] || 0);
+
+        for (let minutes = startTotal; minutes < endTotal; minutes += 30) {
+          const sh = Math.floor(minutes / 60);
+          const sm = minutes % 60;
+          const em = minutes + 30;
+          const eh = Math.floor(em / 60);
+          const emm = em % 60;
+          const startTime = `${String(sh).padStart(2,'0')}:${String(sm).padStart(2,'0')}:00`;
+          const endTime = `${String(eh).padStart(2,'0')}:${String(emm).padStart(2,'0')}:00`;
+
+          const isBooked = appointments.some(apt => apt.startTime === startTime && apt.endTime === endTime && apt.status !== 'CANCELLED');
+          slots.push({ startTime, endTime, available: !isBooked });
         }
       }
-      
-      // Chỉ thêm ngày nếu có slots
-      if (slots.length > 0) {
-        schedule.push({
-          date: dateStr,
-          label: dayLabel,
-          slots
-        });
+      return slots;
+    };
+
+    // Normalize weeklySchedules by date -> array of intervals
+    const schedulesMap = weeklySchedules.reduce((acc, sch) => {
+      if (!acc[sch.workDate]) acc[sch.workDate] = [];
+      acc[sch.workDate].push({ startTime: sch.startTime, endTime: sch.endTime });
+      return acc;
+    }, {} as Record<string, {startTime:string; endTime:string}[]>);
+
+    // Fetch appointments helper for a list of date strings
+    const fetchAppointmentsForDates = async (dates: string[]) => {
+      const map: Record<string, Appointment[]> = {};
+      for (const date of dates) {
+        try {
+          const response = await axios.get(`http://localhost:8080/appointments/doctor/${doctorId}/date/${date}`, { headers: { 'Authorization': `Bearer ${token}` } });
+          const appts = Array.isArray(response.data) ? response.data : response.data?.results || [];
+          map[date] = appts;
+        } catch (err) {
+          console.error(`Error fetching appointments for ${date}:`, err);
+          map[date] = [];
+        }
+      }
+      return map;
+    };
+
+    // Get both current week and next week
+    const today = new Date();
+    const thisWeekDates = buildWeekDates(today);
+    const nextWeekStart = new Date(thisWeekDates[0]);
+    nextWeekStart.setDate(thisWeekDates[0].getDate() + 7);
+    const nextWeekDates = buildWeekDates(nextWeekStart);
+
+    // Convert to yyyy-mm-dd strings
+    const toYMD = (d: Date) => d.toISOString().slice(0,10);
+    const thisWeekStrs = thisWeekDates.map(toYMD);
+    const nextWeekStrs = nextWeekDates.map(toYMD);
+    const allWeeksStrs = [...thisWeekStrs, ...nextWeekStrs];
+
+    // Determine if there are schedules in provided weeklySchedules for each week
+    const hasSchedulesInWeek = (weekStrs: string[]) => weekStrs.some(s => !!schedulesMap[s]);
+    const hasSchedulesThisWeek = hasSchedulesInWeek(thisWeekStrs);
+    const hasSchedulesNextWeek = hasSchedulesInWeek(nextWeekStrs);
+    const useDefault = !hasSchedulesThisWeek && !hasSchedulesNextWeek;
+
+    // Fetch appointments for all dates
+    const appointmentsMap = await fetchAppointmentsForDates(allWeeksStrs);
+
+    const schedule: DaySchedule[] = [];
+    const todayStr = toYMD(today);
+
+    // Process this week
+    for (const dateStr of thisWeekStrs) {
+      const dateObj = new Date(dateStr);
+      const label = formatDayLabel(dateObj);
+      let slots: TimeSlot[] = [];
+      const hasApiScheduleForDay = !!schedulesMap[dateStr];
+
+      if (useDefault) {
+        // Create default Mon-Fri 07:00-17:00 (only weekdays)
+        const dayOfWeek = dateObj.getDay(); // 0 Sun .. 6 Sat
+        if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+          const intervals = [{ startTime: '07:00:00', endTime: '17:00:00' }];
+          const appts = appointmentsMap[dateStr] || [];
+          slots = buildSlotsForIntervals(intervals, appts);
+        } else {
+          slots = [];
+        }
+      } else {
+        const intervals = schedulesMap[dateStr] || [];
+        const appts = appointmentsMap[dateStr] || [];
+        if (intervals.length > 0) {
+          slots = buildSlotsForIntervals(intervals, appts);
+        } else {
+          slots = [];
+        }
+      }
+
+      // Only add if date is today or in the future, and not Sunday
+      const dayOfWeek = dateObj.getDay(); // 0 = Sunday, 1-6 = Mon-Sat
+      if (dateStr >= todayStr && dayOfWeek !== 0) {
+        schedule.push({ date: dateStr, label, weekLabel: 'Tuần này', slots, hasApiSchedule: hasApiScheduleForDay });
       }
     }
-    
-    // Sort by date
-    schedule.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    
-    return schedule;
+
+    // Process next week - apply limiting logic
+    for (const dateStr of nextWeekStrs) {
+      const dateObj = new Date(dateStr);
+      const label = formatDayLabel(dateObj);
+      let slots: TimeSlot[] = [];
+      const hasApiScheduleForDay = !!schedulesMap[dateStr];
+
+      if (useDefault) {
+        // Create default Mon-Fri 07:00-17:00 (only weekdays)
+        const dayOfWeek = dateObj.getDay(); // 0 Sun .. 6 Sat
+        if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+          const intervals = [{ startTime: '07:00:00', endTime: '17:00:00' }];
+          const appts = appointmentsMap[dateStr] || [];
+          slots = buildSlotsForIntervals(intervals, appts);
+        } else {
+          slots = [];
+        }
+      } else {
+        // Nếu tuần sau có schedule từ API thì chỉ hiển thị ngày có schedule
+        // Nếu tuần sau không có schedule từ API thì hiển thị bình thường (default)
+        if (hasSchedulesNextWeek) {
+          // Giới hạn: chỉ hiển thị ngày có schedule từ API
+          if (hasApiScheduleForDay) {
+            const intervals = schedulesMap[dateStr] || [];
+            const appts = appointmentsMap[dateStr] || [];
+            if (intervals.length > 0) {
+              slots = buildSlotsForIntervals(intervals, appts);
+            } else {
+              slots = [];
+            }
+          } else {
+            // Ngày này không có schedule từ API, không tạo slot
+            slots = [];
+          }
+        } else {
+          // Tuần sau không có schedule, dùng default
+          const dayOfWeek = dateObj.getDay();
+          if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+            const intervals = [{ startTime: '07:00:00', endTime: '17:00:00' }];
+            const appts = appointmentsMap[dateStr] || [];
+            slots = buildSlotsForIntervals(intervals, appts);
+          } else {
+            slots = [];
+          }
+        }
+      }
+
+      schedule.push({ date: dateStr, label, weekLabel: 'Tuần sau', slots, hasApiSchedule: hasApiScheduleForDay });
+    }
+
+    // Filter out Sundays from schedule
+    const filteredSchedule = schedule.filter(day => {
+      const dayDate = new Date(day.date);
+      return dayDate.getDay() !== 0; // 0 = Sunday
+    });
+
+    const todayIndex = filteredSchedule.findIndex(d => d.date === todayStr);
+
+    if (todayIndex >= 0 && filteredSchedule[todayIndex].slots && filteredSchedule[todayIndex].slots.length > 0) {
+      // Nếu ngày hiện tại có trong lịch và có slot → chọn ngày đó
+      setSelectedDay(todayIndex);
+    } else {
+      // Nếu không, chọn ngày đầu tiên có slot available
+      const firstAvailableIndex = filteredSchedule.findIndex(d => d.slots && d.slots.some(s => s.available));
+      if (firstAvailableIndex >= 0) {
+        setSelectedDay(firstAvailableIndex);
+      } else {
+        setSelectedDay(0);
+      }
+    }
+
+    return filteredSchedule;
   };
 
   const formatDayLabel = (date: Date): string => {
@@ -560,52 +670,102 @@ function BookingSchedule() {
                     Ngày và giờ khám
                   </div>
                   
-                  {/* Days selector */}
-                  <div className="flex items-center gap-2 mb-6 overflow-x-auto">
-                    {weekSchedule.map((day, idx) => (
-                      <div
-                        key={day.date}
-                        onClick={() => {
-                          setSelectedDay(idx);
-                          setSelectedSlot(null);
-                        }}
-                        className={`p-4 rounded-xl text-center min-w-[120px] flex-shrink-0 cursor-pointer ${
-                          idx === selectedDay
-                            ? "border-2 border-gray-900 font-bold shadow-md"
-                            : "border border-gray-200 font-medium"
-                        } bg-white text-gray-900`}
-                      >
-                        {day.label}
-                        <div className="text-sm mt-1 text-green-500">
-                          {day.slots.filter(s => s.available).length} khung giờ
+                  {/* Days selector - both weeks */}
+                  <div className="space-y-4">
+                    {['Tuần này', 'Tuần sau'].map(week => {
+                      const weekDays = weekSchedule.filter(d => d.weekLabel === week);
+                      if (weekDays.length === 0) return null;
+
+                      const today = new Date();
+
+                      return (
+                        <div key={week}>
+                          <div className="text-sm font-semibold text-gray-700 mb-3">
+                            {week}
+                          </div>
+                          <div className="flex items-center gap-2 overflow-x-auto pb-2">
+                            {weekDays.map((day) => {
+                              const hasSlots = day.slots && day.slots.length > 0;
+                              const dayDate = new Date(day.date);
+                              const isPast = dayDate < today;
+                              const isDisabled = isPast || !hasSlots;
+                              const actualIdx = weekSchedule.indexOf(day);
+                              
+                              return (
+                                <div
+                                  key={day.date}
+                                  onClick={() => {
+                                    if (!isDisabled) {
+                                      setSelectedDay(actualIdx);
+                                      setSelectedSlot(null);
+                                    }
+                                  }}
+                                  className={`p-4 rounded-xl text-center min-w-[110px] flex-shrink-0 ${
+                                    isDisabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
+                                  } ${
+                                    actualIdx === selectedDay
+                                      ? "border-2 border-gray-900 font-bold shadow-md"
+                                      : "border border-gray-200 font-medium"
+                                  } bg-white text-gray-900`}
+                                  title={isPast ? 'Ngày đã trôi qua' : !hasSlots ? 'Không có khung giờ' : ''}
+                                >
+                                  {day.label}
+                                  <div className={`text-sm mt-1 ${isPast ? 'text-gray-400' : 'text-green-500'}`}>
+                                    {hasSlots ? `${day.slots.filter(s => s.available).length} khung giờ` : 'Không có'}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   {/* Time slots */}
-                  <div className="font-semibold text-lg mb-3">
+                  <div className="font-semibold text-lg mb-3 mt-6">
                     <span className="inline-block w-6 h-6 rounded-full bg-gray-900 text-white text-center leading-6 font-bold mr-2">O</span>
                     Khung giờ khám
                   </div>
-                  <div className="flex flex-wrap gap-4">
-                    {weekSchedule[selectedDay]?.slots.filter(slot => slot.available).map(slot => (
-                      <button
-                        key={slot.startTime}
-                        onClick={() => setSelectedSlot(slot)}
-                        disabled={!slot.available}
-                        className={`py-4 px-6 rounded-lg font-semibold text-base cursor-pointer transition-all ${
-                          selectedSlot?.startTime === slot.startTime
-                            ? "border-2 border-blue-600 bg-blue-600 text-white"
-                            : slot.available
-                            ? "border border-gray-200 bg-gray-100 text-gray-900 hover:border-gray-300"
-                            : "border border-gray-200 bg-gray-200 text-gray-400 cursor-not-allowed"
-                        }`}
-                      >
-                        {formatTime(slot.startTime)} - {formatTime(slot.endTime)}
-                      </button>
-                    ))}
-                  </div>
+                  {(() => {
+                    const selectedDayData = weekSchedule[selectedDay];
+                    const today = new Date();
+                    const dayDate = new Date(selectedDayData?.date || '');
+                    const isDayPast = dayDate < today;
+                    const hasSlots = selectedDayData?.slots && selectedDayData.slots.length > 0;
+                    
+                    if (isDayPast || !hasSlots) {
+                      return (
+                        <div className="text-center py-8">
+                          <p className="text-gray-500">
+                            {isDayPast ? 'Ngày này đã trôi qua' : 'Không có khung giờ trống trong ngày này'}
+                          </p>
+                        </div>
+                      );
+                    }
+                    
+                    return (
+                      <div className="flex flex-wrap gap-4">
+                        {selectedDayData?.slots.map(slot => (
+                          <button
+                            key={slot.startTime}
+                            onClick={() => setSelectedSlot(slot)}
+                            disabled={!slot.available}
+                            className={`py-4 px-6 rounded-lg font-semibold text-base cursor-pointer transition-all ${
+                              selectedSlot?.startTime === slot.startTime
+                                ? "border-2 border-blue-600 bg-blue-600 text-white"
+                                : slot.available
+                                ? "border border-gray-200 bg-gray-100 text-gray-900 hover:border-gray-300"
+                                : "border border-gray-200 bg-gray-200 text-gray-400 cursor-not-allowed"
+                            }`}
+                          >
+                            {formatTime(slot.startTime)} - {formatTime(slot.endTime)}
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                
                 </div>
               </div>
             )}

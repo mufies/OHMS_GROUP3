@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.*;
 
 import com.example.ohms.dto.request.DiagnosisRequest;
 import com.example.ohms.dto.response.DiagnosisResponse;
+import com.example.ohms.dto.response.SpecialtyRecommendationResponse;
 import com.example.ohms.service.GeminiService;
 
 @RestController
@@ -35,6 +36,31 @@ public class DiagnosisController {
             DiagnosisResponse resp = new DiagnosisResponse();
             resp.setReply(reply);
             return ResponseEntity.ok(resp);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("{\"error\":\"Internal server error: " + e.getMessage() + "\"}");
+        }
+    }
+
+    /**
+     * Gợi ý chuyên khoa khám bệnh + danh sách dịch vụ khám + link đặt lịch
+     */
+    @PostMapping("/recommend")
+    public ResponseEntity<?> recommendSpecialty(@RequestBody DiagnosisRequest request) {
+        if (request == null || request.getMessage() == null || request.getMessage().trim().isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body("{\"error\":\"Missing message in request body\"}");
+        }
+
+        try {
+            // Lấy AI response
+            String aiResponse = geminiService.generateDiagnosisReply(request);
+            
+            // Parse response để lấy thông tin gợi ý
+            SpecialtyRecommendationResponse recommendation = geminiService.parseAIResponse(aiResponse, request);
+            
+            return ResponseEntity.ok(recommendation);
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)

@@ -104,7 +104,7 @@ public class AuthenticationService {
         StringJoiner stringJoiner = new StringJoiner(" ");
         if (!CollectionUtils.isEmpty(user.getRoles()))
             user.getRoles().forEach(role -> {
-                stringJoiner.add("ROLE_" + role.getName().toLowerCase()); // Thêm prefix ROLE_ chuẩn Spring
+                stringJoiner.add("" + role.getName().toLowerCase()); // Thêm prefix ROLE_ chuẩn Spring
                 if (!CollectionUtils.isEmpty(role.getPermissions()))
                     role.getPermissions().forEach(permission ->
                             stringJoiner.add(permission.getName())  // 

@@ -25,13 +25,16 @@ const PatientChatPage = () => {
           role: 'patient',
         };
         setCurrentUser(transformedUser);
+      } else if (decodedPayload.scope === 'doctor') {
+        // Nếu là doctor, redirect tới doctor chat
+        navigate('/doctor/chat', { replace: true });
       } else {
-        // If not a patient, redirect to doctor chat
-        navigate('/doctor/chat');
+        // Nếu scope khác, redirect tới home
+        navigate('/', { replace: true });
       }
     } else {
       // No user logged in, redirect to main page
-      navigate('/');
+      navigate('/', { replace: true });
     }
   }, [navigate]);
 

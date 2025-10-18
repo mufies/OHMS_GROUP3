@@ -39,4 +39,4 @@ build/
 .env.production
 
 # doc
-
+/src/main/swp_project.code-workspace
