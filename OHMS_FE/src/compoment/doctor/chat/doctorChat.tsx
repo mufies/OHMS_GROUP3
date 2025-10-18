@@ -16,7 +16,6 @@ import { useWebSocketService } from '../../../services/webSocketServices';
 interface Message {
   id: string;
   senderId: string;
-  senderName: string;
   content: string;
   timestamp: Date;
   isRead: boolean;
@@ -36,9 +35,6 @@ interface Patient {
 
 interface User {
   id: string;
-  username: string;
-  email: string;
-  specialization?: string;
 }
 
 interface RoomChatResponse {
@@ -85,7 +81,6 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
     const message: Message = {
       id: Date.now().toString(),
       senderId: currentUser.id,
-      senderName: currentUser.username,
       content: newMessage.trim(),
       timestamp: new Date(),
       isRead: false
@@ -129,7 +124,7 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
     }
 
     setNewMessage('');
-  }, [currentUser.id, currentUser.username, newMessage, selectedPatient, getCurrentRoom]);
+  }, [currentUser.id, newMessage, selectedPatient, getCurrentRoom]);
 
 
 
@@ -161,7 +156,6 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
       const incomingMessage: Message = {
         id: Date.now().toString(),
         senderId: message.user?.id ?? 'unknown',
-        senderName: message.user?.username ?? 'Unknown',
         content: message.message,
         timestamp: new Date(message.createdAt ?? Date.now()),
         isRead: false,
@@ -228,7 +222,6 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
           const incomingMessage: Message = {
             id: Date.now().toString(),
             senderId: message.user?.id ?? 'unknown',
-            senderName: message.user?.username ?? 'Unknown',
             content: message.message,
             timestamp: new Date(message.createdAt ?? Date.now()),
             isRead: false,
@@ -267,7 +260,7 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
       }
 
       try {
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('accessToken');
         if (!token) return;
 
         const response = await axios.get(`http://localhost:8080/conversation/${currentRoom.roomChatID}`, {
@@ -318,7 +311,7 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
   // Fetch chat rooms and extract patients list
   const fetchChatRooms = useCallback(async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('accessToken');
       if (!token) return;
 
       const response = await axios.get(`http://localhost:8080/chat/${currentUser.id}`, {
@@ -329,6 +322,8 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
       });
 
       if (response.data?.results) {
+        console.log('negi');
+        
         setChatRooms(response.data.results);
 
         const patientsMap = new Map<string, Patient>();
@@ -345,6 +340,8 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
                     'Content-Type': 'application/json',
                   },
                 });
+                console.log('concer');
+                
 
                 let lastMessage = 'No messages yet';
                 let lastMessageTime = new Date(Date.now() - Math.random() * 86400000); // Default to within last day
@@ -444,10 +441,10 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
       const variable = {
           roomId: currentRoom?.roomChatID,
           currentUser: currentUser.id,
-          callType: type  // Use the parameter directly instead of state
-          
+          callType: type,  // Use the parameter directly instead of state
+          anotherUser: selectedPatient?.id
       }
-      openCallWindow(`http://localhost:5173/video?roomId=${variable.roomId}&currentUser=${variable.currentUser}&callType=${variable.callType}&role=doctor`)
+      openCallWindow(`http://localhost:5173/video?roomId=${variable.roomId}&currentUser=${variable.currentUser}&callType=${variable.callType}&role=doctor&anotherUser=${variable.anotherUser}`)
 
   }
 

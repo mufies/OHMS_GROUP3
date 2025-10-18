@@ -47,6 +47,7 @@ public class AppointmentController {
             log.error("Error creating appointment: {}", e.getMessage());
             throw e;
         }
+        
     }
     
     // Lấy appointment theo ID
@@ -159,15 +160,42 @@ public class AppointmentController {
         }
     }
     
+    // Assign doctor to appointment
+    @PutMapping("/{appointmentId}/assign-doctor/{doctorId}")
+    public ResponseEntity<Void> assignDoctorToAppointment(@PathVariable String appointmentId, @PathVariable String doctorId) {
+        log.info("Assigning doctor {} to appointment {}", doctorId, appointmentId);
+        
+        try {
+            appointmentService.assignDoctorToAppointment(appointmentId, doctorId);
+            return ResponseEntity.ok().build();
+        } catch (RuntimeException e) {
+            log.error("Error assigning doctor to appointment: {}", e.getMessage());
+            throw e;
+        }
+    }
+    
+    // Update appointment status
+    @PutMapping("/{appointmentId}/status")
+    public ResponseEntity<AppointmentResponse> updateAppointmentStatus(
+            @PathVariable String appointmentId,
+            @RequestParam String status) {
+        log.info("Updating status of appointment {} to {}", appointmentId, status);
+        
+        try {
+            AppointmentResponse response = appointmentService.updateAppointmentStatus(appointmentId, status);
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            log.error("Error updating appointment status: {}", e.getMessage());
+            throw e;
+        }
+    }
+    
     // Lấy các khung giờ đã đặt của doctor
     @GetMapping("/doctor/{doctorId}/booked-slots")
     public ResponseEntity<List<String>> getBookedTimeSlots(
             @PathVariable String doctorId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         log.info("Getting booked time slots for doctor {} on date {}", doctorId, date);
-        
-        // Tạm thời return empty list vì method đã bị comment trong service
-        // List<String> timeSlots = appointmentService.getBookedTimeSlots(doctorId, date);
         return ResponseEntity.ok(List.of());
     }
 }

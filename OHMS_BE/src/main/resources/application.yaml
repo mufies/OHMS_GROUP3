@@ -1,9 +1,21 @@
-8server:
+server:
   port: 8080
-
+  tomcat:
+    relaxed-query-chars: "|,{,},[,]"
 spring:
   application:
     api-prefix: /api/v1
+  security:
+    oauth2:
+      authorizedRedirectUris: http://localhost:5173/login/oauth2/code/google
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID}
+            redirect-uris: "{baseUrl}/oauth2/callback/{registrationId}"
+            scope:
+              - email
+              - profile
   datasource:
     url: jdbc:mysql://localhost:3308/swpbackend?useSSL=false&serverTimezone=UTC
     username: root
@@ -35,5 +47,17 @@ spring:
 app:
   signal-key: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
 
-    
+gemini:
+  api:
+    key: ${GEMINI_API_KEY}
+    model: gemini-2.5-flash
 
+payment:
+  vn-pay:
+    url: https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
+    tmn-code: CGCM5E2B
+    secret-key: 45RSAWT0ILTS6QVETLWW4LRY9VCWVOQK
+    return-url: http://localhost:5173/payment-callback
+    version: 2.1.0
+    command: pay
+    order-type: other

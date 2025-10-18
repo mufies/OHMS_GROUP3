@@ -37,7 +37,7 @@ public class MedicalServicesRequestService {
     MedicleExaminatioRepository medicleExaminatioRepository;
 
     // Create a new medical services request
-    @PreAuthorize("hasAnyRole('ADMIN','DOCTOR')")
+    // @PreAuthorize("hasAnyRole('ADMIN','DOCTOR')")
     public MedicalServicesRequestResponse createMedicalServicesRequest(MedicalServicesRequestRequest request) {
         log.info("Creating medical services request for patient: {} with doctor: {}", request.getPatientId(), request.getDoctorId());
 
@@ -49,6 +49,7 @@ public class MedicalServicesRequestService {
         MedicalServicesRequest msr = MedicalServicesRequest.builder()
                 .doctor(doctor)
                 .patient(patient)
+                .medicalSpecialty(request.getMedicalSpecialty())
                 .build();
 
         if (request.getMedicalExaminationIds() != null && !request.getMedicalExaminationIds().isEmpty()) {
@@ -101,6 +102,11 @@ public class MedicalServicesRequestService {
         MedicalServicesRequest msr = medicalServicesRequestRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Medical Services Request not found with id: " + id));
 
+        // Update medical specialty if provided
+        if (request.getMedicalSpecialty() != null) {
+            msr.setMedicalSpecialty(request.getMedicalSpecialty());
+        }
+
         // Clear existing examinations and add new ones
         msr.getMedicalExamnination().clear();
         
@@ -121,6 +127,20 @@ public class MedicalServicesRequestService {
         return toMedicalServicesRequestResponse(updatedRequest);
     }
 
+    // Update status of a medical services request
+    public MedicalServicesRequestResponse updateMedicalServicesRequestStatus(String id, Boolean status) {
+        log.info("Updating status of medical services request: {} to {}", id, status);
+
+        MedicalServicesRequest msr = medicalServicesRequestRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Medical Services Request not found with id: " + id));
+
+        msr.setStatus(status);
+        MedicalServicesRequest updatedRequest = medicalServicesRequestRepository.save(msr);
+        log.info("Medical services request status updated successfully: {}", id);
+
+        return toMedicalServicesRequestResponse(updatedRequest);
+    }
+
     // Delete a medical services request
     public void deleteMedicalServicesRequest(String id) {
         log.info("Deleting medical services request: {}", id);
@@ -133,6 +153,20 @@ public class MedicalServicesRequestService {
         log.info("Medical services request deleted successfully: {}", id);
     }
 
+    // Update status of a medical services request
+    public MedicalServicesRequestResponse updateMedicalServicesRequestStatus(String id, boolean status) {
+        log.info("Updating status of medical services request: {} to {}", id, status);
+
+        MedicalServicesRequest msr = medicalServicesRequestRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Medical Services Request not found with id: " + id));
+
+        msr.setStatus(status);
+        MedicalServicesRequest updatedRequest = medicalServicesRequestRepository.save(msr);
+        
+        log.info("Medical services request status updated successfully: {} to {}", id, status);
+        return toMedicalServicesRequestResponse(updatedRequest);
+    }
+
     // Convert MedicalServicesRequest entity to MedicalServicesRequestResponse DTO
     private MedicalServicesRequestResponse toMedicalServicesRequestResponse(MedicalServicesRequest msr) {
         if (msr == null) {
@@ -141,7 +175,8 @@ public class MedicalServicesRequestService {
 
         MedicalServicesRequestResponse.MedicalServicesRequestResponseBuilder builder = MedicalServicesRequestResponse.builder()
                 .id(msr.getId())
-                .status(msr.isStatus());
+                .status(msr.isStatus())
+                .medicalSpecialty(msr.getMedicalSpecialty());
 
         // Map patient info
         if (msr.getPatient() != null) {

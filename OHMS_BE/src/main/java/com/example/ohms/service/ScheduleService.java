@@ -1,8 +1,8 @@
 package com.example.ohms.service;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
-import java.time.LocalTime;
-import java.util.Date;
+import java.time.temporal.TemporalAdjusters;
 import java.util.List;
 
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -49,6 +49,22 @@ if (scheduleRequest.getWorkDate().isBefore(LocalDate.now())) {
 public List<ScheduleResponse> getListScheduleForDoctor(String doctorId){
    return scheduleRepository.findByDoctor_Id(doctorId).stream().map(scheduleMapper :: toScheduleResponse).toList();
 }
+
+// lấy lịch làm việc trong tuần của 1 thằng doctor
+public List<ScheduleResponse> getWeeklyScheduleForDoctor(String doctorId) {
+    LocalDate today = LocalDate.now();
+    LocalDate startOfWeek = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+    LocalDate endOfWeek = today.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY));
+    
+    return scheduleRepository.findByDoctor_Id(doctorId).stream()
+        .filter(schedule -> {
+            LocalDate workDate = schedule.getWorkDate();
+            return !workDate.isBefore(startOfWeek) && !workDate.isAfter(endOfWeek);
+        })
+        .map(scheduleMapper::toScheduleResponse)
+        .toList();
+}
+
 // thay đổi lịch làm việc
 public ScheduleResponse updateSchedule(String scheduleId, ScheduleRequest scheduleRequest ){
    Schedule schedule = scheduleRepository.findById(scheduleId).orElseThrow(()-> new AppException(ErrorCode.SCHEDULE_NOT_FOUND));

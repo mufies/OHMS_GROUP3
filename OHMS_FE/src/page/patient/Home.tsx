@@ -1,6 +1,25 @@
 import Navigator from "../../compoment/Navigator";
+import { useEffect } from 'react';
 
 function Home() {
+    
+    const token = localStorage.getItem("accessToken");
+    let role = null;
+    if (token) {
+        try {
+            const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+            role = payload.scope;
+        } catch (e) {
+            console.error("Invalid token");
+        }
+    }
+
+    useEffect(() => {
+        if (role === "doctor") {
+            window.location.href = "/doctor";
+        }
+    }, [role]);
+
     return (
         <div>
             <Navigator />

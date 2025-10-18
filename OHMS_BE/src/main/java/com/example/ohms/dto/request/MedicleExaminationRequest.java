@@ -10,11 +10,11 @@ import lombok.experimental.FieldDefaults;
 
 @Data
 @Builder
-   @RequiredArgsConstructor
-   @FieldDefaults(level = AccessLevel.PRIVATE,makeFinal = true)
+@RequiredArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE,makeFinal = true)
 public class MedicleExaminationRequest {
    String name;
    int price;
-   //  thêm trường này
    MedicalSpecialty medicalSpecialty;
+
 }

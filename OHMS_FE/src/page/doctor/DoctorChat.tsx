@@ -5,10 +5,7 @@ import Navigator from '../../compoment/doctor/navigator.tsx'
 
 interface User {
   id: string;
-  username: string;
   role: 'doctor' | 'patient';
-  email: string;
-  specialization?: string;
 }
 
 const DoctorChatPage = () => {
@@ -16,25 +13,21 @@ const DoctorChatPage = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('currentUser');
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('accessToken');
     
-    if (storedUser && token) {
-      const user = JSON.parse(storedUser);
-      if (user.role === 'doctor') {
-        // Transform user object to match expected interface
-        const transformedUser: User = {
-          id: user.id,
-          username: user.username || user.name, 
-          role: user.role,
-          email: user.email,
-          specialization: user.specialization
+    if (token) {
+    const payload = token.split('.')[1];
+    const decodedPayload = JSON.parse(atob(payload));   
+      if (decodedPayload.scope === 'doctor') {
+          const transformedUser: User = {
+          id: decodedPayload.userId,
+          role: decodedPayload.scope,
         };
         setCurrentUser(transformedUser);
-      } else {
-        // If not a doctor, redirect to patient chat
-        navigate('/patient/chat');
-      }
+    } 
+    navigate('/doctor/chat')
+  
+
     } else {
       // No user logged in, redirect to main page
       navigate('/');

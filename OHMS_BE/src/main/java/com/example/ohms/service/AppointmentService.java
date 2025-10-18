@@ -35,7 +35,8 @@ public class AppointmentService {
     
     AppointmentRepository appointmentRepository;
     UserRepository userRepository;
-    MedicleExaminatioRepository medicleExaminatioRepository; // Thêm dependency
+    MedicleExaminatioRepository medicleExaminatioRepository;
+    RoomChatService roomChatService; // Thêm RoomChatService
     
     // Tạo appointment mới
     public AppointmentResponse createAppointment(AppointmentRequest request) {
@@ -55,8 +56,12 @@ public class AppointmentService {
         }
         
         // Lấy thông tin doctor và patient
-        User doctor = userRepository.findById(request.getDoctorId())
-            .orElseThrow(() -> new RuntimeException("Doctor not found with id: " + request.getDoctorId()));
+        User doctor = null; // Khởi tạo doctor là null
+        if (request.getDoctorId() != null && !request.getDoctorId().isBlank()) {
+            log.info("Assigning doctor with id: {}", request.getDoctorId());
+            doctor = userRepository.findById(request.getDoctorId())
+                .orElseThrow(() -> new RuntimeException("Doctor not found with id: " + request.getDoctorId()));
+        }
         User patient = userRepository.findById(request.getPatientId())
             .orElseThrow(() -> new RuntimeException("Patient not found with id: " + request.getPatientId()));
         
@@ -67,6 +72,7 @@ public class AppointmentService {
             .workDate(request.getWorkDate())
             .startTime(request.getStartTime())
             .endTime(request.getEndTime())
+            .status("Schedule")
             .build();
         
         // Handle medical examinations nếu có trong request
@@ -87,7 +93,31 @@ public class AppointmentService {
         Appointment savedAppointment = appointmentRepository.save(appointment);
         log.info("Appointment created successfully with id: {}", savedAppointment.getId());
 
-
+        // Kiểm tra nếu có dịch vụ "Tư vấn online" thì tạo chat room
+        if (request.getMedicalExaminationIds() != null && !request.getMedicalExaminationIds().isEmpty()) {
+            boolean isOnlineConsult = request.getMedicalExaminationIds().stream()
+                .anyMatch(id -> {
+                    Optional<MedicalExamination> exam = medicleExaminatioRepository.findById(id);
+                    return exam.isPresent() && "Tư vấn online".equals(exam.get().getName());
+                });
+            
+            if (isOnlineConsult && request.getDoctorId() != null && !request.getDoctorId().isBlank()) {
+                try {
+                    // Tạo chat room cho patient và doctor
+                    com.example.ohms.dto.request.RoomChatRequest roomChatRequest = 
+                        com.example.ohms.dto.request.RoomChatRequest.builder()
+                            .user(Set.of(request.getPatientId(), request.getDoctorId()))
+                            .build();
+                    
+                    roomChatService.createRoomChat(roomChatRequest);
+                    
+                    log.info("✅ Chat room created for online consultation appointment: {}", savedAppointment.getId());
+                } catch (Exception e) {
+                    log.error("❌ Failed to create chat room for appointment: {}", savedAppointment.getId(), e);
+                    // Không throw exception để không rollback appointment
+                }
+            }
+        }
         
         return toAppointmentResponse(savedAppointment);
     }
@@ -214,6 +244,47 @@ public class AppointmentService {
         log.info("Appointment deleted successfully: {}", appointmentId);
     }
     
+    // Update appointment status
+    public AppointmentResponse updateAppointmentStatus(String appointmentId, String status) {
+        log.info("Updating status of appointment {} to {}", appointmentId, status);
+        
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+            .orElseThrow(() -> new RuntimeException("Appointment not found with id: " + appointmentId));
+        
+        appointment.setStatus(status);
+        Appointment updatedAppointment = appointmentRepository.save(appointment);
+        
+        log.info("Appointment status updated successfully: {} -> {}", appointmentId, status);
+        return toAppointmentResponse(updatedAppointment);
+    }
+
+    // Assign doctor to appointment
+    public void assignDoctorToAppointment(String appointmentId, String doctorId) {
+        log.info("Assigning doctor {} to appointment {}", doctorId, appointmentId);
+
+        // Check if appointment exists
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+            .orElseThrow(() -> new RuntimeException("Appointment not found with id: " + appointmentId));
+
+        // Check if doctor exists
+        if (!userRepository.existsById(doctorId)) {
+            throw new RuntimeException("Doctor not found with id: " + doctorId);
+        }
+
+        // // Check if appointment already has a doctor
+        // if (appointment.getDoctor() != null) {
+        //     throw new RuntimeException("Appointment already has a doctor assigned");
+        // }
+
+        // Assign doctor
+        int updated = appointmentRepository.assignDoctorToAppointment(appointmentId, doctorId);
+        if (updated == 0) {
+            throw new RuntimeException("Failed to assign doctor to appointment");
+        }
+
+        log.info("Doctor {} assigned to appointment {} successfully", doctorId, appointmentId);
+    }
+    
     
     // // Lấy các khung giờ đã đặt
     // public List<String> getBookedTimeSlots(String doctorId, LocalDate date) {
@@ -234,7 +305,7 @@ public class AppointmentService {
             .workDate(appointment.getWorkDate())
             .startTime(appointment.getStartTime())
             .endTime(appointment.getEndTime())
-            .status("SCHEDULED"); // Default status
+            .status(appointment.getStatus()); // Default status
         
         // Map patient info
         if (appointment.getPatient() != null) {

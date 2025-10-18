@@ -2,7 +2,11 @@ package com.example.ohms.entity;
 
 import java.util.List;
 
+import com.example.ohms.enums.MedicalSpecialty;
+
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -43,6 +47,10 @@ public class MedicalServicesRequest {
         inverseJoinColumns = @JoinColumn(name = "medical_examnination_id")
     )
     List<MedicalExamination> medicalExamnination;
+    
+    @Enumerated(EnumType.STRING)
+    MedicalSpecialty medicalSpecialty;
+    
     @Default
     boolean status = true;
 

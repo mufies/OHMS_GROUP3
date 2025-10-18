@@ -21,9 +21,11 @@ import com.example.ohms.entity.Role;
 import com.example.ohms.entity.User;
 import com.example.ohms.exception.AppException;
 import com.example.ohms.exception.ErrorCode;
+import com.example.ohms.exception.Oauthexception.ResourceNotFoundException;
 import com.example.ohms.mapper.UserMapper;
 import com.example.ohms.repository.RoleRepository;
 import com.example.ohms.repository.UserRepository;
+import com.example.ohms.security.UserPrincipal;
 
 import jakarta.mail.MessagingException;
 import lombok.AccessLevel;
@@ -31,6 +33,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.userdetails.UserDetails;
 @Service
 @RequiredArgsConstructor
 @FieldDefaults(level =  AccessLevel.PRIVATE,makeFinal = true)
@@ -232,5 +235,13 @@ public UserResponse getDetailUser(Authentication authentication) {
                         .anyMatch(role -> role.getName().equals("DOCTOR")))
                 .map(userMapper::toUserResponseDto)
                 .toList();
+    }
+
+ public UserDetails loadUserById(String id) {
+        User user = userRepository.findById(id).orElseThrow(
+                () -> new ResourceNotFoundException("User", "id", id)
+        );
+
+        return UserPrincipal.create(user);
     }
 }

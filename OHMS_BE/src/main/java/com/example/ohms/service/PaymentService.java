@@ -31,12 +31,8 @@ public class PaymentService {
         String hashData = PaymentUtils.getPaymentURL(vnpParamsMap, false);
 
         // log.info("hashdata: {}",hashData);
-        log.info("secretkey: {}",vnPayConfig.getSecretKey());
         String vnpSecureHash = PaymentUtils.hmacSHA512(vnPayConfig.getSecretKey(), hashData);
-        log.info("vnpSecueHash: {}",vnpSecureHash);
         queryUrl += "&vnp_SecureHash=" + vnpSecureHash;
-                log.info("return Url{}",  vnPayConfig.getReturnUrl());
-
         String paymentUrl = vnPayConfig.getUrl() + "?" + queryUrl;
         return PaymentRespone.builder()
                 .code("200")

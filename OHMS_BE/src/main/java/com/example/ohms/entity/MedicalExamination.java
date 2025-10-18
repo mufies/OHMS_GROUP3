@@ -30,6 +30,7 @@ public class MedicalExamination {
    String id;
    String name;
    int price;
+   
    @Enumerated(EnumType.STRING)
    MedicalSpecialty medicalSpecialty;
 

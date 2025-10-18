@@ -13,8 +13,6 @@ public interface UserMapper {
    @Mapping(target = "roles",ignore = true)
    @Mapping(target = "id",ignore = true)
    @Mapping(target = "imageUrl",ignore = true)
-   @Mapping(target = "facebookId",ignore = true)
-   @Mapping(target = "refreshtoken",ignore = true)
    @Mapping(target = "resetToken",ignore = true)
    // identification, medicleSpecially, phone
    @Mapping(target = "identification",ignore = true)

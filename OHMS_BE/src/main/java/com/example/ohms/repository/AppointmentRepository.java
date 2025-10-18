@@ -6,11 +6,14 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import com.example.ohms.entity.Appointment;
+
+import jakarta.transaction.Transactional;
 
 @Repository
 public interface AppointmentRepository extends JpaRepository<Appointment, String> {
@@ -80,7 +83,7 @@ public interface AppointmentRepository extends JpaRepository<Appointment, String
     List<Appointment> findPastAppointmentsByDoctor(@Param("doctorId") String doctorId);
     
     // Find appointments with patient and doctor details
-    @Query("SELECT a FROM Appointment a JOIN FETCH a.patient JOIN FETCH a.doctor WHERE a.id = :appointmentId")
+    @Query("SELECT a FROM Appointment a JOIN FETCH a.patient WHERE a.id = :appointmentId")
     Optional<Appointment> findByIdWithDetails(@Param("appointmentId") String appointmentId);
     
     // Find appointments by doctor with patient details for a specific date
@@ -125,4 +128,16 @@ public interface AppointmentRepository extends JpaRepository<Appointment, String
     @Query("SELECT a.startTime, a.endTime FROM Appointment a WHERE a.doctor.id = :doctorId AND a.workDate = :workDate ORDER BY a.startTime")
     List<Object[]> findBookedTimeSlotsByDoctorAndDate(@Param("doctorId") String doctorId, @Param("workDate") LocalDate workDate);
 
+    /**
+     * Gán một bác sĩ cho một cuộc hẹn đã tồn tại.
+     * @param appointmentId ID của cuộc hẹn cần cập nhật.
+     * @param doctorId ID của bác sĩ để gán vào.
+     * @return Số lượng bản ghi đã được cập nhật (thường là 1 hoặc 0).
+     */
+    @Transactional
+    @Modifying
+    @Query("UPDATE Appointment a SET a.doctor.id = :doctorId WHERE a.id = :appointmentId")
+    int assignDoctorToAppointment(@Param("appointmentId") String appointmentId, @Param("doctorId") String doctorId);
+
+    
 }

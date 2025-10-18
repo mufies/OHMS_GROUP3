@@ -128,7 +128,7 @@ export default function DashboardCalendar() {
 
     return (
         <div className="bg-white rounded-lg shadow max-w-[60w] mx-auto flex flex-col">
-            <div className="px-6 py-4 border-b bg-white rounded-t-2xl shadow-sm ">
+            <div className="px-6 py-4  bg-white rounded-t-2xl shadow-sm ">
                 {/* navigator */}
                 <div className="flex items-center justify-between">
                     <h2 className="font-semibold text-gray-900">Calendar</h2>
@@ -136,14 +136,14 @@ export default function DashboardCalendar() {
                     <div className="flex items-center gap-2">
                     <button
                         onClick={() => navigateMonth('prev')}
-                        className="w-8 h-8 flex items-center justify-center bg-white border rounded-xl shadow-sm hover:shadow-md hover:bg-gray-50 transition-all"
+                        className="w-8 h-8 flex items-center justify-center bg-white rounded-xl shadow-sm hover:shadow-md hover:bg-gray-50 transition-all"
                     >
                         <FontAwesomeIcon icon={faChevronLeft} className="text-gray-600 text-xs" />
                     </button>
 
                     <button
                         onClick={() => navigateMonth('next')}
-                        className="w-8 h-8 flex items-center justify-center bg-white border rounded-xl shadow-sm hover:shadow-md hover:bg-gray-50 transition-all"
+                        className="w-8 h-8 flex items-center justify-center bg-white  rounded-xl shadow-sm hover:shadow-md hover:bg-gray-50 transition-all"
                     >
                         <FontAwesomeIcon icon={faChevronRight} className="text-gray-600 text-xs" />
                     </button>
@@ -160,7 +160,7 @@ export default function DashboardCalendar() {
 
 
             <div className="overflow-y-auto h-[48vh]">
-            <div className="grid grid-cols-7 border-b bg-white">
+            <div className="grid grid-cols-7  bg-white">
                 {weekDays.map(day => (
                 <div
                     key={day}
@@ -175,7 +175,7 @@ export default function DashboardCalendar() {
                 {days.map((date, index) => (
                 <div
                     key={index}
-                    className="h-16 border-r border-b last:border-r-0 p-2 cursor-pointer hover:bg-gray-50 transition-all duration-200"
+                    className="h-16 userId last:border-r-0 p-2 cursor-pointer hover:bg-gray-50 transition-all duration-200"
                     onClick={() => date && setSelectedDate(date)}
                 >
                     {date && (
