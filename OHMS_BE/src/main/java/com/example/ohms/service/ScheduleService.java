@@ -30,7 +30,6 @@ public class ScheduleService {
    ScheduleMapper scheduleMapper;
    UserRepository userRepository;
 // tạo lịch mới
-@PreAuthorize("hasRole('ADMIN')")
 public ScheduleResponse createSchedule(ScheduleRequest scheduleRequest,String doctorId){
 if (scheduleRequest.getWorkDate().isBefore(LocalDate.now())) {
     throw new AppException(ErrorCode.DATE_NOT_VAILID);

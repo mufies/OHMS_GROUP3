@@ -35,6 +35,7 @@ public ApiResponse<ScheduleResponse> createSchedule(@RequestBody ScheduleRequest
    .results(scheduleService.createSchedule(scheduleRequest, id))
    .build();
 }
+
 @GetMapping("/{doctorId}")
 public ApiResponse<List<ScheduleResponse>> getScheduleList(
    @PathVariable("doctorId") String doctorId 

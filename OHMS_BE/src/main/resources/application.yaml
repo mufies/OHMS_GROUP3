@@ -20,9 +20,9 @@ spring:
               - email
               - profile
   datasource:
-    url: jdbc:mysql://localhost:3308/swpbackend?useSSL=false&serverTimezone=UTC
+    url: jdbc:mysql://localhost:3306/swpbackend?useSSL=false&serverTimezone=UTC
     username: root
-    password: ""
+    password: "root"
 
   jpa:
     hibernate:
@@ -52,7 +52,7 @@ app:
 
 gemini:
   api:
-    key: ${GEMINI_API_KEY}
+    key: AIzaSyCnSuZkDZ2GWTPgCzu9a1GV70EF0HknxW0
     model: gemini-2.5-flash
 
 payment:
