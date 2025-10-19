@@ -1,24 +1,96 @@
 import Navigator from "../../compoment/Navigator";
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react'; // Thêm useState cho loading
 
 function Home() {
-    
-    const token = localStorage.getItem("accessToken");
-    let role = null;
-    if (token) {
+    const [isProcessingToken, setIsProcessingToken] = useState(false); // State loading khi xử lý token
+    const [role, setRole] = useState(null); // State cho role, để update sau khi xử lý token
+
+    // Hàm extract role từ token (giữ nguyên code bạn)
+    const extractRoleFromToken = (token:string) => {
         try {
             const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
-            role = payload.scope;
+            return payload.scope; // Ví dụ: "ROLE_patient" hoặc "ROLE_doctor"
         } catch (e) {
             console.error("Invalid token");
+            return null;
         }
-    }
+    };
 
+    // Hàm xử lý token từ URL
+    const handleTokenFromUrl = () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+
+        if (token) {
+            setIsProcessingToken(true);
+            try {
+                // Lưu token vào localStorage
+                localStorage.setItem('accessToken', token);
+
+                // Extract role
+                const newRole = extractRoleFromToken(token);
+                setRole(newRole);
+                console.log('Token từ URL đã xử lý, role:', newRole);
+
+                // Clear query param khỏi URL (tránh reload xử lý lại)
+                const newUrl = window.location.pathname;
+                window.history.replaceState({}, document.title, newUrl);
+
+                // Redirect dựa trên role (sau 500ms để show loading ngắn)
+                setTimeout(() => {
+                    if (newRole === 'ROLE_doctor') { // Giả sử scope là "ROLE_doctor"
+                        window.location.href = '/doctor';
+                    } else if (newRole === 'ROLE_patient') {
+                        // Giữ nguyên Home hoặc redirect dashboard nếu có
+                        window.location.href = '/dashboard'; // Tùy chỉnh nếu cần
+                    }
+                    setIsProcessingToken(false);
+                }, 500);
+
+            } catch (error) {
+                console.error('Lỗi xử lý token:', error);
+                alert('Lỗi xác thực token. Thử lại nhé!');
+                localStorage.removeItem('accessToken');
+                // Clear URL
+                window.history.replaceState({}, document.title, window.location.pathname);
+                setIsProcessingToken(false);
+            }
+        }
+    };
+
+    // Lấy token từ localStorage nếu không có từ URL
     useEffect(() => {
-        if (role === "doctor") {
+        // Đầu tiên, check token từ URL
+        handleTokenFromUrl();
+
+        // Nếu không có từ URL, lấy từ localStorage
+        if (!isProcessingToken) {
+            const token = localStorage.getItem("accessToken");
+            if (token) {
+                const payloadRole = extractRoleFromToken(token);
+                setRole(payloadRole);
+            }
+        }
+    }, []); // Chạy 1 lần khi mount
+
+    // Effect redirect dựa trên role (chỉ nếu không đang xử lý token)
+    useEffect(() => {
+        if (!isProcessingToken && role === "ROLE_doctor") { // Thay "doctor" bằng "ROLE_doctor" để match scope
             window.location.href = "/doctor";
         }
-    }, [role]);
+    }, [role, isProcessingToken]);
+
+    // Show loading nếu đang xử lý token
+    if (isProcessingToken) {
+        return (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+                <div>
+                    <h2>Đang xử lý đăng nhập...</h2>
+                    <p>Nhận token từ Google thành công! Chờ tí...</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div>
@@ -81,8 +153,6 @@ function Home() {
                     </div>
                 </section>
 
-                
-
                 <section style={{ padding: "16px" }}>
                     <div style={{ maxWidth: 1200, margin: "0 auto" }}>
                         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
@@ -115,12 +185,9 @@ function Home() {
                     <div style={{ 
                         maxWidth: 1000, 
                         margin: "0 auto", 
-                        display: "flex", 
-                        gridTemplateColumns: "repeat(5, 1fr)", 
+                        display: "grid", // Đổi từ flex sang grid để match gridTemplateColumns
+                        gridTemplateColumns: "repeat(4, 1fr)", // Sửa thành 4 vì chỉ có 4 items, không phải 5
                         gap: 20,
-                        // justifyContent: "center",
-                        // alignItems: "center",
-                        // justifyItems: "center"
                         placeItems: "center"
                     }}>
                         {[
@@ -144,9 +211,6 @@ function Home() {
                         ))}
                     </div>
                 </section>
-
-                
-
             </main>
             <footer style={{ padding: 24, borderTop: "1px solid #e2e8f0", marginTop: 24 }}>
                 <div style={{ maxWidth: 1200, margin: "0 auto" }}>
@@ -199,5 +263,3 @@ function Home() {
 }
 
 export default Home;
-
-

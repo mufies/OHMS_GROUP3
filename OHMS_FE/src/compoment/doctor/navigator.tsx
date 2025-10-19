@@ -2,11 +2,11 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
     faTableColumns,
     faStethoscope,
-    faVideo,
     faComment,
     faCalendar,
     faRightFromBracket, // Logout icon
 } from "@fortawesome/free-solid-svg-icons";
+import { LOGIN_USER } from "../../constant/enum";
 
 interface NavigatorProps {
     doctorSpecialty?: string;
@@ -25,7 +25,7 @@ function Navigator({ doctorSpecialty = "General Medicine" }: NavigatorProps) {
 
     const handleLogout = () => {
         // Remove the access token from localStorage
-        localStorage.removeItem('accessToken');
+        localStorage.removeItem(LOGIN_USER);
         
         // Optionally remove refresh token if you're storing it
         localStorage.removeItem('refreshToken');
