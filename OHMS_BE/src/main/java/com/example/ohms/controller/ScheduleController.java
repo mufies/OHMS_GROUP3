@@ -68,4 +68,12 @@ public ApiResponse<List<ScheduleResponse>> getWeeklyScheduleForDoctor(@PathVaria
    .results(scheduleService.getWeeklyScheduleForDoctor(doctorId))
    .build();
 }
+
+@GetMapping("/doctor/{doctorId}/next-week")
+public ApiResponse<List<ScheduleResponse>> getNextWeekScheduleForDoctor(@PathVariable("doctorId") String doctorId){
+   return ApiResponse.<List<ScheduleResponse>>builder()
+   .code(200)
+   .results(scheduleService.getNextWeekScheduleForDoctor(doctorId))
+   .build();
+}
 }

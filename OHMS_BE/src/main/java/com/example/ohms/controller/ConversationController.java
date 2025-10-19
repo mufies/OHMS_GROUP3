@@ -10,6 +10,8 @@ import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -34,6 +36,41 @@ public class ConversationController {
    MessageService messageService;
     SimpMessagingTemplate simpMessagingTemplate;
     CloudinaryService cloudinaryService;
+
+   // New: Upload images via HTTP first (returns Cloudinary URLs)
+   @PostMapping("/upload-images")
+   public ApiResponse<List<String>> uploadImages(@RequestBody List<String> base64Images) {
+      try {
+         List<String> imageUrls = new ArrayList<>();
+         
+         if (base64Images != null && !base64Images.isEmpty()) {
+            List<byte[]> imageBytesList = new ArrayList<>();
+            for (String base64Data : base64Images) {
+               if (base64Data.contains(",")) {
+                  base64Data = base64Data.split(",")[1];  // Remove data:image/...;base64, prefix
+               }
+               byte[] imageBytes = Base64.getDecoder().decode(base64Data);
+               imageBytesList.add(imageBytes);
+            }
+            
+            // Upload to Cloudinary
+            imageUrls = cloudinaryService.uploadMulti(imageBytesList);
+            log.info("Uploaded {} images to Cloudinary", imageUrls.size());
+         }
+         
+         return ApiResponse.<List<String>>builder()
+            .code(200)
+            .results(imageUrls)
+            .build();
+      } catch (Exception e) {
+         log.error("Error uploading images: {}", e.getMessage(), e);
+         return ApiResponse.<List<String>>builder()
+            .code(500)
+            .message("Upload failed: " + e.getMessage())
+            .build();
+      }
+   }
+
 //app/chat/{roomId chỗ này handle cho fontend gọi send
    @MessageMapping("chat/{roomId}")    // xác lập message bắn lên cái room
     public void sendMessage(
@@ -41,34 +78,16 @@ public class ConversationController {
         @Payload ConversationRequest conversationRequest
     ) { 
         try {
-            List<String> imageUrls = new ArrayList<>();
-            
-            // Nếu có base64Datas, convert thành list byte[] và upload multi
-            if (conversationRequest.getBase64Datas() != null && !conversationRequest.getBase64Datas().isEmpty()) {
-                List<byte[]> imageBytesList = new ArrayList<>();
-                for (String base64Data : conversationRequest.getBase64Datas()) {
-                    if (base64Data.contains(",")) {
-                        base64Data = base64Data.split(",")[1];  // Bỏ prefix data:image/...;base64,
-                    }
-                    byte[] imageBytes = Base64.getDecoder().decode(base64Data);
-                    imageBytesList.add(imageBytes);
-                }
-                
-                // Gọi service upload multi (không cần fileNames)
-                imageUrls = cloudinaryService.uploadMulti(imageBytesList);
-            }
-
-            // Tạo updated request (không cần base64 nữa, chỉ pass URLs vào service)
-            ConversationRequest updatedRequest = ConversationRequest.builder()
-                .message(conversationRequest.getMessage())
-                .user(conversationRequest.getUser())
-                .build();
-
-            ConversationResponse conversationResponse = messageService.createMessage(roomId, updatedRequest, imageUrls);
+            // ConversationRequest now should contain imageUrls (not base64)
+            ConversationResponse conversationResponse = messageService.createMessage(
+                roomId, 
+                conversationRequest, 
+                conversationRequest.getBase64Datas() // Reuse this field for imageUrls from frontend
+            );
             simpMessagingTemplate.convertAndSend("/topic/room/" + roomId, conversationResponse);
+            log.info("✅ Message sent to room {}", roomId);
         } catch (Exception e) {
-            log.error("Error sending message with images in room {}: {}", roomId, e.getMessage(), e);
-            // Optional: Gửi error message qua WebSocket, ví dụ "Upload failed"
+            log.error("❌ Error sending message in room {}: {}", roomId, e.getMessage(), e);
             simpMessagingTemplate.convertAndSend("/topic/room/" + roomId, "Error: " + e.getMessage());
         }
     }

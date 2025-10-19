@@ -6,7 +6,8 @@ import {
   faUserMd, 
   faSearch,
   faPhone,
-  faVideo
+  faVideo,
+  faImage
 } from '@fortawesome/free-solid-svg-icons';
 
 import { useWebSocketService } from '../../services/webSocketServices';
@@ -18,6 +19,7 @@ interface Message {
   content: string;
   timestamp: Date;
   isRead: boolean;
+  imageUrls?: string[];
 }
 
 interface User {
@@ -39,16 +41,26 @@ interface PatientChatProps {
   onClose: () => void;
 }
 
-const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
+const PatientChat = ({ currentUser }: PatientChatProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [selectedDoctor, setSelectedDoctor] = useState<User | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [chatRooms, setChatRooms] = useState<RoomChatResponse[]>([]);
   const [availableDoctors, setAvailableDoctors] = useState<User[]>([]);
-  const [wsConnected, setWsConnected] = useState(false);
+  const [selectedImages, setSelectedImages] = useState<{file: File, url: string}[]>([]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Utility function to convert file to base64
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = error => reject(error);
+    });
+  };
 
   const getCurrentRoom = useCallback(() => {
     if (!selectedDoctor) return null;
@@ -57,9 +69,23 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
     ) || null;
   }, [selectedDoctor, chatRooms]);
 
-  const handleSendMessageNoForm = useCallback(() => {
-    if (!newMessage.trim() || !selectedDoctor) {
-      console.warn('Cannot send: No message or doctor selected');
+  // WebSocket setup 
+  const webSocketUrl = 'http://localhost:8080/ws';
+  
+  const { connect, subscribe, send, unsubscribe } = useWebSocketService(
+    webSocketUrl,
+    () => {}, // onConnected
+    () => {}  // onError
+  );
+
+  // Connect once on mount
+  useEffect(() => {
+    connect();
+  }, [connect]);
+
+  const handleSendMessageNoForm = useCallback(async () => {
+    if ((!newMessage.trim() && selectedImages.length === 0) || !selectedDoctor) {
+      console.warn('Cannot send: No message or images and no doctor selected');
       return;
     }
 
@@ -69,12 +95,50 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
       return;
     }
 
+    let imageUrls: string[] = [];
+
+    // Step 1: Upload images to Cloudinary via HTTP endpoint (if any)
+    if (selectedImages.length > 0) {
+      try {
+        const base64Datas: string[] = [];
+        for (const image of selectedImages) {
+          const base64 = await fileToBase64(image.file);
+          base64Datas.push(base64);
+        }
+
+        console.log('📤 Uploading', base64Datas.length, 'images to Cloudinary...');
+        
+        const token = localStorage.getItem('accessToken');
+        const uploadResponse = await axios.post(
+          'http://localhost:8080/conversation/upload-images',
+          base64Datas,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+
+        if (uploadResponse.data?.results) {
+          imageUrls = uploadResponse.data.results;
+          console.log('✅ Images uploaded to Cloudinary:', imageUrls);
+        }
+      } catch (error) {
+        console.error('❌ Error uploading images:', error);
+        alert('Failed to upload images. Please try again.');
+        return;
+      }
+    }
+
+    // Step 2: Create optimistic message with Cloudinary URLs
     const message: Message = {
       id: Date.now().toString(),
       senderId: currentUser.id,
       content: newMessage.trim(),
       timestamp: new Date(),
-      isRead: false
+      isRead: false,
+      imageUrls: imageUrls.length > 0 ? imageUrls : undefined
     };
 
     // Optimistic update
@@ -83,9 +147,11 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
       return updated.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
     });
 
+    // Step 3: Send message via WebSocket with Cloudinary URLs (not base64)
     const conversationRequest = {
       message: newMessage.trim(),
-      user: currentUser.id
+      user: currentUser.id,
+      base64Datas: imageUrls  // Reuse this field for Cloudinary URLs
     };
 
     try {
@@ -94,41 +160,17 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
         console.error('Failed to send message via WebSocket');
         setMessages(prev => prev.filter(msg => msg.id !== message.id));
       } else {
-        console.log('✅ Message sent via WebSocket successfully:', conversationRequest);
+        console.log('✅ Message sent via WebSocket successfully');
+        
+        // Clear images and message after successful send
+        setSelectedImages([]);
+        setNewMessage('');
       }
     } catch (error) {
       console.error('❌ Error sending message via WebSocket:', error);
       setMessages(prev => prev.filter(msg => msg.id !== message.id));
     }
-
-    setNewMessage('');
-  }, [currentUser.id, currentUser.username, newMessage, selectedDoctor, getCurrentRoom]);
-
-
-  // WebSocket setup 
-  const webSocketUrl = 'http://localhost:8080/ws';
-  
-  // Memoize callbacks
-  const onConnected = useCallback(() => {
-    console.log('WebSocket Connected!');
-    setWsConnected(true);
-  }, []);
-  
-  const onError = useCallback((error: string) => {
-    console.log('WebSocket Error:', error);
-    setWsConnected(false);
-  }, []);
-  
-  const { connect, subscribe, send, unsubscribe } = useWebSocketService(
-    webSocketUrl,
-    onConnected,
-    onError
-  );
-
-  // Connect once on mount
-  useEffect(() => {
-    connect();
-  }, [connect]);
+  }, [currentUser.id, newMessage, selectedDoctor, getCurrentRoom, selectedImages, send]);
 
   // Subscribe/unsubscribe on room changes
   useEffect(() => {
@@ -139,11 +181,12 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
       if (message.user?.id === currentUser.id) return;  // Skip own messages
 
       const incomingMessage: Message = {
-        id: Date.now().toString(),
+        id: message.id || Date.now().toString(),
         senderId: message.user?.id || 'unknown',
         content: message.message,
         timestamp: new Date(message.createdAt || Date.now()),
         isRead: false,
+        imageUrls: message.imageUrls || undefined
       };
 
       setMessages(prev => {
@@ -187,6 +230,7 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
             content: conv.message,
             timestamp: new Date(conv.createdAt || new Date()),
             isRead: true,
+            imageUrls: conv.imageUrls || undefined
           }));
 
           setMessages(loadedMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime()));
@@ -226,45 +270,12 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
         for (const room of response.data.results) {
           for (const user of room.user) {
             if (user.id !== currentUser.id) {
-              // Fetch last message for this room
-              try {
-                const conversationResponse = await axios.get(`http://localhost:8080/conversation/${room.roomChatID}`, {
-                  headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                  },
-                });
-
-                let lastMessage = 'No messages yet';
-                let lastMessageTime = new Date(Date.now() - Math.random() * 86400000);
-
-                if (conversationResponse.data?.results && conversationResponse.data.results.length > 0) {
-                  const messages = conversationResponse.data.results;
-                  const lastMsg = messages[messages.length - 1];
-                  
-                  lastMessage = lastMsg.message;
-                  lastMessageTime = new Date(lastMsg.createdAt);
-                }
-
-                doctorsMap.set(user.id, {
-                  id: user.id,
-                  username: user.username,
-                  email: user.email,
-                  isOnline: Math.random() > 0.5,
-                  specialization: user.specialization || 'General Practitioner',
-                  lastSeen: new Date(Date.now() - Math.random() * 3600000)
-                });
-              } catch (msgError) {
-                console.warn('Error fetching messages for room:', room.roomChatID, msgError);
-                doctorsMap.set(user.id, {
-                  id: user.id,
-                  username: user.username,
-                  email: user.email,
-                  isOnline: Math.random() > 0.5,
-                  specialization: user.specialization || 'General Practitioner',
-                  lastSeen: new Date(Date.now() - Math.random() * 3600000)
-                });
-              }
+              doctorsMap.set(user.id, {
+                id: user.id,
+                username: user.username,
+                email: user.email,
+                specialization: user.specialization || '',
+              });
             }
           }
         }
@@ -382,15 +393,15 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
                       {doctor.username?.split(' ').map(n => n[0]).join('').toUpperCase() || 'DR'}
                     </span>
                   </div>
-                  <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${
+                  {/* <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${
                     doctor.isOnline ? 'bg-green-500' : 'bg-gray-400'
-                  }`}></div>
+                  }`}></div> */}
                 </div>
 
                 <div className="flex-1 min-w-0">
                   <h3 className="text-sm font-semibold text-gray-900 truncate">{doctor.username}</h3>
                   <p className="text-xs text-gray-600 truncate">{doctor.specialization}</p>
-                  <p className="text-xs text-gray-500">
+                  {/* <p className="text-xs text-gray-500">
                     {doctor.isOnline ? (
                       <span className="text-green-600">Online</span>
                     ) : doctor.lastSeen ? (
@@ -398,7 +409,7 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
                     ) : (
                       'Offline'
                     )}
-                  </p>
+                  </p> */}
                 </div>
               </div>
             ))
@@ -512,7 +523,21 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
                             ? 'bg-blue-500 text-white' 
                             : 'bg-white text-black border border-gray-200'
                         }`}>
-                          <p className="text-sm">{message.content}</p>
+                          {message.imageUrls && message.imageUrls.length > 0 && (
+                            <div className="mb-2 space-y-2">
+                              {message.imageUrls.map((imageUrl, index) => (
+                                <img
+                                  key={index}
+                                  src={imageUrl}
+                                  alt={`Image ${index + 1}`}
+                                  className="max-w-full h-auto rounded-lg cursor-pointer"
+                                  onClick={() => window.open(imageUrl, '_blank')}
+                                  style={{ maxHeight: '200px' }}
+                                />
+                              ))}
+                            </div>
+                          )}
+                          {message.content && <p className="text-sm">{message.content}</p>}
                         </div>
                       )}
                       
@@ -529,27 +554,79 @@ const PatientChat = ({ currentUser, onClose }: PatientChatProps) => {
 
             {/* Message Input */}
             <div className="p-4 border-t border-gray-200 bg-white">
+              {/* Image Preview */}
+              {selectedImages.length > 0 && (
+                <div className="mb-3 flex flex-wrap gap-2">
+                  {selectedImages.map((image, index) => (
+                    <div key={index} className="relative">
+                      <img
+                        src={image.url}
+                        alt={`Preview ${index + 1}`}
+                        className="w-16 h-16 object-cover rounded-lg border border-gray-300"
+                      />
+                      <button
+                        onClick={() => setSelectedImages(prev => prev.filter((_, i) => i !== index))}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
               <div className="flex space-x-4">
-                <input
-                  type="text"
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSendMessageNoForm();
-                    }
-                  }}
-                  placeholder="Type your message..."
-                  autoComplete="off"
-                  autoCorrect="off"
-                  autoCapitalize="off"
-                  spellCheck="false"
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
-                />
+                <div className="flex-1 flex space-x-2">
+                  <input
+                    type="text"
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendMessageNoForm();
+                      }
+                    }}
+                    placeholder="Type your message..."
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    spellCheck="false"
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+                  />
+                  
+                  {/* Image Upload Button */}
+                  <label className="cursor-pointer">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={(e) => {
+                        const files = Array.from(e.target.files || []);
+                        const newImages: {file: File, url: string}[] = [];
+                        
+                        files.forEach(file => {
+                          if (file.type.startsWith('image/')) {
+                            const url = URL.createObjectURL(file);
+                            newImages.push({ file, url });
+                          }
+                        });
+                        
+                        setSelectedImages(prev => [...prev, ...newImages]);
+                        // Reset input
+                        e.target.value = '';
+                      }}
+                      className="hidden"
+                    />
+                    <div className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center justify-center">
+                      <FontAwesomeIcon icon={faImage} className="text-gray-500" />
+                    </div>
+                  </label>
+                </div>
+                
                 <button
                   type="button"
-                  disabled={!newMessage.trim()}
+                  disabled={!newMessage.trim() && selectedImages.length === 0}
                   onClick={handleSendMessageNoForm}
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
                 >

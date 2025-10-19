@@ -64,6 +64,24 @@ public List<ScheduleResponse> getWeeklyScheduleForDoctor(String doctorId) {
         .toList();
 }
 
+//get doctor next week schedule
+public List<ScheduleResponse> getNextWeekScheduleForDoctor(String doctorId)
+{
+    LocalDate today = LocalDate.now();
+    // Tìm thứ 2 tuần sau
+    LocalDate nextMonday = today.with(TemporalAdjusters.next(DayOfWeek.MONDAY));
+    // Tìm chủ nhật tuần sau
+    LocalDate nextSunday = nextMonday.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY));
+    
+    return scheduleRepository.findByDoctor_Id(doctorId).stream()
+        .filter(schedule -> {
+            LocalDate workDate = schedule.getWorkDate();
+            return !workDate.isBefore(nextMonday) && !workDate.isAfter(nextSunday);
+        })
+        .map(scheduleMapper::toScheduleResponse)
+        .toList();
+}
+
 // thay đổi lịch làm việc
 public ScheduleResponse updateSchedule(String scheduleId, ScheduleRequest scheduleRequest ){
    Schedule schedule = scheduleRepository.findById(scheduleId).orElseThrow(()-> new AppException(ErrorCode.SCHEDULE_NOT_FOUND));

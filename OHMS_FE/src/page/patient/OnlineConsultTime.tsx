@@ -32,6 +32,7 @@ interface TimeSlot {
 interface DaySchedule {
   date: string;
   label: string;
+  weekLabel: string; // "Tuần này" or "Tuần sau"
   slots: TimeSlot[];
 }
 
@@ -49,6 +50,23 @@ interface Appointment {
   status: string;
 }
 
+// Tạo apiClient BÊN NGOÀI component
+const apiClient = axios.create({
+  baseURL: 'http://localhost:8080',
+  headers: { 'Content-Type': 'application/json' },
+});
+
+apiClient.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('accessToken');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
 function OnlineConsultTime() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -63,23 +81,6 @@ function OnlineConsultTime() {
   const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
   const [loading, setLoading] = useState(true);
   const [showDoctorModal, setShowDoctorModal] = useState(false);
-
-  // Axios client with auth
-  const apiClient = axios.create({
-    baseURL: 'http://localhost:8080',
-    headers: { 'Content-Type': 'application/json' },
-  });
-
-  apiClient.interceptors.request.use(
-    (config) => {
-      const token = localStorage.getItem('accessToken');
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
-      return config;
-    },
-    (error) => Promise.reject(error)
-  );
 
   // Fetch service "Tư vấn online"
   useEffect(() => {
@@ -131,17 +132,50 @@ function OnlineConsultTime() {
       
       try {
         const token = localStorage.getItem('accessToken');
-        if (!token) return;
+        if (!token) {
+          console.error('No access token found');
+          return;
+        }
         
-        const response = await apiClient.get(
+        console.log('Fetching schedules for doctor:', selectedDoctor.id);
+        
+        // 1. Gọi API lấy weekly schedule (tuần này)
+        const weeklyResponse = await apiClient.get(
           `/schedule/doctor/${selectedDoctor.id}/weekly`
         );
         
-        if (response.data?.code === 200 && response.data?.results) {
-          const weeklySchedules: WeeklySchedule[] = response.data.results;
-          const schedule = await generateWeekScheduleFromAPI(weeklySchedules, selectedDoctor.id, token);
-          setWeekSchedule(schedule);
-        }
+        console.log('Weekly schedule response:', weeklyResponse.data);
+        
+        // 2. Gọi API lấy next-week schedule (tuần sau)
+        const nextWeekResponse = await apiClient.get(
+          `/schedule/doctor/${selectedDoctor.id}/next-week`
+        );
+        
+        console.log('Next week schedule response:', nextWeekResponse.data);
+        
+        // Lấy data từ responses
+        const thisWeekSchedules: WeeklySchedule[] = weeklyResponse.data?.code === 200 
+          ? (weeklyResponse.data?.results || []) 
+          : [];
+          
+        const nextWeekSchedules: WeeklySchedule[] = nextWeekResponse.data?.code === 200 
+          ? (nextWeekResponse.data?.results || []) 
+          : [];
+        
+        console.log('This week schedules:', thisWeekSchedules);
+        console.log('Next week schedules:', nextWeekSchedules);
+        
+        // Generate combined schedule
+        const schedule = await generateCombinedSchedule(
+          thisWeekSchedules,
+          nextWeekSchedules,
+          selectedDoctor.id,
+          token
+        );
+        
+        console.log('Final generated schedule:', schedule);
+        setWeekSchedule(schedule);
+        
       } catch (error) {
         console.error('Error fetching schedule:', error);
         setWeekSchedule([]);
@@ -151,82 +185,198 @@ function OnlineConsultTime() {
     fetchDoctorSchedule();
   }, [selectedDoctor]);
 
-  const generateWeekScheduleFromAPI = async (
-    weeklySchedules: WeeklySchedule[],
+  // Generate combined schedule from both weeks
+  const generateCombinedSchedule = async (
+    thisWeekSchedules: WeeklySchedule[],
+    nextWeekSchedules: WeeklySchedule[],
     doctorId: string,
     token: string
   ): Promise<DaySchedule[]> => {
-    const schedule: DaySchedule[] = [];
+    
+    // Helper: build week dates (Mon-Fri only)
+    const buildWeekDates = (refDate: Date) => {
+      const d = new Date(refDate);
+      const day = d.getDay();
+      const diffToMonday = (day === 0 ? -6 : 1) - day;
+      const monday = new Date(d);
+      monday.setDate(d.getDate() + diffToMonday);
+      monday.setHours(0, 0, 0, 0);
+
+      const weekDates: Date[] = [];
+      for (let i = 0; i < 5; i++) {  // Mon-Fri only
+        const dt = new Date(monday);
+        dt.setDate(monday.getDate() + i);
+        weekDates.push(dt);
+      }
+      return weekDates;
+    };
+
+    // Build slots for given intervals
+    const buildSlotsForIntervals = (
+      intervals: {startTime: string; endTime: string}[], 
+      appointments: Appointment[]
+    ) => {
+      const slots: TimeSlot[] = [];
+      for (const interval of intervals) {
+        const startParts = interval.startTime.split(':').map(x => parseInt(x));
+        const endParts = interval.endTime.split(':').map(x => parseInt(x));
+        const startTotal = startParts[0] * 60 + (startParts[1] || 0);
+        const endTotal = endParts[0] * 60 + (endParts[1] || 0);
+
+        for (let minutes = startTotal; minutes < endTotal; minutes += 30) {
+          const sh = Math.floor(minutes / 60);
+          const sm = minutes % 60;
+          const em = minutes + 30;
+          const eh = Math.floor(em / 60);
+          const emm = em % 60;
+          const startTime = `${String(sh).padStart(2,'0')}:${String(sm).padStart(2,'0')}:00`;
+          const endTime = `${String(eh).padStart(2,'0')}:${String(emm).padStart(2,'0')}:00`;
+
+          const isBooked = appointments.some(
+            apt => apt.startTime === startTime && apt.status !== 'CANCELLED'
+          );
+          slots.push({ startTime, endTime, available: !isBooked });
+        }
+      }
+      return slots;
+    };
+
+    // Convert schedules to map by date
+    const toScheduleMap = (schedules: WeeklySchedule[]) => {
+      return schedules.reduce((acc, sch) => {
+        if (!acc[sch.workDate]) acc[sch.workDate] = [];
+        acc[sch.workDate].push({ startTime: sch.startTime, endTime: sch.endTime });
+        return acc;
+      }, {} as Record<string, {startTime:string; endTime:string}[]>);
+    };
+
+    const thisWeekMap = toScheduleMap(thisWeekSchedules);
+    const nextWeekMap = toScheduleMap(nextWeekSchedules);
+
+    // Fetch appointments for dates
+    const fetchAppointmentsForDates = async (dates: string[]) => {
+      const map: Record<string, Appointment[]> = {};
+      for (const date of dates) {
+        try {
+          const response = await apiClient.get(
+            `/appointments/doctor/${doctorId}/date/${date}`
+          );
+          const appts = Array.isArray(response.data) 
+            ? response.data 
+            : response.data?.results || [];
+          map[date] = appts;
+        } catch (err) {
+          console.error(`Error fetching appointments for ${date}:`, err);
+          map[date] = [];
+        }
+      }
+      return map;
+    };
+
+    // Get date ranges
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    const thisWeekDates = buildWeekDates(today);
+    const nextWeekStart = new Date(thisWeekDates[0]);
+    nextWeekStart.setDate(thisWeekDates[0].getDate() + 7);
+    const nextWeekDates = buildWeekDates(nextWeekStart);
 
-    const schedulesByDate = weeklySchedules.reduce((acc, sch) => {
-      if (!acc[sch.workDate]) {
-        acc[sch.workDate] = [];
-      }
-      acc[sch.workDate].push(sch);
-      return acc;
-    }, {} as Record<string, WeeklySchedule[]>);
+    const toYMD = (d: Date) => d.toISOString().slice(0,10);
+    const thisWeekStrs = thisWeekDates.map(toYMD);
+    const nextWeekStrs = nextWeekDates.map(toYMD);
+    const allWeeksStrs = [...thisWeekStrs, ...nextWeekStrs];
 
-    const appointmentsByDate: Record<string, Appointment[]> = {};
-    
-    for (const date of Object.keys(schedulesByDate)) {
-      try {
-        const response = await apiClient.get(
-          `/appointments/doctor/${doctorId}/date/${date}`
-        );
-        appointmentsByDate[date] = response.data || [];
-      } catch (error) {
-        appointmentsByDate[date] = [];
-      }
+    // Fetch all appointments
+    const appointmentsMap = await fetchAppointmentsForDates(allWeeksStrs);
+
+    const schedule: DaySchedule[] = [];
+    const todayStr = toYMD(today);
+
+    // Check if next week has any schedules from API
+    const hasNextWeekSchedules = nextWeekStrs.some(date => !!nextWeekMap[date]);
+
+    // Process this week
+    for (const dateStr of thisWeekStrs) {
+      const dateObj = new Date(dateStr);
+      // Skip past dates and Sundays
+      if (dateStr < todayStr || dateObj.getDay() === 0) continue;
+
+      const label = formatDayLabel(dateObj);
+      const intervals = thisWeekMap[dateStr] || [];
+      const appts = appointmentsMap[dateStr] || [];
+      const slots = intervals.length > 0 ? buildSlotsForIntervals(intervals, appts) : [];
+
+      schedule.push({ 
+        date: dateStr, 
+        label, 
+        weekLabel: 'Tuần này', 
+        slots 
+      });
     }
 
-    for (const [dateStr, daySchedules] of Object.entries(schedulesByDate)) {
-      const date = new Date(dateStr);
+    // Process next week with special logic
+    if (!hasNextWeekSchedules) {
+      // Nếu next-week API RỖNG -> tạo default Mon-Fri 07:00-17:00
+      console.log('Next week has no schedules, creating default Mon-Fri slots');
       
-      if (date < today) continue;
+      for (const dateStr of nextWeekStrs) {
+        const dateObj = new Date(dateStr);
+        const dayOfWeek = dateObj.getDay();
+        
+        // Only Mon-Fri (1-5)
+        if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+          const label = formatDayLabel(dateObj);
+          const defaultIntervals = [{ startTime: '07:00:00', endTime: '17:00:00' }];
+          const appts = appointmentsMap[dateStr] || [];
+          const slots = buildSlotsForIntervals(defaultIntervals, appts);
 
-      const dayLabel = formatDayLabel(date);
-      const appointments = appointmentsByDate[dateStr] || [];
-      const slots: TimeSlot[] = [];
-      
-      for (const daySchedule of daySchedules) {
-        const startHour = parseInt(daySchedule.startTime.split(':')[0]);
-        const startMinute = parseInt(daySchedule.startTime.split(':')[1]);
-        const endHour = parseInt(daySchedule.endTime.split(':')[0]);
-        const endMinute = parseInt(daySchedule.endTime.split(':')[1]);
-        
-        const startTotalMinutes = startHour * 60 + startMinute;
-        const endTotalMinutes = endHour * 60 + endMinute;
-        
-        for (let minutes = startTotalMinutes; minutes < endTotalMinutes; minutes += 30) {
-          const slotStartHour = Math.floor(minutes / 60);
-          const slotStartMinute = minutes % 60;
-          const slotEndMinutes = minutes + 30;
-          const slotEndHour = Math.floor(slotEndMinutes / 60);
-          const slotEndMinute = slotEndMinutes % 60;
-          
-          const startTime = `${slotStartHour.toString().padStart(2, '0')}:${slotStartMinute.toString().padStart(2, '0')}:00`;
-          const endTime = `${slotEndHour.toString().padStart(2, '0')}:${slotEndMinute.toString().padStart(2, '0')}:00`;
-          
-          const isBooked = appointments.some(apt => 
-            apt.startTime === startTime && apt.status !== 'CANCELLED'
-          );
-          
-          slots.push({
-            startTime,
-            endTime,
-            available: !isBooked
+          schedule.push({ 
+            date: dateStr, 
+            label, 
+            weekLabel: 'Tuần sau', 
+            slots 
           });
         }
       }
+    } else {
+      // Nếu next-week API CÓ DATA -> chỉ hiển thị ngày có trong schedule
+      console.log('Next week has schedules, showing only scheduled days');
       
-      if (slots.length > 0) {
-        schedule.push({ date: dateStr, label: dayLabel, slots });
+      for (const dateStr of nextWeekStrs) {
+        const dateObj = new Date(dateStr);
+        const dayOfWeek = dateObj.getDay();
+        
+        // Skip Sundays
+        if (dayOfWeek === 0) continue;
+
+        // Chỉ hiển thị ngày có schedule từ API
+        if (nextWeekMap[dateStr]) {
+          const label = formatDayLabel(dateObj);
+          const intervals = nextWeekMap[dateStr];
+          const appts = appointmentsMap[dateStr] || [];
+          const slots = buildSlotsForIntervals(intervals, appts);
+
+          schedule.push({ 
+            date: dateStr, 
+            label, 
+            weekLabel: 'Tuần sau', 
+            slots 
+          });
+        }
       }
     }
-    
-    schedule.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    // Auto-select first available day
+    const todayIndex = schedule.findIndex(d => d.date === todayStr);
+    if (todayIndex >= 0 && schedule[todayIndex].slots.length > 0) {
+      setSelectedDay(todayIndex);
+    } else {
+      const firstAvailableIndex = schedule.findIndex(
+        d => d.slots && d.slots.some(s => s.available)
+      );
+      setSelectedDay(firstAvailableIndex >= 0 ? firstAvailableIndex : 0);
+    }
+
     return schedule;
   };
 
@@ -259,7 +409,7 @@ function OnlineConsultTime() {
       workDate: weekSchedule[selectedDay].date,
       startTime: selectedSlot.startTime,
       endTime: selectedSlot.endTime,
-      medicalExaminationIds: [service.id]  // Sử dụng ID của dịch vụ "Tư vấn online"
+      medicalExaminationIds: [service.id]
     };
 
     sessionStorage.setItem('pendingBooking', JSON.stringify(bookingData));
@@ -363,35 +513,64 @@ function OnlineConsultTime() {
             <div style={{ marginBottom: 24 }}>
               <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 12 }}>3. Chọn thời gian</div>
               
-              {/* Tabs ngày */}
-              <div style={{
-                display: "flex",
-                gap: 8,
-                overflowX: "auto",
-                marginBottom: 16
-              }}>
-                {weekSchedule.map((day, idx) => (
-                  <button
-                    key={day.date}
-                    onClick={() => {
-                      setSelectedDay(idx);
-                      setSelectedSlot(null);
-                    }}
-                    style={{
-                      padding: "10px 18px",
-                      border: "none",
-                      borderBottom: idx === selectedDay ? "3px solid #0ea5e9" : "3px solid transparent",
-                      background: "none",
-                      fontWeight: 600,
-                      color: idx === selectedDay ? "#0ea5e9" : "#334155",
-                      cursor: "pointer",
-                      fontSize: 16,
-                      whiteSpace: "nowrap"
-                    }}
-                  >
-                    {day.label} <span style={{ color: "#22c55e", fontWeight: 400, fontSize: 13 }}> {day.slots.filter(s => s.available).length} khung</span>
-                  </button>
-                ))}
+              {/* Tabs ngày - grouped by week */}
+              <div style={{ marginBottom: 16 }}>
+                {['Tuần này', 'Tuần sau'].map(week => {
+                  const weekDays = weekSchedule.filter(d => d.weekLabel === week);
+                  if (weekDays.length === 0) return null;
+
+                  return (
+                    <div key={week} style={{ marginBottom: 16 }}>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: "#64748b", marginBottom: 8 }}>
+                        {week}
+                      </div>
+                      <div style={{ display: "flex", gap: 8, overflowX: "auto" }}>
+                        {weekDays.map((day) => {
+                          const actualIdx = weekSchedule.indexOf(day);
+                          const hasSlots = day.slots && day.slots.length > 0;
+                          const availableCount = day.slots.filter(s => s.available).length;
+
+                          return (
+                            <button
+                              key={day.date}
+                              onClick={() => {
+                                if (hasSlots) {
+                                  setSelectedDay(actualIdx);
+                                  setSelectedSlot(null);
+                                }
+                              }}
+                              disabled={!hasSlots}
+                              style={{
+                                padding: "10px 18px",
+                                border: "none",
+                                borderBottom: actualIdx === selectedDay ? "3px solid #0ea5e9" : "3px solid transparent",
+                                background: "none",
+                                fontWeight: 600,
+                                color: actualIdx === selectedDay ? "#0ea5e9" : hasSlots ? "#334155" : "#94a3b8",
+                                cursor: hasSlots ? "pointer" : "not-allowed",
+                                fontSize: 16,
+                                whiteSpace: "nowrap",
+                                opacity: hasSlots ? 1 : 0.5
+                              }}
+                            >
+                              {day.label} 
+                              {hasSlots && (
+                                <span style={{ color: "#22c55e", fontWeight: 400, fontSize: 13 }}>
+                                  {" "}{availableCount} khung
+                                </span>
+                              )}
+                              {!hasSlots && (
+                                <span style={{ color: "#ef4444", fontWeight: 400, fontSize: 13 }}>
+                                  {" "}Không có
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
 
               {/* Khung giờ */}

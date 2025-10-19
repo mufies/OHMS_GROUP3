@@ -13,6 +13,7 @@ public interface ConversationMapper  {
    @Mapping(target = "user", ignore = true)  
    @Mapping(target = "id", ignore = true)
    @Mapping(target = "createdAt", ignore = true)
+   @Mapping(target = "imageUrls", ignore = true)
    Conversation toConversation(ConversationRequest conversationRequest);
    
    ConversationResponse toConversationResponse(Conversation conversation);

@@ -13,4 +13,7 @@ public interface ConversationRepository extends JpaRepository<Conversation,Strin
    
    @Query("SELECT c FROM Conversation c LEFT JOIN FETCH c.user u LEFT JOIN FETCH u.roles WHERE c.roomChat.id = :roomId ORDER BY c.createdAt")
    List<Conversation> findByRoomChatIdWithUserAndRoles(@Param("roomId") String roomId);
+
+   
+
 }

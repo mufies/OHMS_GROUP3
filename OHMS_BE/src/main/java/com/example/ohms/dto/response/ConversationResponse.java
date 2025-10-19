@@ -1,6 +1,7 @@
 package com.example.ohms.dto.response;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 
@@ -18,6 +19,7 @@ public class ConversationResponse {
     String id;
     String message;
     UserResponse user;
+    List<String> imageUrls;
     
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     LocalDateTime createdAt;

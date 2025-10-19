@@ -44,7 +44,7 @@ public class UserService {
    MailService mailService;
    @Autowired
    RoleService roleService;
-   @PreAuthorize("hasRole('ADMIN')")
+   // @PreAuthorize("hasRole('ADMIN')")
 public UserResponse createUser(UserRequest userRequestDto, MultipartFile avatar) throws IOException {
     log.info("aaaaaaaaa{}", userRequestDto);
     User user = userMapper.toUser(userRequestDto);
