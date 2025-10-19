@@ -100,7 +100,7 @@ public class AuthenticationService {
         return generateToken(loadedUser);
     }
 
-    private String buildScope(User user) { // ép
+    public String buildScope(User user) { // ép
         StringJoiner stringJoiner = new StringJoiner(" ");
         if (!CollectionUtils.isEmpty(user.getRoles()))
             user.getRoles().forEach(role -> {

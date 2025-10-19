@@ -12,23 +12,30 @@ import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import com.example.ohms.entity.Role;
 import com.example.ohms.entity.User;
 import com.example.ohms.enums.AuthProvider;
+import com.example.ohms.exception.AppException;
+import com.example.ohms.exception.ErrorCode;
 import com.example.ohms.exception.Oauthexception.OAuth2AuthenticationProcessingException;
+import com.example.ohms.repository.RoleRepository;
 import com.example.ohms.repository.UserRepository;
 import com.example.ohms.security.UserPrincipal;
 import com.example.ohms.security.oauth2.user.OAuth2UserInfo;
 import com.example.ohms.security.oauth2.user.OAuth2UserInfoFactory;
 
+import jakarta.transaction.Transactional;
 
 import java.util.Optional;
+import java.util.Set;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
     private final UserRepository userRepository;
-
+    private final RoleRepository roleRepository;
     @Override
     public OAuth2User loadUser(OAuth2UserRequest oAuth2UserRequest) throws OAuth2AuthenticationException {
         OAuth2User oAuth2User = super.loadUser(oAuth2UserRequest);
@@ -76,15 +83,17 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
     return UserPrincipal.create(user, oAuth2User.getAttributes());
 }
-
+// lỗi đây
     private User registerNewUser(OAuth2UserRequest oAuth2UserRequest, OAuth2UserInfo oAuth2UserInfo) {
         User user = new User();
-
+        Role patientsRole = roleRepository.findByName("PATIENT").orElseThrow(()-> new AppException(ErrorCode.ROLE_NOT_FOUND));
         user.setProvider(AuthProvider.valueOf(oAuth2UserRequest.getClientRegistration().getRegistrationId()));
         user.setProviderId(oAuth2UserInfo.getId());
         user.setUsername(oAuth2UserInfo.getName());
         user.setEmail(oAuth2UserInfo.getEmail());
         user.setImageUrl(oAuth2UserInfo.getImageUrl());
+        user.setPassword("123456789");
+        user.setRoles(Set.of(patientsRole));
         return userRepository.save(user);
     }
 
