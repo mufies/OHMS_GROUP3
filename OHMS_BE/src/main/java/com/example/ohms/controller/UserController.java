@@ -17,6 +17,8 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.example.ohms.dto.request.EmailRequest;
+import com.example.ohms.dto.request.ResetPasswordRequest;
 import com.example.ohms.dto.request.UserRequest;
 import com.example.ohms.dto.response.ApiResponse;
 import com.example.ohms.dto.response.UserResponse;
@@ -88,24 +90,24 @@ public ApiResponse<UserResponse> register(
         .code(200)
         .results(userService.userUpdateUser(id, userRequestDto, avatar))
         .build();
-    }
-    @PostMapping("/sendResetCode")
-    public ApiResponse<Void> sendResetCode(@RequestBody String email)throws MessagingException{
-        return ApiResponse.<Void>builder()
+    }@PostMapping("/sendResetCode")
+public ApiResponse<Void> sendResetCode(@RequestBody EmailRequest request) throws MessagingException {
+    log.info("{}", request.getEmail());
+    return ApiResponse.<Void>builder()
         .code(200)
         .message("Send mail successful")
-        .results(userService.sendCodeToEmail(email))
+        .results(userService.sendCodeToEmail(request.getEmail()))
         .build();
-    }
-    @PostMapping("/resetPassword")
-    public ApiResponse<Void> checkTokenAndResetPass(
-        @RequestBody String token,
-        @RequestBody String newPassword
-    ){
-        return ApiResponse.<Void>builder()
-        .results(userService.checkResetToken(token, newPassword))
+}
+@PostMapping("/resetPassword")
+public ApiResponse<Void> checkTokenAndResetPass(
+    @RequestBody ResetPasswordRequest request
+) {
+    return ApiResponse.<Void>builder()
+        .results(userService.checkResetToken(request.getToken(), request.getNewPassword()))
         .build();
-    }
+}
+
 
      @GetMapping("/getinfo")
     public UserResponse getCurrentUser(Authentication authentication) {

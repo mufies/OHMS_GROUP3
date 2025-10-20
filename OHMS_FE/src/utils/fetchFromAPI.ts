@@ -105,3 +105,24 @@ export const fetchLogoutUser = async () => {
       throw error;
    }
 }
+export const fetchForgotPass = async(email : string)=>{
+    try {
+
+      const { data } = await axiosInstance.post(`/users/sendResetCode`,{email});
+      console.log(data);
+      
+      return data;
+   } catch (error) {
+      console.error("Error fetching from API:", error);
+      throw error;
+   }
+}
+export const fetchResetPass = async(payload : {token:string, newPassword:string})=>{
+    try {
+        const { data } = await axiosInstance.post(`/users/resetPassword`, payload);
+        return data;
+    } catch (error) {
+        console.error("Error fetching from API:", error);
+        throw error;
+    }
+}

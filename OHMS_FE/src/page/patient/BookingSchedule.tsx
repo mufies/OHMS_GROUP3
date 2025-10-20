@@ -1,5 +1,5 @@
 import React from "react";
-import Navigator from "../../compoment/Navigator";
+import Navigator from "../../components/Navigator";
 
 const days = [
   { label: "Th 2, 22-09", slots: [], full: true },

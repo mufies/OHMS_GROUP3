@@ -1,5 +1,5 @@
-import Navigator from "../../compoment/doctor/navigator.tsx";
-import ScheduleCalendar from "../../compoment/doctor/schedule/scheduleCalendar.tsx";
+import Navigator from "../../components/doctor/navigator.tsx";
+import ScheduleCalendar from "../../components/doctor/schedule/scheduleCalendar.tsx";
 function DoctorSchedule() {
     return (
         <div className="flex-col min-h-screen  bg-white">

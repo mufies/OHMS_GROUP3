@@ -1,4 +1,4 @@
-import Navigator from "../../compoment/Navigator";
+import Navigator from "../../components/Navigator";
 import { useEffect, useState } from 'react'; // Thêm useState cho loading
 
 function Home() {
