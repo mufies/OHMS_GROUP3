@@ -1,7 +1,7 @@
-import Navigator from "../../compoment/doctor/navigator";
-import TodayPatientList from "../../compoment/doctor/dashboard/todayPatientList.tsx";
-import DashboardCalendar from "../../compoment/doctor/dashboard/dashboardCalendar.tsx";
-import DutySchedule from "../../compoment/doctor/dashboard/DutySchedule.tsx";
+import Navigator from "../../components/doctor/navigator.tsx";
+import TodayPatientList from "../../components/doctor/dashboard/todayPatientList.tsx";
+import DashboardCalendar from "../../components/doctor/dashboard/dashboardCalendar.tsx";
+import DutySchedule from "../../components/doctor/dashboard/DutySchedule.tsx";
 
 function DoctorDashboard() {
     return (

@@ -1,5 +1,5 @@
 import { useLocation } from "react-router-dom";
-import Navigator from "../../compoment/Navigator";
+import Navigator from "../../components/Navigator";
 import { useNavigate } from "react-router-dom";
 
 function Doctor() {

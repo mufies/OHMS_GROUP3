@@ -2,8 +2,8 @@ import "./Navigator.css"
 import { useState, useEffect} from "react";
 
 import { validateJwt } from "../hook/useAuth.tsx";
-import Login from "./Login";
-import Register from "./register";
+import Login from "./auth/Login.tsx";
+import Register from "./auth/register.tsx";
 import { LOGIN_USER } from "../constant/enum.ts";
 import { fetchLogoutUser, fetchGetProfile, axiosInstance } from "../utils/fetchFromAPI.ts";
 
