@@ -18,10 +18,10 @@ const DoctorChatPage = () => {
     if (token) {
     const payload = token.split('.')[1];
     const decodedPayload = JSON.parse(atob(payload));   
-      if (decodedPayload.scope === 'doctor') {
+      if (decodedPayload.scope === 'ROLE_doctor') {
           const transformedUser: User = {
           id: decodedPayload.userId,
-          role: decodedPayload.scope,
+          role: 'doctor',
         };
         setCurrentUser(transformedUser);
     } 

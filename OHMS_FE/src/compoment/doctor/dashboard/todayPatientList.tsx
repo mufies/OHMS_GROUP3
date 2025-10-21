@@ -66,12 +66,15 @@ export default function TodayPatientList() {
     }, []);
 
     // Fetch appointments when userId is available
-// Fetch appointments when userId is available
+// Fetch appointments when userId is available with polling every 10 seconds
 useEffect(() => {
     if (!userId) return;
 
     const fetchAppointments = async () => {
-        setLoading(true);
+        // Only show loading on first fetch
+        if (data.length === 0) {
+            setLoading(true);
+        }
         setError(null);
 
         try {
@@ -150,7 +153,18 @@ useEffect(() => {
         }
     };
 
+    // Initial fetch
     fetchAppointments();
+    
+    // Set up polling interval - fetch every 10 seconds
+    const intervalId = setInterval(() => {
+        fetchAppointments();
+    }, 60000); 
+
+    // Cleanup interval on component unmount or userId change
+    return () => {
+        clearInterval(intervalId);
+    };
 }, [userId]);
 
 

@@ -43,11 +43,11 @@ public class User {
    AuthProvider provider;
    String refreshToken;
    String resetToken;
-// mấy cái ở dưới là của role bác sĩ 
-// 1 bác sĩ có nhiều chuyên ngành
-    String providerId;
- Boolean enabled = true;
- @Enumerated(EnumType.STRING)
+   // mấy cái ở dưới là của role bác sĩ 
+   // 1 bác sĩ có nhiều chuyên ngành
+   String providerId;
+   Boolean enabled = true;
+   @Enumerated(EnumType.STRING)
    Set<MedicalSpecialty> medicleSpecially;
    String identification; // mã số định danh, thực ra cái này hơi không cần để xử lí ấy, nó làm legit hơn thôi
 

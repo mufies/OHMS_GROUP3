@@ -41,7 +41,8 @@ public class PrescriptionService {
     private UserRepository userRepository;
     private MedicineRepository medicineRepository;
     PrescriptionMedicineRepository prescriptionMedicineRepository; 
-@PostAuthorize("hasRole('DOCTOR')")
+    
+@PostAuthorize("hasRole('DOCTOR') or hasRole('ADMIN')")
 public PrescriptionResponse createPrescription(Authentication authentication, 
 PrescriptionRequest prescriptionRequest,
  String patientId) {

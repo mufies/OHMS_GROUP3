@@ -5,5 +5,6 @@ public enum UserRole {
    ADMIN,
    DOCTOR, // sắp lịch làm cho bác sĩ
    PATIENT,
-   STAFF
+   STAFF,
+   OFFLINE_PATIENT
 }

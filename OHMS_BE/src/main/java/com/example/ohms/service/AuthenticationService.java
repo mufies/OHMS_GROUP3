@@ -53,7 +53,7 @@ public class AuthenticationService {
     private static final SecureRandom random = new SecureRandom();
 
     public AuthenticationResponse loginUser(AuthenticationRequest authenticationRequest) {
-        log.error("aaaaaaaaaaaaaaaaaaaaaaa{}", authenticationRequest);
+        // log.error("aaaaaaaaaaaaaaaaaaaaaaa{}", authenticationRequest);
         User user = userRepository.findByEmailWithRoles(authenticationRequest.getEmail()) // Sửa: Dùng fetch with roles
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
         boolean results = passwordEncoder.matches(authenticationRequest.getPassword(), user.getPassword());
@@ -75,7 +75,7 @@ public class AuthenticationService {
                 //.issuer(name) //  xác định token được issuer từ ai, thông thường nó sẽ lấy từ domain service
                 .issueTime(new Date())
                 .expirationTime(new Date(
-                        Instant.now().plus(1, ChronoUnit.DAYS).toEpochMilli()
+                        Instant.now().plus(30, ChronoUnit.DAYS).toEpochMilli()
                 ))
                 .claim("scope", buildScope(user))
                 .claim("userId", user.getId()) // mã hóa cái thông tin mà người đăng nhập nhét vào
@@ -104,7 +104,7 @@ public class AuthenticationService {
         StringJoiner stringJoiner = new StringJoiner(" ");
         if (!CollectionUtils.isEmpty(user.getRoles()))
             user.getRoles().forEach(role -> {
-                stringJoiner.add("" + role.getName().toLowerCase()); // Thêm prefix ROLE_ chuẩn Spring
+                stringJoiner.add("ROLE_" + role.getName().toLowerCase()); // Thêm prefix ROLE_ chuẩn Spring
                 if (!CollectionUtils.isEmpty(role.getPermissions()))
                     role.getPermissions().forEach(permission ->
                             stringJoiner.add(permission.getName())  // 

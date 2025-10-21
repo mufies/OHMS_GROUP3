@@ -47,6 +47,8 @@ public ApiResponse<UserResponse> createUser(
             .results(userService.createUser(userRequestDto, avatar))
             .build();
 }
+
+
     // register
      @PostMapping(value = "/register",consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
 public ApiResponse<UserResponse> register(
@@ -134,5 +136,48 @@ public ApiResponse<UserResponse> register(
         .code(200)
         .results(userService.deleteUser(id))
         .build();
+    }
+    
+
+    @PostMapping("/offline")
+    public ApiResponse<com.example.ohms.dto.response.OfflineUserResponse> createOfflineUser(
+            @Valid @RequestBody com.example.ohms.dto.request.OfflineUserRequest request) {
+        log.info("REST request to create offline user");
+        return ApiResponse.<com.example.ohms.dto.response.OfflineUserResponse>builder()
+            .code(200)
+            // .message("Offline user created successfully")
+            .results(userService.createOfflineUser(request))
+            .build();
+    }
+    
+    /**
+     * Lấy thông tin offline user theo số điện thoại
+     * GET /users/offline/phone/{phone}
+     */
+    @GetMapping("/offline/phone/{phone}")
+    public ApiResponse<com.example.ohms.dto.response.OfflineUserResponse> getOfflineUserByPhone(
+            @PathVariable Integer phone) {
+        log.info("REST request to get offline user by phone: {}", phone);
+        return ApiResponse.<com.example.ohms.dto.response.OfflineUserResponse>builder()
+            .code(200)
+            // .message("Offline user retrieved successfully")
+            .results(userService.getOfflineUserByPhone(phone))
+            .build();
+    }
+    
+    /**
+     * Cập nhật thông tin offline user
+     * PATCH /users/offline/{id}
+     */
+    @PatchMapping("/offline/{id}")
+    public ApiResponse<com.example.ohms.dto.response.OfflineUserResponse> updateOfflineUser(
+            @PathVariable String id,
+            @Valid @RequestBody com.example.ohms.dto.request.OfflineUserRequest request) {
+        log.info("REST request to update offline user: {}", id);
+        return ApiResponse.<com.example.ohms.dto.response.OfflineUserResponse>builder()
+            .code(200)
+            // .message("Offline user updated successfully")
+            .results(userService.updateOfflineUser(id, request))
+            .build();
     }
 }

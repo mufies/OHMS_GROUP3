@@ -26,11 +26,11 @@ public class PrescriptionController {
    PrescriptionService prescriptionService;
    // bác sĩ mới kê đơn được
    @PostMapping("{patientId}")
-   public ApiResponse<PrescriptionResponse> createPrescription(Authentication aithAuthentication, @PathVariable("patientId") String id,
+   public ApiResponse<PrescriptionResponse> createPrescription(Authentication authAuthentication, @PathVariable("patientId") String id,
     @RequestBody PrescriptionRequest prescriptionRequest){
       return ApiResponse.<PrescriptionResponse>builder()
       .code(200)
-      .results(prescriptionService.createPrescription(aithAuthentication, prescriptionRequest, id))
+      .results(prescriptionService.createPrescription(authAuthentication, prescriptionRequest, id))
       .build();
 
    }

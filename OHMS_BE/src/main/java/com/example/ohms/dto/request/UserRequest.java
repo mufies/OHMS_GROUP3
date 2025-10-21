@@ -30,7 +30,7 @@ import jakarta.validation.constraints.Email;
       String email;
       Set<String> roles;
       //  làm thêm cái phone với cái chuyên ngành hẹp cho thằng bác sĩ
-      // 1 bác sĩ ccó thể có nhiều chuyên khoa hẹp
+      // 1 bác sĩ có thể có nhiều chuyên khoa hẹp
       Integer phone;
       Set<MedicalSpecialty> medicleSpecially;
    }

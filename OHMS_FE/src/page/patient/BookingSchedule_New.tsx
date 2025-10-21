@@ -264,26 +264,28 @@ function BookingSchedule() {
     doctorId: string,
     token: string
   ): Promise<DaySchedule[]> => {
-    // Helper: build a week dates array (Mon-Fri only) starting from a reference date
     const buildWeekDates = (refDate: Date) => {
       const d = new Date(refDate);
-      // move to Monday
-      const day = d.getDay();
-      // const d = new Date(2025, 9, 16); // Tháng 10 (index 9), ngày 16, năm 2025
-      // const day = d.getDay();
-      const diffToMonday = (day === 0 ? -6 : 1) - day; // if Sunday(0) -> previous Monday = -6
-      const monday = new Date(d);
-      monday.setDate(d.getDate() + diffToMonday);
+      
+      // Đảm bảo dùng local date, không bị ảnh hưởng timezone
+      const localDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      
+      const day = localDate.getDay();
+      const diffToMonday = (day === 0 ? -6 : 1) - day;
+      
+      const monday = new Date(localDate);
+      monday.setDate(localDate.getDate() + diffToMonday);
       monday.setHours(0, 0, 0, 0);
 
       const weekDates: Date[] = [];
-      for (let i = 0; i < 5; i++) {  // Changed from 7 to 5 (Mon-Fri only)
+      for (let i = 0; i < 5; i++) {
         const dt = new Date(monday);
         dt.setDate(monday.getDate() + i);
         weekDates.push(dt);
       }
       return weekDates;
     };
+
 
     // Build slots for a day given working intervals (could be one or multiple intervals)
     const buildSlotsForIntervals = (intervals: {startTime: string; endTime:string}[], appointments: Appointment[]) => {
@@ -676,7 +678,9 @@ function BookingSchedule() {
                       const weekDays = weekSchedule.filter(d => d.weekLabel === week);
                       if (weekDays.length === 0) return null;
 
+                      // Get today's date at 00:00:00 local time
                       const today = new Date();
+                      today.setHours(0, 0, 0, 0);
 
                       return (
                         <div key={week}>
@@ -686,7 +690,9 @@ function BookingSchedule() {
                           <div className="flex items-center gap-2 overflow-x-auto pb-2">
                             {weekDays.map((day) => {
                               const hasSlots = day.slots && day.slots.length > 0;
-                              const dayDate = new Date(day.date);
+                              // Parse date in local timezone
+                              const [year, month, dayNum] = day.date.split('-').map(Number);
+                              const dayDate = new Date(year, month - 1, dayNum);
                               const isPast = dayDate < today;
                               const isDisabled = isPast || !hasSlots;
                               const actualIdx = weekSchedule.indexOf(day);
@@ -729,8 +735,13 @@ function BookingSchedule() {
                   </div>
                   {(() => {
                     const selectedDayData = weekSchedule[selectedDay];
+                    // Get today's date at 00:00:00 local time
                     const today = new Date();
-                    const dayDate = new Date(selectedDayData?.date || '');
+                    today.setHours(0, 0, 0, 0);
+                    // Parse date in local timezone
+                    const dateStr = selectedDayData?.date || '';
+                    const [year, month, dayNum] = dateStr.split('-').map(Number);
+                    const dayDate = new Date(year, month - 1, dayNum);
                     const isDayPast = dayDate < today;
                     const hasSlots = selectedDayData?.slots && selectedDayData.slots.length > 0;
                     

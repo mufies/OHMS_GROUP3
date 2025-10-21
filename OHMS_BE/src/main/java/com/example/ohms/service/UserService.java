@@ -15,7 +15,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.example.ohms.dto.request.OfflineUserRequest;
 import com.example.ohms.dto.request.UserRequest;
+import com.example.ohms.dto.response.OfflineUserResponse;
 import com.example.ohms.dto.response.UserResponse;
 import com.example.ohms.entity.Role;
 import com.example.ohms.entity.User;
@@ -244,4 +246,104 @@ public UserResponse getDetailUser(Authentication authentication) {
 
         return UserPrincipal.create(user);
     }
+
+    // ============ OFFLINE USER METHODS ============
+    
+    /**
+     * Tạo tài khoản offline (walk-in patient)
+     * Dùng cho bệnh nhân đến khám trực tiếp không có tài khoản
+     */
+   //  @PreAuthorize("hasRole('ADMIN') or hasRole('DOCTOR')")
+    public OfflineUserResponse createOfflineUser(
+            OfflineUserRequest request) {
+        log.info("Creating offline user with username: {}", request.getUsername());
+        
+        // Kiểm tra xem số điện thoại đã tồn tại chưa
+        if (userRepository.existsByPhone(request.getPhone())) {
+            throw new AppException(ErrorCode.USER_EXISTED);
+        }
+        
+        // Map request to User entity
+        User user = userMapper.toOfflineUser(request);
+        
+        // Set default values cho offline user
+        user.setEnabled(true);
+        user.setPassword(null); // Offline user không có password
+        user.setEmail(null); // Offline user không cần email
+        
+        // Gán roles
+        if (request.getRoles() != null && !request.getRoles().isEmpty()) {
+            Set<Role> roles = new HashSet<>();
+            for (String roleName : request.getRoles()) {
+                Role role = roleRepository.findByName(roleName)
+                    .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
+                roles.add(role);
+            }
+            user.setRoles(roles);
+        } else {
+            // Mặc định là PATIENT nếu không có role
+            Role patientRole = roleRepository.findByName("OFFLINE_PATIENT")
+                .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
+            user.setRoles(Set.of(patientRole));
+        }
+        
+        User savedUser = userRepository.save(user);
+        log.info("Offline user created successfully with id: {}", savedUser.getId());
+        
+        return userMapper.toOfflineUserResponse(savedUser);
+    }
+    
+    /**
+     * Lấy thông tin offline user theo số điện thoại
+     */
+    public OfflineUserResponse getOfflineUserByPhone(Integer phone) {
+        log.info("Getting offline user by phone: {}", phone);
+        
+        User user = userRepository.findByPhone(phone)
+            .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+        
+        return userMapper.toOfflineUserResponse(user);
+    }
+    
+    /**
+     * Cập nhật thông tin offline user
+     */
+   //  @PreAuthorize("hasRole('ADMIN') or hasRole('DOCTOR')")
+    public com.example.ohms.dto.response.OfflineUserResponse updateOfflineUser(
+            String id, com.example.ohms.dto.request.OfflineUserRequest request) {
+        log.info("Updating offline user: {}", id);
+        
+        User user = userRepository.findById(id)
+            .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+        
+        // Cập nhật username
+        if (request.getUsername() != null) {
+            user.setUsername(request.getUsername());
+        }
+        
+        // Cập nhật phone
+        if (request.getPhone() != null && !request.getPhone().equals(user.getPhone())) {
+            if (userRepository.existsByPhone(request.getPhone())) {
+                throw new AppException(ErrorCode.USER_EXISTED);
+            }
+            user.setPhone(request.getPhone());
+        }
+        
+        // Cập nhật roles
+        if (request.getRoles() != null && !request.getRoles().isEmpty()) {
+            Set<Role> roles = new HashSet<>();
+            for (String roleName : request.getRoles()) {
+                Role role = roleRepository.findByName(roleName)
+                    .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
+                roles.add(role);
+            }
+            user.setRoles(roles);
+        }
+        
+        User updatedUser = userRepository.save(user);
+        log.info("Offline user updated successfully: {}", id);
+        
+        return userMapper.toOfflineUserResponse(updatedUser);
+    }
 }
+
