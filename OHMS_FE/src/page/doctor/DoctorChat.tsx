@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import DoctorChat from '../../compoment/doctor/chat/doctorChat.tsx'
-import Navigator from '../../compoment/doctor/navigator.tsx'
+import DoctorChat from '../../components/doctor/chat/doctorChat.tsx'
+import Navigator from '../../components/doctor/navigator.tsx'
 
 interface User {
   id: string;

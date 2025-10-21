@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTimes, faUser, faLock } from '@fortawesome/free-solid-svg-icons';
 
-import {  fetchRegisterUser } from '../utils/fetchFromAPI'; // Adjust path if needed
+import {  fetchRegisterUser } from '../../utils/fetchFromAPI'; // Adjust path if needed
 
 interface AuthProps {
   onClose: () => void;
@@ -60,7 +60,7 @@ const Register = ({ onClose }: AuthProps) => {
       const res = await fetchRegisterUser(formData);
       console.log('Register successful:', res.data);
       onClose();
-    } catch (err: any) {
+    } catch (err) {
       console.error('Register failed:', err);
       setError(err.response?.data?.message || 'Đăng ký thất bại. Vui lòng thử lại.');
     } finally {
@@ -93,7 +93,7 @@ const Register = ({ onClose }: AuthProps) => {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               <FontAwesomeIcon icon={faUser} className="mr-2" />
-              Tên đăng nhập *
+              Tên người dùng *
             </label>
             <input
               type="text"

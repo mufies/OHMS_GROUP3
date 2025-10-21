@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import Navigator from "../../compoment/Navigator";
+import Navigator from "../../components/Navigator";
 import { MedicalSpecialty, MedicalSpecialtyType, MEDICAL_SPECIALTY_LABELS } from '../../constant/medicalSpecialty';
 
 function OnlineConsultSpecialty() {

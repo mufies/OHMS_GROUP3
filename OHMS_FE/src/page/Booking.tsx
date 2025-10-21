@@ -1,7 +1,7 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faStethoscope } from '@fortawesome/free-solid-svg-icons';
-import Navigator from '../compoment/Navigator';
-import SearchDoctor from '../compoment/searchDoctor';
+import Navigator from '../components/Navigator';
+import SearchDoctor from '../components/searchDoctor';
 import { useNavigate } from 'react-router-dom';
 import { MedicalSpecialty, MEDICAL_SPECIALTY_LABELS, MedicalSpecialtyType } from '../constant/medicalSpecialty';
 

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import PatientChat from '../../compoment/patient/PatientChat';
-import Navigator from '../../compoment/Navigator';
+import PatientChat from '../../components/patient/PatientChat';
+import Navigator from '../../components/Navigator';
 
 interface User {
   id: string;
