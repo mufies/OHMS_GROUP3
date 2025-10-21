@@ -12,7 +12,6 @@ import {
 
 import { useWebSocketService } from '../../../services/webSocketServices';
 
-
 interface Message {
   id: string;
   senderId: string;
@@ -89,7 +88,7 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
     connect();
   }, [connect]); 
 
-  // Send new message (without form submit) - Memoize đầy đủ
+  // Send new message (without form submit)
   const handleSendMessageNoForm = useCallback(async () => {
     if ((!newMessage.trim() && selectedImages.length === 0) || !selectedPatient) {
       console.warn('Cannot send: No message or images and no patient selected');
@@ -236,66 +235,6 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
       unsubscribe(`/topic/room/${currentRoom.roomChatID}`);
     };
   }, [selectedPatient, chatRooms, subscribe, unsubscribe, currentUser.id, getCurrentRoom]);
-
-  // Subscribe to ALL chat rooms for real-time updates
-  useEffect(() => {
-    if (chatRooms.length === 0) return;
-
-    const subscriptions: string[] = [];
-    const timers: NodeJS.Timeout[] = [];
-
-    chatRooms.forEach(room => {
-      const topic = `/topic/room/${room.roomChatID}`;
-      
-      const globalCallback = (message: any) => {
-        if (message.user?.id === currentUser.id) return; // Skip own messages
-
-        // Update patient list for ANY room, not just current room
-        setPatients(prevPatients => 
-          prevPatients.map(patient => 
-            patient.id === message.user?.id 
-              ? {
-                  ...patient,
-                  lastMessage: message.message,
-                  lastMessageTime: new Date(message.createdAt ?? Date.now())
-                }
-              : patient
-          )
-        );
-
-        // Only update messages if this is the current room
-        const currentRoom = getCurrentRoom();
-        if (currentRoom && room.roomChatID === currentRoom.roomChatID) {
-          const incomingMessage: Message = {
-            id: Date.now().toString(),
-            senderId: message.user?.id ?? 'unknown',
-            content: message.message,
-            timestamp: new Date(message.createdAt ?? Date.now()),
-            isRead: false,
-          };
-
-          setMessages(prev => {
-            const updatedMessages = [...prev, incomingMessage];
-            return updatedMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-          });
-        }
-      };
-
-      const subscribeTimer = setTimeout(() => {
-        subscribe(topic, globalCallback);
-        subscriptions.push(topic);
-      }, 1000 + Math.random() * 500); 
-      
-      timers.push(subscribeTimer);
-    });
-
-    return () => {
-      timers.forEach(timer => clearTimeout(timer));
-      subscriptions.forEach(topic => {
-        unsubscribe(topic);
-      });
-    };
-  }, [chatRooms, subscribe, unsubscribe, currentUser.id, selectedPatient?.id, getCurrentRoom]);
 
   // Load existing messages on selectedPatient or chatRooms change
   useEffect(() => {
@@ -477,13 +416,7 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
     return `${Math.floor(diffMinutes / 1440)}d ago`;
   };
 
-
-
-  
-
-
-
-    const createCall = (type: 'audio' | 'video') => {
+  const createCall = (type: 'audio' | 'video') => {
     var currentRoom = getCurrentRoom();
       const variable = {
           roomId: currentRoom?.roomChatID,
@@ -803,8 +736,6 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
           </div>
         )}
       </div>
-
-      
     </div>
   );
 };

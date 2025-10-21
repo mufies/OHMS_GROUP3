@@ -74,17 +74,19 @@ int totalPrice = prescriptionRequest.getMedicinePrescription().stream()
         medicine.setQuantity(medicine.getQuantity() - request.getAmount());
         medicineRepository.save(medicine);
 
-        log.info("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA{}", medicine.getQuantity() - request.getAmount());
+        // log.info("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA{}", medicine.getQuantity() - request.getAmount());
         // Trả về tiền thuốc cho đơn này
         return medicine.getPrice() * request.getAmount();
     })
     .sum(); // cộng dồn tất cả
 // xử lí bill
    Prescription prescription = new Prescription();
-prescription.setDoctor(doctor);
-prescription.setPatient(patient);
-prescription.setAmount(totalPrice);
-prescription.setStatus(PaymentStatus.PENDING);
+    prescription.setDoctor(doctor);
+    prescription.setPatient(patient);
+    prescription.setAmount(totalPrice);
+    prescription.setStatus(PaymentStatus.PENDING);
+    
+    
 
 Set<PrescriptionMedicine> setPrescriptionMedicine = new HashSet<>();
 

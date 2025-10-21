@@ -12,9 +12,17 @@ export const axiosInstance = axios.create({
 // Add a request interceptor to include the Bearer token in all requests
 axiosInstance.interceptors.request.use(
    (config) => {
-      const token = localStorage.getItem(LOGIN_USER);
-      if (token) {
-         config.headers["Authorization"] = `Bearer ${token}`;
+      // Không gửi token cho các endpoint auth (login, register, etc.)
+      const isAuthEndpoint = config.url?.startsWith('/auth/') || 
+                             config.url?.startsWith('/users/register') ||
+                             config.url?.startsWith('/users/sendResetCode') ||
+                             config.url?.startsWith('/users/resetPassword');
+      
+      if (!isAuthEndpoint) {
+         const token = localStorage.getItem(LOGIN_USER);
+         if (token) {
+            config.headers["Authorization"] = `Bearer ${token}`;
+         }
       }
       return config;
    },

@@ -1,5 +1,6 @@
 package com.example.ohms.dto.response;
 
+import java.time.LocalDateTime;
 import java.util.Set;
 
 import com.example.ohms.entity.PrescriptionMedicine;
@@ -23,5 +24,6 @@ public class PrescriptionResponse {
    HideUserResponse patient;
    Set<PrescriptionMedicine> medicinePrescription;
    Integer amount;
-   // PaymentStatus status;
+   PaymentStatus status;
+   LocalDateTime createAt;
 }

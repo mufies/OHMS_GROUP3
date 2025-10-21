@@ -1,5 +1,6 @@
 package com.example.ohms.entity;
 
+import java.time.LocalDateTime;
 import java.util.Set;
 
 import com.example.ohms.enums.PaymentStatus;
@@ -45,4 +46,7 @@ public class Prescription {
    // status để check cái trạng thái thanh toán
    @Enumerated(EnumType.STRING)
    PaymentStatus status; //hide
+
+   @Builder.Default
+   LocalDateTime createdAt = LocalDateTime.now();
 }

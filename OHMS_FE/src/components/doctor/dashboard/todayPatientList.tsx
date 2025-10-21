@@ -159,7 +159,7 @@ useEffect(() => {
     // Set up polling interval - fetch every 10 seconds
     const intervalId = setInterval(() => {
         fetchAppointments();
-    }, 60000); 
+    }, 10000); 
 
     // Cleanup interval on component unmount or userId change
     return () => {
