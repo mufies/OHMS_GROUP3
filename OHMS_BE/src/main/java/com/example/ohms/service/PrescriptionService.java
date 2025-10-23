@@ -42,7 +42,7 @@ public class PrescriptionService {
     private MedicineRepository medicineRepository;
     PrescriptionMedicineRepository prescriptionMedicineRepository; 
     
-@PostAuthorize("hasRole('DOCTOR') or hasRole('ADMIN')")
+// @PostAuthorize("hasRole('DOCTOR')")
 public PrescriptionResponse createPrescription(Authentication authentication, 
 PrescriptionRequest prescriptionRequest,
  String patientId) {
@@ -97,6 +97,7 @@ prescriptionRequest.getMedicinePrescription().forEach(request -> {
     PrescriptionMedicine pm = new PrescriptionMedicine();
     pm.setMedicine(medicine);
     pm.setAmount(request.getAmount());
+    pm.setInstruction(request.getInstruction());
     prescriptionMedicineRepository.save(pm);
     log.error("AAAAAAAAAAAAAA{}",pm);
     setPrescriptionMedicine.add(pm);

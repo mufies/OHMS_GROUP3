@@ -2,6 +2,7 @@ package com.example.ohms.controller;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -186,6 +187,23 @@ public class AppointmentController {
             return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
             log.error("Error updating appointment status: {}", e.getMessage());
+            throw e;
+        }
+    }
+
+    // Update appointment medical examinations
+    @PutMapping("/{appointmentId}/medical-examinations")
+    public ResponseEntity<AppointmentResponse> updateAppointmentMedicalExaminations(
+            @PathVariable String appointmentId,
+            @RequestBody Map<String, List<String>> payload) {
+        log.info("Updating medical examinations for appointment {}", appointmentId);
+        
+        try {
+            List<String> medicalExaminationIds = payload.get("medicalExaminationIds");
+            AppointmentResponse response = appointmentService.updateAppointmentMedicalExaminations(appointmentId, medicalExaminationIds);
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            log.error("Error updating medical examinations: {}", e.getMessage());
             throw e;
         }
     }

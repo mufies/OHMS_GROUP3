@@ -31,4 +31,5 @@ public class PrescriptionMedicine {
    @ManyToOne 
    Medicine medicine; // lấy id của thuốc
    Integer amount; // lấy số lượng của id đó
+   String instruction;
 }

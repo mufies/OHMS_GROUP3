@@ -62,7 +62,7 @@ public class MedicalRecord {
     
     // Thời gian tạo hồ sơ
     @Builder.Default
-    LocalDateTime createdAt = LocalDateTime.now();
+   LocalDateTime createdAt = LocalDateTime.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
     
 
 }

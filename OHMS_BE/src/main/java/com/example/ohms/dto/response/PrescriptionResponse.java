@@ -20,10 +20,11 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level = AccessLevel.PRIVATE,makeFinal = true)
 public class PrescriptionResponse {
 // hiện
+   String id;
    HideUserResponse doctor;
    HideUserResponse patient;
    Set<PrescriptionMedicine> medicinePrescription;
    Integer amount;
    PaymentStatus status;
-   LocalDateTime createAt;
+   LocalDateTime createdAt;
 }

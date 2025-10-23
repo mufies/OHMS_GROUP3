@@ -48,5 +48,5 @@ public class Prescription {
    PaymentStatus status; //hide
 
    @Builder.Default
-   LocalDateTime createdAt = LocalDateTime.now();
+   LocalDateTime createdAt = LocalDateTime.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
 }

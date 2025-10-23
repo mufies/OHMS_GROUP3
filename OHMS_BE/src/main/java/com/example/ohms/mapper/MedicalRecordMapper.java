@@ -29,6 +29,19 @@ public class MedicalRecordMapper {
                        ? medicalRecord.getAppointment().getWorkDate().toString() : null)
                    .appointmentTime(medicalRecord.getAppointment().getStartTime() != null 
                        ? medicalRecord.getAppointment().getStartTime().toString() : null);
+            
+            // Medical examinations from appointment
+            if (medicalRecord.getAppointment().getMedicalExamnination() != null) {
+                List<MedicalRecordResponse.MedicalExaminationInfo> examinations = 
+                    medicalRecord.getAppointment().getMedicalExamnination().stream()
+                        .map(exam -> MedicalRecordResponse.MedicalExaminationInfo.builder()
+                            .id(exam.getId())
+                            .name(exam.getName())
+                            .price(exam.getPrice())
+                            .build())
+                        .collect(Collectors.toList());
+                builder.medicalExaminations(examinations);
+            }
         }
         
         // Patient info
@@ -69,26 +82,13 @@ public class MedicalRecordMapper {
                             .id(pm.getId())
                             .name(pm.getMedicine() != null ? pm.getMedicine().getName() : null)
                             .dosage(pm.getAmount() != null ? pm.getAmount().toString() : null)
-                            .instructions("") // Can be added later if needed
+                            .instructions(pm.getInstruction()) // Can be added later if needed
                             .build())
                         .collect(Collectors.toList());
                 prescriptionInfo.setMedicines(medicines);
             }
             
             builder.prescription(prescriptionInfo);
-        }
-        
-        // Medical examinations
-        if (medicalRecord.getMedicalExamination() != null) {
-            List<MedicalRecordResponse.MedicalExaminationInfo> examinations = 
-                medicalRecord.getMedicalExamination().stream()
-                    .map(exam -> MedicalRecordResponse.MedicalExaminationInfo.builder()
-                        .id(exam.getId())
-                        .name(exam.getName())
-                        .price(exam.getPrice())
-                        .build())
-                    .collect(Collectors.toList());
-            builder.medicalExaminations(examinations);
         }
         
         return builder.build();

@@ -344,4 +344,40 @@ public class AppointmentService {
         
         return builder.build();
     }
+
+    // Update medical examinations for appointment - ADD only, don't remove existing ones
+    public AppointmentResponse updateAppointmentMedicalExaminations(String appointmentId, List<String> medicalExaminationIds) {
+        log.info("Adding medical examinations to appointment: {}", appointmentId);
+        
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+            .orElseThrow(() -> new RuntimeException("Appointment not found with id: " + appointmentId));
+        
+        // Get existing medical examinations list
+        List<MedicalExamination> existingExams = appointment.getMedicalExamnination();
+        if (existingExams == null) {
+            existingExams = new ArrayList<>();
+            appointment.setMedicalExamnination(existingExams);
+        }
+        
+        // Add new medical examinations (only if not already present)
+        if (medicalExaminationIds != null && !medicalExaminationIds.isEmpty()) {
+            for (String examId : medicalExaminationIds) {
+                // Check if already exists
+                boolean alreadyExists = existingExams.stream()
+                    .anyMatch(exam -> exam.getId().equals(examId));
+                
+                if (!alreadyExists) {
+                    MedicalExamination examination = medicleExaminatioRepository.findById(examId)
+                        .orElseThrow(() -> new RuntimeException("Medical examination not found: " + examId));
+                    existingExams.add(examination);
+                    log.info("Added medical examination {} to appointment {}", examination.getName(), appointmentId);
+                }
+            }
+            
+            log.info("Total {} medical examinations for appointment: {}", existingExams.size(), appointmentId);
+        }
+        
+        appointmentRepository.save(appointment);
+        return toAppointmentResponse(appointment);
+    }
 }
