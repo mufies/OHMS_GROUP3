@@ -39,4 +39,7 @@ public class AppointmentRequest {
     @Builder.Default
     String status = "Scheduled";
 
+    // Parent appointment ID (nếu là service appointment)
+    // Null nếu là appointment chính (có doctorId)
+    String parentAppointmentId;
 }

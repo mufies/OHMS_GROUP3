@@ -32,5 +32,5 @@ public enum MedicalSpecialty {
     PHYSICAL_THERAPY,            // Phục hồi chức năng - Vật lý trị liệu
     REPRODUCTIVE_MEDICINE,       // Vô sinh hiếm muộn
     TRADITIONAL_MEDICINE,        // Y học cổ truyền
-    TUBERCULOSIS                 // Lao - bệnh phổi
+    TUBERCULOSIS,             // Lao - bệnh phổi
 }

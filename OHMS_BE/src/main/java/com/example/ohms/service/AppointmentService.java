@@ -43,6 +43,8 @@ public class AppointmentService {
         log.info("Creating appointment for patient: {} with doctor: {}", request.getPatientId(), request.getDoctorId());
         
         // Kiểm tra conflict
+        if(request.getParentAppointmentId()== null)
+        {
         boolean canCreate = appointmentRepository.canCreateAppointment(
             request.getDoctorId(),
             request.getPatientId(),
@@ -54,6 +56,7 @@ public class AppointmentService {
         if (!canCreate) {
             throw new RuntimeException("Time slot already booked for doctor or patient!");
         }
+    }
         
         // Lấy thông tin doctor và patient
         User doctor = null; // Khởi tạo doctor là null
@@ -65,6 +68,14 @@ public class AppointmentService {
         User patient = userRepository.findById(request.getPatientId())
             .orElseThrow(() -> new RuntimeException("Patient not found with id: " + request.getPatientId()));
         
+        // Xử lý parent appointment nếu có
+        Appointment parentAppointment = null;
+        if (request.getParentAppointmentId() != null && !request.getParentAppointmentId().isBlank()) {
+            log.info("This is a service appointment with parent id: {}", request.getParentAppointmentId());
+            parentAppointment = appointmentRepository.findById(request.getParentAppointmentId())
+                .orElseThrow(() -> new RuntimeException("Parent appointment not found with id: " + request.getParentAppointmentId()));
+        }
+        
         // Tạo appointment entity
         Appointment appointment = Appointment.builder()
             .doctor(doctor)
@@ -73,6 +84,7 @@ public class AppointmentService {
             .startTime(request.getStartTime())
             .endTime(request.getEndTime())
             .status("Schedule")
+            .parentAppointment(parentAppointment)
             .build();
         
         // Handle medical examinations nếu có trong request
@@ -340,6 +352,41 @@ public class AppointmentService {
                     .build())
                 .collect(Collectors.toList());
             builder.medicalExaminations(examInfos);
+        }
+        
+        // Map parent appointment ID
+        if (appointment.getParentAppointment() != null) {
+            builder.parentAppointmentId(appointment.getParentAppointment().getId());
+        }
+        
+        // Map service appointments (nếu là appointment chính)
+        if (appointment.getServiceAppointments() != null && !appointment.getServiceAppointments().isEmpty()) {
+            List<AppointmentResponse.ServiceAppointmentInfo> serviceInfos = appointment.getServiceAppointments()
+                .stream()
+                .map(serviceAppt -> {
+                    // Map medical examinations của service appointment
+                    List<AppointmentResponse.MedicalExaminationInfo> serviceExamInfos = null;
+                    if (serviceAppt.getMedicalExamnination() != null && !serviceAppt.getMedicalExamnination().isEmpty()) {
+                        serviceExamInfos = serviceAppt.getMedicalExamnination()
+                            .stream()
+                            .map(exam -> AppointmentResponse.MedicalExaminationInfo.builder()
+                                .id(exam.getId())
+                                .name(exam.getName())
+                                .price(exam.getPrice())
+                                .build())
+                            .collect(Collectors.toList());
+                    }
+                    
+                    return AppointmentResponse.ServiceAppointmentInfo.builder()
+                        .id(serviceAppt.getId())
+                        .startTime(serviceAppt.getStartTime())
+                        .endTime(serviceAppt.getEndTime())
+                        .status(serviceAppt.getStatus())
+                        .medicalExaminations(serviceExamInfos)
+                        .build();
+                })
+                .collect(Collectors.toList());
+            builder.serviceAppointments(serviceInfos);
         }
         
         return builder.build();

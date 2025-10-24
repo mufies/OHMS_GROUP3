@@ -86,10 +86,7 @@ public class MedicalRecordController {
         }
     }
     
-    /**
-     * Lấy hồ sơ bệnh án theo appointment ID
-     * GET /medical-records/appointment/{appointmentId}
-     */
+
     @GetMapping("/appointment/{appointmentId}")
     public ResponseEntity<ApiResponse<MedicalRecordResponse>> getMedicalRecordByAppointmentId(
             @PathVariable String appointmentId) {
@@ -112,10 +109,7 @@ public class MedicalRecordController {
         }
     }
     
-    /**
-     * Lấy tất cả hồ sơ bệnh án của bệnh nhân
-     * GET /medical-records/patient/{patientId}
-     */
+
     @GetMapping("/patient/{patientId}")
     public ResponseEntity<ApiResponse<List<MedicalRecordResponse>>> getMedicalRecordsByPatient(
             @PathVariable String patientId) {
@@ -138,10 +132,7 @@ public class MedicalRecordController {
         }
     }
     
-    /**
-     * Lấy tất cả hồ sơ bệnh án do bác sĩ tạo
-     * GET /medical-records/doctor/{doctorId}
-     */
+
     @GetMapping("/doctor/{doctorId}")
     public ResponseEntity<ApiResponse<List<MedicalRecordResponse>>> getMedicalRecordsByDoctor(
             @PathVariable String doctorId) {
@@ -164,10 +155,7 @@ public class MedicalRecordController {
         }
     }
     
-    /**
-     * Cập nhật hồ sơ bệnh án
-     * PUT /medical-records/{id}
-     */
+
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<MedicalRecordResponse>> updateMedicalRecord(
             @PathVariable String id,
@@ -191,10 +179,7 @@ public class MedicalRecordController {
         }
     }
     
-    /**
-     * Xóa hồ sơ bệnh án
-     * DELETE /medical-records/{id}
-     */
+
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<Void>> deleteMedicalRecord(@PathVariable String id) {
         log.info("REST request to delete medical record: {}", id);

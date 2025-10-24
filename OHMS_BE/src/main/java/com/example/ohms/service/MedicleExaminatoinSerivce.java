@@ -25,7 +25,7 @@ public class MedicleExaminatoinSerivce{
    MedicleExaminatioRepository medicleExaminationRepository;
    MedicalExaminationMappers medicalExaminationMapper;
 // tạo dịch vụ khám bệnh mới, này chắc để quyền admin
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasRole('admin')")
    public MedicleExaminationResponse createMedicleExamination(MedicleExaminationRequest medicleExaminationRequest){
       MedicalExamination medicalExamination = medicalExaminationMapper.toMedicalExamination(medicleExaminationRequest);
       medicleExaminationRepository.save(medicalExamination);

@@ -36,7 +36,25 @@ public class AppointmentResponse {
     String status; 
     List<MedicalExaminationInfo> medicalExaminations; // Changed to use nested class
     
+    // Parent appointment ID (nếu là service appointment)
+    String parentAppointmentId;
+    
+    // Service appointments (nếu là appointment chính)
+    List<ServiceAppointmentInfo> serviceAppointments;
+    
     // Nested classes cho thông tin chi tiết
+    @Data
+    @Builder
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class ServiceAppointmentInfo {
+        String id;
+        LocalTime startTime;
+        LocalTime endTime;
+        String status;
+        List<MedicalExaminationInfo> medicalExaminations;
+    }
+    
     @Data
     @Builder
     @AllArgsConstructor

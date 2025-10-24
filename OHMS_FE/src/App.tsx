@@ -23,6 +23,7 @@ import OnlineConsultSpecialty from "./page/patient/OnlineConsultSpecialty";
 import OnlineConsultTime from "./page/patient/OnlineConsultTime";
 import BookingSchedule from "./page/patient/BookingSchedule";
 import BookingScheduleNew from "./page/patient/BookingSchedule_New";
+import BookingPreventive from "./page/patient/BookingPreventive";
 import PaymentCallback from "./page/patient/PaymentCallback";
 import Doctor from "./page/patient/Doctor";
 import { ToastContainer } from 'react-toastify';
@@ -47,6 +48,7 @@ function App() {
                 <Route path="/online-doctor" element={<Doctor/>}/>
                 <Route path="/booking-schedule" element={<BookingSchedule/>}/>
                 <Route path="/booking-schedule-new" element={<BookingScheduleNew/>}/>
+                <Route path="/booking-preventive" element={<BookingPreventive/>}/>
                 <Route path="/payment-callback" element={<PaymentCallback/>}/>
                 <Route path="*" element={<Home />} />
                 <Route path="/chat" element={<PatientChatPage />} />

@@ -56,6 +56,19 @@ public class Appointment {
    @Builder.Default
    List<MedicalExamination> medicalExamnination = new java.util.ArrayList<>();
 
+   // Relationship: appointment chính (khám bác sĩ) có nhiều appointment phụ (dịch vụ)
+   // VD: Appointment khám bác sĩ -> serviceAppointments = [apt_xét_nghiệm, apt_siêu_âm, apt_x_quang]
+   @OneToMany(mappedBy = "parentAppointment")
+   @Builder.Default
+   List<Appointment> serviceAppointments = new java.util.ArrayList<>();
+
+   // Appointment phụ (dịch vụ) tham chiếu về appointment chính
+   // VD: apt_xét_nghiệm.parentAppointment -> Appointment khám bác sĩ
+   // DB sẽ có column: parent_appointment_id (nullable, vì appointment chính thì null)
+   @ManyToOne
+   @JoinColumn(name = "parent_appointment_id")
+   Appointment parentAppointment;
+
    LocalDate workDate;
    LocalTime startTime;
    LocalTime endTime;
