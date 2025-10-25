@@ -2,11 +2,14 @@
 
 ## 📌 Project Information
 
-**Project:** OAHCS (Online appointment and consultation of hospital system)
+## 🏥 Project: OAHCS (Online Appointment and Consultation of Hospital System)
+
 **Module:** AppointmentService Unit Testing  
 **Date:** October 25, 2025  
 **AI Tool:** Claude Sonet 4.5 AI  
-**Final Achievement:** 96% instruction coverage, 80% branch coverage, 52 test cases
+**Final Achievement:** 96% instruction coverage, 80% branch coverage, 52 test cases  
+
+📑 **Presentation Slide:** [View on Canva](https://www.canva.com/design/DAG2wfi7E6Y/Hk7FTPpEAw3E-HlKYuKQGg/edit?utm_content=DAG2wfi7E6Y&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton)
 
 ---
 
