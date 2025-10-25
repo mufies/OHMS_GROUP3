@@ -307,7 +307,7 @@ public class AppointmentService {
     // }
     
     // Convert Appointment entity sang AppointmentResponse
-    private AppointmentResponse toAppointmentResponse(Appointment appointment) {
+    public AppointmentResponse toAppointmentResponse(Appointment appointment) {
         if (appointment == null) {
             return null;
         }

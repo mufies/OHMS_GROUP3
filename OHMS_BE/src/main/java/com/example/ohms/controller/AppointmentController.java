@@ -208,12 +208,12 @@ public class AppointmentController {
         }
     }
     
-    // Lấy các khung giờ đã đặt của doctor
-    @GetMapping("/doctor/{doctorId}/booked-slots")
-    public ResponseEntity<List<String>> getBookedTimeSlots(
-            @PathVariable String doctorId,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
-        log.info("Getting booked time slots for doctor {} on date {}", doctorId, date);
-        return ResponseEntity.ok(List.of());
-    }
+    // // Lấy các khung giờ đã đặt của doctor
+    // @GetMapping("/doctor/{doctorId}/booked-slots")
+    // public ResponseEntity<List<String>> getBookedTimeSlots(
+    //         @PathVariable String doctorId,
+    //         @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+    //     log.info("Getting booked time slots for doctor {} on date {}", doctorId, date);
+    //     return ResponseEntity.ok(List.of());
+    // }
 }
