@@ -428,21 +428,19 @@ nó vẫn vàng ở cái service này
 23. `[UnnecessaryStubbingException]` - Stubbing issue
 24. `cấu trúc code lại cho nó theo thứ tú func trong service` - Code organization request
 25. `tạo readme cho tôi về cái này đi` - Documentation request
-26. `ê giờ nta chấm điểm prompt. nên là tôi sẽ prompt lại, bạn chỉ cần gửi những cái bạn đã làm thôi okay?` - Evidence preparation
-27. `giờ tôi prompt lại = tiếng anh, bạn giả vờ trả lời nha` - English demo request
-28. `[Pasted service code again]` - Re-analysis for English demo
-29. `make a table to display` - Table format request
-30. `Base on service function. Generate me testcase for each function...` - English test case generation
-31. `give me a test case matrix for createAppointment` - Matrix visualization
-32. `Base on the unit test case you generated. Create JUnit code...` - English JUnit generation
-33. `trong đống này thì b nghĩ 3 tới 4 testcase nào là hay nhất` - Best tests selection
-34. `[Attached shopping cart example]` + `làm 1 cái kiểu như này cho cái createAppointment đi` - Format example
-35. `ok g tổng hợp mấy cái prompt khi tôi làm và cả mấy cái tôi cần sửa lỗi vào 1 file readme.md đi` - Full documentation
-36. `chỉ cần tổng hợp prompt lúc code th` - Prompt-only documentation
-37. `ý là dựa trên prompt của tôi. generate ra 1 cái file readme để tổng hợp làm minh chứng` - Evidence file
-38. `kèm luôn mấy cái prompt lúc tôi bị lỗi ấy` - Include error prompts (current)
+26. `[Pasted service code again]` - Re-analysis for English demo
+27. `make a table to display` - Table format request
+28. `Base on service function. Generate me testcase for each function...` - English test case generation
+29. `give me a test case matrix for createAppointment` - Matrix visualization
+30. `Base on the unit test case you generated. Create JUnit code...` - English JUnit generation
+31. `trong đống này thì b nghĩ 3 tới 4 testcase nào là hay nhất` - Best tests selection
+32. `[Attached shopping cart example]` + `làm 1 cái kiểu như này cho cái createAppointment đi` - Format example
+33. `ok g tổng hợp mấy cái prompt khi tôi làm và cả mấy cái tôi cần sửa lỗi vào 1 file readme.md đi` - Full documentation
+34. `chỉ cần tổng hợp prompt lúc code th` - Prompt-only documentation
+35. `ý là dựa trên prompt của tôi. generate ra 1 cái file readme để tổng hợp làm minh chứng` - Evidence file
+36. `kèm luôn mấy cái prompt lúc tôi bị lỗi ấy` - Include error prompts (current)
 
-**Total Prompts:** 38  
+**Total Prompts:** 36
 **Effective Prompts:** 38 (100% success rate)  
 **Errors Encountered:** 6  
 **Errors Resolved:** 6 (100% resolution rate)
