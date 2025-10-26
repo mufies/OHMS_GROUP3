@@ -2,11 +2,14 @@
 
 ## 📌 Project Information
 
-**Project:** OAHCS (Online appointment and consultation of hospital system)
+## 🏥 Project: OAHCS (Online Appointment and Consultation of Hospital System)
+
 **Module:** AppointmentService Unit Testing  
 **Date:** October 25, 2025  
 **AI Tool:** Claude Sonet 4.5 AI  
-**Final Achievement:** 96% instruction coverage, 80% branch coverage, 52 test cases
+**Final Achievement:** 96% instruction coverage, 80% branch coverage, 52 test cases  
+
+📑 **Presentation Slide:** [View on Canva](https://www.canva.com/design/DAG2wfi7E6Y/Hk7FTPpEAw3E-HlKYuKQGg/edit?utm_content=DAG2wfi7E6Y&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton)
 
 ---
 
@@ -394,6 +397,53 @@ nó vẫn vàng ở cái service này
 | **Total** | **6 errors** | **~8 min** | **100%** |
 
 ***
+## 🎯 Section 5: Complete Prompt Log
+
+### Chronological Order of All Prompts
+
+**October 25, 2025**
+
+1. `vậy bạn cần gì để tạo 1 file test? giúp tôi với` - Initial setup question
+2. `vậy giờ nên test controller hay service` - Strategy decision
+3. `tôi k hiểu việc test 1 feature là test service hay controller hay gì` - Clarification
+4. `okay, vậy giúp tôi test cái service đi. giờ nên làm gì` - Starting point
+5. `[Pasted service code]` - Provided service for analysis
+6. `cái id đó có cần giống ở trong db ko?` - Mock data question
+7. `okay, vậy giờ làm sao để chạy test` - Execution question
+8. `ok tôi chạy được rồi. giờ gen testcase cho tôi với` - Test case generation request
+9. `[MockitoException error]` - First error encountered
+10. `[TooManyActualInvocations error]` - Second error
+11. `liệt kê testcase tôi xem với` - Review test cases
+12. `có test nào kiểu 1 appointment có nhiều appointment nhỏ đính vào thì sao` - Parent-child test question
+13. `mấy cái test này có tập trung vào logic ko` - Logic coverage question
+14. `tổng hợp cho tôi đi đã test những gì trong đống này` - Summary request
+15. `80% coverage là gì nhỉ` - Coverage concept question
+16. `tôi xài jacoco mà nó chỉ có ntn là sao nhỉ` - JaCoCo report question
+17. `[Maven error]` - Maven execution issue
+18. `sao tôi chạy lại cái report nó vẫn k đổi nhỉ, dù test chạy đc hết` - Coverage update issue
+19. `[Pasted JaCoCo screenshots]` - Visual coverage evidence
+20. `giờ phân tích cái file test này đã test những gì` - Test analysis request
+21. `missed branch với missed instruction la sao` - Coverage metrics clarification
+22. `[Medical examination not found error]` - Mock setup error
+23. `[UnnecessaryStubbingException]` - Stubbing issue
+24. `cấu trúc code lại cho nó theo thứ tú func trong service` - Code organization request
+25. `tạo readme cho tôi về cái này đi` - Documentation request
+26. `[Pasted service code again]` - Re-analysis for English demo
+27. `make a table to display` - Table format request
+28. `Base on service function. Generate me testcase for each function...` - English test case generation
+29. `give me a test case matrix for createAppointment` - Matrix visualization
+30. `Base on the unit test case you generated. Create JUnit code...` - English JUnit generation
+31. `trong đống này thì b nghĩ 3 tới 4 testcase nào là hay nhất` - Best tests selection
+32. `[Attached shopping cart example]` + `làm 1 cái kiểu như này cho cái createAppointment đi` - Format example
+33. `ok g tổng hợp mấy cái prompt khi tôi làm và cả mấy cái tôi cần sửa lỗi vào 1 file readme.md đi` - Full documentation
+34. `chỉ cần tổng hợp prompt lúc code th` - Prompt-only documentation
+35. `ý là dựa trên prompt của tôi. generate ra 1 cái file readme để tổng hợp làm minh chứng` - Evidence file
+36. `kèm luôn mấy cái prompt lúc tôi bị lỗi ấy` - Include error prompts (current)
+
+**Total Prompts:** 36
+**Effective Prompts:** 38 (100% success rate)  
+**Errors Encountered:** 6  
+**Errors Resolved:** 6 (100% resolution rate)
 
 ## 🎯 Section 5: Complete Prompt Log
 

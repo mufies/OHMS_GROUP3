@@ -28,6 +28,7 @@
     "react-router-dom": "^7.9.4",
     "react-toastify": "^11.0.5",
     "sockjs-client": "^1.6.1",
+    "sonner": "^2.0.7",
     "tailwindcss": "^4.1.13"
   },
   "devDependencies": {
