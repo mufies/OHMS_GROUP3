@@ -30,6 +30,7 @@ import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import PatientChatPage from './page/patient/PatientChatPage.tsx';
 import AppWithChat from './provider/AppWithChat.tsx';
+import ReceptionAppointmentPage from './components/reception/AppointmentControll.tsx';
 // import DoctorCall from "./page/doctor/DoctorCall.tsx";
 function App() {
     return (
@@ -52,7 +53,8 @@ function App() {
                 <Route path="/payment-callback" element={<PaymentCallback/>}/>
                 <Route path="*" element={<Home />} />
                 <Route path="/chat" element={<PatientChatPage />} />
-
+                <Route path='/receptionPage' element={<ReceptionAppointmentPage/>}/>
+ 
             </Routes>
             </AppWithChat>
             {/*</AuthProvider>*/}

@@ -18,7 +18,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.ohms.dto.request.AppointmentRequest;
+import com.example.ohms.dto.response.ApiResponse;
 import com.example.ohms.dto.response.AppointmentResponse;
+import com.example.ohms.entity.Appointment;
 import com.example.ohms.service.AppointmentService;
 
 import jakarta.validation.Valid;
@@ -37,7 +39,7 @@ public class AppointmentController {
     AppointmentService appointmentService;
     
     // Tạo appointment mới
-    @PostMapping
+    @PostMapping()
     public ResponseEntity<AppointmentResponse> createAppointment(@Valid @RequestBody AppointmentRequest request) {
         log.info("Creating new appointment for patient: {} with doctor: {}", request.getPatientId(), request.getDoctorId());
         
@@ -250,4 +252,5 @@ public class AppointmentController {
     //     log.info("Getting booked time slots for doctor {} on date {}", doctorId, date);
     //     return ResponseEntity.ok(List.of());
     // }
+    // tạo khám cho thằng user vãng lai 
 }

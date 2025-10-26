@@ -27,8 +27,10 @@ function Navigator() {
         { href: "/chat", label: "Nhắn tin" },
         { href: "/", label: "" },
     ];
+
     const [showLogin, setShowLogin] = useState(false);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
+    
     const [showRegister, setShowRegister] = useState(false);
     const [user, setUser] = useState<ProfileData | null>(null);
 
@@ -55,7 +57,7 @@ function Navigator() {
 
     const getHighestRole = (roles?: ProfileData['roles']) => {
         if (!roles || roles.length === 0) return 'N/A';
-        const priority = { ADMIN: 0, STAFF: 1, DOCTOR: 2, PATIENT: 3 } as const;
+        const priority = { ADMIN: 0, STAFF: 1, DOCTOR: 2,RECEPTION:3, PATIENT: 4 } as const;
         type PriorityKey = keyof typeof priority;
         return roles.reduce((highest, role) => {
             const currentP = priority[role.name as PriorityKey] ?? 4;
@@ -63,7 +65,8 @@ function Navigator() {
             return currentP < highestP ? role : highest;
         }, roles[0]).name;
     };
-
+    const receptionRole =getHighestRole(user?.roles) ; 
+    
     const toggleLogin = () => setShowLogin(prev => !prev);
     /* ---------- logout ---------- */
     const handleLogout = () => {
@@ -176,6 +179,15 @@ function Navigator() {
                                         >
                                             Settings
                                         </a>
+                                        {/* aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa */}
+                                        {receptionRole && <a
+                                            href="/receptionPage"
+                                            className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md block-text"
+                                        >
+                                            Reception manager
+                                        </a>}
+
+                         
                                         <button
                                             className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md block-text"
                                             onClick={handleLogout}
