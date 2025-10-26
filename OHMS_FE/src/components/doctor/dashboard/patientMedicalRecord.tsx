@@ -31,6 +31,14 @@ type MedicalExamination = {
     price?: number;
 };
 
+type ServiceAppointment = {
+    id: string;
+    startTime: string;
+    endTime: string;
+    status: string;
+    medicalExaminations?: MedicalExamination[];
+};
+
 type Prescription = {
     id: string;
     amount: number;
@@ -95,6 +103,11 @@ export default function MedicalRecordModal({
     const [selectedMedicalExaminations, setSelectedMedicalExaminations] = useState<string[]>([]);
     const [loadingMedicalExams, setLoadingMedicalExams] = useState(false);
     const [updatingMedicalExams, setUpdatingMedicalExams] = useState(false);
+
+    // Service Appointments state
+    const [serviceAppointments, setServiceAppointments] = useState<ServiceAppointment[]>([]);
+    const [searchServiceFilter, setSearchServiceFilter] = useState<string>('');
+    const [searchMedicineFilter, setSearchMedicineFilter] = useState<string>('');
 
     // Current appointment info (from props, not from clicking records)
     const [currentAppointment, setCurrentAppointment] = useState<{
@@ -166,18 +179,18 @@ export default function MedicalRecordModal({
                     return;
                 }
 
+                // Set service appointments from API response
+                if (appointment.serviceAppointments && appointment.serviceAppointments.length > 0) {
+                    setServiceAppointments(appointment.serviceAppointments);
+                    console.log('🔬 Service Appointments loaded:', appointment.serviceAppointments);
+                }
+
                 setCurrentAppointment({
                     appointmentId: appointment.id,
                     appointmentDate: appointment.workDate,
                     appointmentTime: appointment.startTime,
                     existingExaminations: appointment.medicalExaminations || []
                 });
-
-                // Pre-select existing examinations
-                if (appointment.medicalExaminations && appointment.medicalExaminations.length > 0) {
-                    const existingExamIds = appointment.medicalExaminations.map((exam: any) => exam.id);
-                    setSelectedMedicalExaminations(existingExamIds);
-                }
             } catch (err: any) {
                 console.error('Error fetching appointment details:', err);
                 console.error('Error response:', err.response?.data);
@@ -280,23 +293,62 @@ export default function MedicalRecordModal({
             }
 
             setUpdatingMedicalExams(true);
-            await axios.put(
-                `http://localhost:8080/appointments/${currentAppointment.appointmentId}/medical-examinations`,
-                {
-                    medicalExaminationIds: selectedMedicalExaminations
-                },
-                {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json',
-                    },
-                }
-            );
 
-            console.log('✅ Medical examinations updated for appointment:', currentAppointment.appointmentId);
-            alert('Medical examinations updated successfully!');
+            // Get current time + 5 minutes as base time
+            const now = new Date();
+            now.setMinutes(now.getMinutes() + 5);
             
-            // Refresh appointment details to show updated examinations
+            // Get today's date in YYYY-MM-DD format
+            const workDate = now.toISOString().split('T')[0];
+
+            // Helper function to format time as HH:MM:SS
+            const formatTime = (date: Date) => {
+                const hours = date.getHours().toString().padStart(2, '0');
+                const minutes = date.getMinutes().toString().padStart(2, '0');
+                const seconds = date.getSeconds().toString().padStart(2, '0');
+                return `${hours}:${minutes}:${seconds}`;
+            };
+
+            // Create service appointments for each selected medical examination
+            const appointmentPromises = selectedMedicalExaminations.map(async (examId, index) => {
+                // Calculate start time: base time + (index * 5 minutes)
+                const startDateTime = new Date(now);
+                startDateTime.setMinutes(startDateTime.getMinutes() + (index * 5));
+                
+                // Calculate end time: start time + 1 hour
+                const endDateTime = new Date(startDateTime);
+                endDateTime.setHours(endDateTime.getHours() + 1);
+
+                const appointmentData = {
+                    patientId: patientId,
+                    workDate: workDate,
+                    startTime: formatTime(startDateTime),
+                    endTime: formatTime(endDateTime),
+                    parentAppointmentId: currentAppointment.appointmentId,
+                    medicalExaminationIds: [examId]
+                };
+
+                console.log(`📅 Creating service appointment ${index + 1}:`, appointmentData);
+
+                return axios.post(
+                    `http://localhost:8080/appointments`,
+                    appointmentData,
+                    {
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json',
+                        },
+                    }
+                );
+            });
+
+            // Wait for all appointments to be created
+            await Promise.all(appointmentPromises);
+
+            console.log('✅ All service appointments created successfully!');
+            alert(`Đã tạo ${selectedMedicalExaminations.length} lịch khám dịch vụ thành công!`);
+            
+            // Refresh appointment details to show updated service appointments
             const response = await axios.get(
                 `http://localhost:8080/appointments/${currentAppointment.appointmentId}`,
                 {
@@ -308,6 +360,12 @@ export default function MedicalRecordModal({
             );
             
             const appointment = response.data;
+            
+            // Update service appointments
+            if (appointment.serviceAppointments && appointment.serviceAppointments.length > 0) {
+                setServiceAppointments(appointment.serviceAppointments);
+            }
+            
             setCurrentAppointment({
                 appointmentId: appointment.id,
                 appointmentDate: appointment.workDate,
@@ -315,10 +373,13 @@ export default function MedicalRecordModal({
                 existingExaminations: appointment.medicalExaminations || []
             });
             
+            // Clear selected examinations
+            setSelectedMedicalExaminations([]);
+            
             fetchMedicalRecords(); // Refresh records
         } catch (err: any) {
-            console.error('Error updating medical examinations:', err);
-            alert(err.response?.data?.message || 'Failed to update medical examinations');
+            console.error('Error creating service appointments:', err);
+            alert(err.response?.data?.message || 'Failed to create service appointments');
         } finally {
             setUpdatingMedicalExams(false);
         }
@@ -361,9 +422,7 @@ export default function MedicalRecordModal({
 
             let prescriptionId = null;
 
-            // Step 1: Create prescription if medicines are selected
             if (selectedMedicines.length > 0) {
-                // Validate all medicines have medicineId selected
                 if (!selectedMedicines.every(m => m.medicineId)) {
                     alert('Please select medicine for all prescription items');
                     return;
@@ -477,7 +536,7 @@ export default function MedicalRecordModal({
         <>
             {/* Main Modal with Split View */}
             <div 
-                className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+                className="fixed inset-0 bg-blue-100/80 backdrop-blur-md z-50 flex items-center justify-center"
                 onClick={onClose}
             >
                 <div 
@@ -691,13 +750,58 @@ export default function MedicalRecordModal({
                                     <FontAwesomeIcon icon={faFlask} className="text-gray-700 text-xl" />
                                     <h3 className="text-xl font-semibold text-gray-800">Chỉ định cận lâm sàng</h3>
                                 </div>
-
+                                
+  
                             </div>
 
                             {/* Medical Examinations List */}
                             <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
-                                {/* Existing Medical Examinations */}
-                                {currentAppointment.existingExaminations && currentAppointment.existingExaminations.length > 0 && (
+                                {serviceAppointments.length > 0 && (
+                                    <div className="mb-6">
+                                        <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                                            <span className="bg-blue-600 w-2 h-2 rounded-full"></span>
+                                            Lịch khám dịch vụ ({serviceAppointments.length})
+                                        </h4>
+                                        <div className="space-y-3 bg-white rounded p-4 border border-gray-200">
+                                            {serviceAppointments.map((serviceApp) => (
+                                                <div key={serviceApp.id} className="border-l-4 border-blue-500 pl-3 py-2">
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <span className="text-xs font-semibold text-gray-600">
+                                                            {serviceApp.startTime} - {serviceApp.endTime}
+                                                        </span>
+                                                        <span className={`text-xs px-2 py-1 rounded ${
+                                                            serviceApp.status === 'Schedule' 
+                                                                ? 'bg-green-100 text-green-700'
+                                                                : serviceApp.status === 'Completed'
+                                                                ? 'bg-blue-100 text-blue-700'
+                                                                : 'bg-yellow-100 text-yellow-700'
+                                                        }`}>
+                                                            {serviceApp.status}
+                                                        </span>
+                                                    </div>
+                                                    {serviceApp.medicalExaminations && serviceApp.medicalExaminations.length > 0 && (
+                                                        <div className="space-y-1">
+                                                            {serviceApp.medicalExaminations.map((exam) => (
+                                                                <div key={exam.id} className="flex items-center gap-2 text-sm">
+                                                                    <FontAwesomeIcon icon={faFlask} className="text-blue-600 text-xs" />
+                                                                    <span className="text-gray-800">{exam.name}</span>
+                                                                    {exam.price && (
+                                                                        <span className="text-gray-600 text-xs ml-auto">
+                                                                            {exam.price.toLocaleString('vi-VN')} ₫
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Existing Medical Examinations - HIDDEN */}
+                                {/* {currentAppointment.existingExaminations && currentAppointment.existingExaminations.length > 0 && (
                                     <div className="mb-6">
                                         <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
                                             <span className="bg-gray-600 w-2 h-2 rounded-full"></span>
@@ -717,50 +821,118 @@ export default function MedicalRecordModal({
                                             ))}
                                         </div>
                                     </div>
-                                )}
+                                )} */}
 
-                                {loadingMedicalExams ? (
-                                    <div className="flex items-center justify-center py-20">
-                                        <div className="animate-spin rounded-full h-12 w-12 border-4 border-gray-400 border-t-transparent"></div>
-                                    </div>
-                                ) : availableMedicalExaminations.length === 0 ? (
-                                    <div className="text-center py-10">
-                                        <p className="text-gray-500">Không có dịch vụ khả dụng</p>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-3">
-                                        <h4 className="text-sm font-semibold text-gray-700 mb-4">Chọn thêm dịch vụ</h4>
-                                        {availableMedicalExaminations.map((exam: MedicalExamination) => (
-                                            <label 
-                                                key={exam.id} 
-                                                className={`flex items-start gap-3 p-4 rounded border cursor-pointer transition-all duration-200 ${
-                                                    selectedMedicalExaminations.includes(exam.id) 
-                                                        ? 'bg-gray-100 border-gray-400' 
-                                                        : 'bg-white border-gray-200 hover:border-gray-300'
-                                                }`}
-                                            >
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selectedMedicalExaminations.includes(exam.id)}
-                                                    onChange={() => toggleMedicalExamination(exam.id)}
-                                                    className="mt-1 w-5 h-5 text-gray-600 rounded cursor-pointer"
-                                                />
-                                                <div className="flex-1">
-                                                    <p className="text-sm font-medium text-gray-800">{exam.name}</p>
-                                                    {exam.description && (
-                                                        <p className="text-xs text-gray-600 mt-1">{exam.description}</p>
-                                                    )}
-                                                    {exam.price && (
-                                                        <p className="text-sm text-gray-700 font-medium mt-2">
-                                                            {exam.price.toLocaleString('vi-VN')} ₫
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            </label>
-                                        ))}
-                                    </div>
-                                )}
+                                {/* Search Filter - CHỈ CHO PHẦN DƯỚI */}
+                                <div className="mb-4">
+                                    <input
+                                        type="text"
+                                        placeholder="Tìm kiếm dịch vụ..."
+                                        value={searchServiceFilter}
+                                        onChange={(e) => setSearchServiceFilter(e.target.value)}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 text-sm"
+                                    />
+                                </div>
+
+                                {/* Available Medical Examinations - CHỈ PHẦN NÀY BỊ FILTER */}
+                                <div className="min-h-[300px]">
+                                    {loadingMedicalExams ? (
+                                        <div className="flex items-center justify-center py-20">
+                                            <div className="animate-spin rounded-full h-12 w-12 border-4 border-gray-400 border-t-transparent"></div>
+                                        </div>
+                                    ) : availableMedicalExaminations.length === 0 ? (
+                                        <div className="text-center py-10">
+                                            <p className="text-gray-500">Không có dịch vụ khả dụng</p>
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-col h-full">
+                                            <h4 className="text-sm font-semibold text-gray-700 mb-4 flex-shrink-0">
+                                                Chọn thêm dịch vụ ({(() => {
+                                                    // Get all exam IDs from service appointments
+                                                    const selectedExamIds = new Set(
+                                                        serviceAppointments.flatMap(sa => 
+                                                            sa.medicalExaminations?.map(e => e.id) || []
+                                                        )
+                                                    );
+                                                    
+                                                    return availableMedicalExaminations
+                                                        .filter(exam => !selectedExamIds.has(exam.id))
+                                                        .filter(exam =>
+                                                            searchServiceFilter === '' ||
+                                                            exam.name.toLowerCase().includes(searchServiceFilter.toLowerCase()) ||
+                                                            exam.description?.toLowerCase().includes(searchServiceFilter.toLowerCase())
+                                                        ).length;
+                                                })()}/{availableMedicalExaminations.filter(exam => {
+                                                    const selectedExamIds = new Set(
+                                                        serviceAppointments.flatMap(sa => 
+                                                            sa.medicalExaminations?.map(e => e.id) || []
+                                                        )
+                                                    );
+                                                    return !selectedExamIds.has(exam.id);
+                                                }).length})
+                                            </h4>
+                                            <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+                                                {(() => {
+                                                    // Get all exam IDs from service appointments
+                                                    const selectedExamIds = new Set(
+                                                        serviceAppointments.flatMap(sa => 
+                                                            sa.medicalExaminations?.map(e => e.id) || []
+                                                        )
+                                                    );
+                                                    
+                                                    const filteredExams = availableMedicalExaminations
+                                                        .filter(exam => !selectedExamIds.has(exam.id))
+                                                        .filter(exam =>
+                                                            searchServiceFilter === '' ||
+                                                            exam.name.toLowerCase().includes(searchServiceFilter.toLowerCase()) ||
+                                                            exam.description?.toLowerCase().includes(searchServiceFilter.toLowerCase())
+                                                        );
+                                                    
+                                                    if (filteredExams.length === 0) {
+                                                        return (
+                                                            <div className="text-center py-10">
+                                                                <p className="text-gray-500">
+                                                                    {searchServiceFilter ? 'Không tìm thấy dịch vụ phù hợp' : 'Tất cả dịch vụ đã được chọn'}
+                                                                </p>
+                                                            </div>
+                                                        );
+                                                    }
+                                                    
+                                                    return filteredExams.map((exam: MedicalExamination) => (
+                                                        <label 
+                                                            key={exam.id} 
+                                                            className={`flex items-start gap-3 p-4 rounded border cursor-pointer transition-all duration-200 ${
+                                                                selectedMedicalExaminations.includes(exam.id) 
+                                                                    ? 'bg-gray-100 border-gray-400' 
+                                                                    : 'bg-white border-gray-200 hover:border-gray-300'
+                                                            }`}
+                                                        >
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={selectedMedicalExaminations.includes(exam.id)}
+                                                                onChange={() => toggleMedicalExamination(exam.id)}
+                                                                className="mt-1 w-5 h-5 text-gray-600 rounded cursor-pointer"
+                                                            />
+                                                            <div className="flex-1">
+                                                                <p className="text-sm font-medium text-gray-800">{exam.name}</p>
+                                                                {exam.description && (
+                                                                    <p className="text-xs text-gray-600 mt-1">{exam.description}</p>
+                                                                )}
+                                                                {exam.price && (
+                                                                    <p className="text-sm text-gray-700 font-medium mt-2">
+                                                                        {exam.price.toLocaleString('vi-VN')} ₫
+                                                                    </p>
+                                                                )}
+                                                            </div>
+                                                        </label>
+                                                    ));
+                                                })()}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
+
 
                             {/* Action Buttons */}
                             <div className="p-6 bg-white border-t border-gray-200">
@@ -777,10 +949,10 @@ export default function MedicalRecordModal({
                 </div>
             </div>
 
-            {/* Create New Record Modal - Keep the same */}
+            {/* Create New Record Modal */}
             {showCreateModal && (
                 <div 
-                    className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[60]"
+                    className="fixed inset-0 bg-blue-100/80 backdrop-blur-md flex items-center justify-center z-[60]"
                     onClick={() => setShowCreateModal(false)}
                 >
                     <div 
@@ -811,8 +983,6 @@ export default function MedicalRecordModal({
                                 </h4>
                                 
                                 <div className="space-y-4">
-
-
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-2">
                                             Triệu chứng *
@@ -857,6 +1027,19 @@ export default function MedicalRecordModal({
                                     </button>
                                 </div>
 
+                                {/* Search Filter for Medicines */}
+                                {/* {selectedMedicines.length > 0 && (
+                                    <div className="mb-4">
+                                        <input
+                                            type="text"
+                                            placeholder="Tìm kiếm thuốc..."
+                                            value={searchMedicineFilter}
+                                            onChange={(e) => setSearchMedicineFilter(e.target.value)}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 text-sm"
+                                        />
+                                    </div>
+                                )} */}
+
                                 {loadingMedicines ? (
                                     <div className="text-center py-4">
                                         <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-400 border-t-transparent mx-auto"></div>
@@ -882,11 +1065,17 @@ export default function MedicalRecordModal({
                                                                     className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-gray-400 focus:border-gray-400 text-sm"
                                                                 >
                                                                     <option value="">Chọn thuốc</option>
-                                                                    {availableMedicines.map((medicine) => (
-                                                                        <option key={medicine.id} value={medicine.id}>
-                                                                            {medicine.name} ({medicine.type}) - Tồn kho: {medicine.quantity}
-                                                                        </option>
-                                                                    ))}
+                                                                    {availableMedicines
+                                                                        .filter(medicine =>
+                                                                            searchMedicineFilter === '' ||
+                                                                            medicine.name.toLowerCase().includes(searchMedicineFilter.toLowerCase()) ||
+                                                                            medicine.type.toLowerCase().includes(searchMedicineFilter.toLowerCase())
+                                                                        )
+                                                                        .map((medicine) => (
+                                                                            <option key={medicine.id} value={medicine.id}>
+                                                                                {medicine.name} ({medicine.type}) - Tồn kho: {medicine.quantity}
+                                                                            </option>
+                                                                        ))}
                                                                 </select>
                                                             </div>
                                                             <div className="grid grid-cols-2 gap-3">

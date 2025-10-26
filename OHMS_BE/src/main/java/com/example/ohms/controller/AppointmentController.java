@@ -73,6 +73,8 @@ public class AppointmentController {
         List<AppointmentResponse> appointments = appointmentService.getAppointmentsByPatient(patientId);
         return ResponseEntity.ok(appointments);
     }
+
+
     
     // Lấy danh sách appointment của doctor
     @GetMapping("/doctor/{doctorId}")
@@ -128,6 +130,17 @@ public class AppointmentController {
         log.info("Getting appointments for doctor: {} on date: {}", doctorId, date);
         
         List<AppointmentResponse> appointments = appointmentService.getDoctorAppointmentsByDate(doctorId, date);
+        return ResponseEntity.ok(appointments);
+    }
+    
+    // Lấy appointment của patient theo ngày cụ thể
+    @GetMapping("/patient/{patientId}/date/{date}")
+    public ResponseEntity<List<AppointmentResponse>> getPatientAppointmentsByDate(
+            @PathVariable String patientId,
+            @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        log.info("Getting appointments for patient: {} on date: {}", patientId, date);
+        
+        List<AppointmentResponse> appointments = appointmentService.getPatientAppointmentsByDate(patientId, date);
         return ResponseEntity.ok(appointments);
     }
     
@@ -206,6 +219,27 @@ public class AppointmentController {
             log.error("Error updating medical examinations: {}", e.getMessage());
             throw e;
         }
+    }
+    
+    // Calculate total price and deposit for medical examinations
+    @PostMapping("/calculate-price")
+    public ResponseEntity<Map<String, Integer>> calculatePrice(@RequestBody Map<String, Object> payload) {
+        @SuppressWarnings("unchecked")
+        List<String> medicalExaminationIds = (List<String>) payload.get("medicalExaminationIds");
+        Integer discountPercent = payload.get("discount") != null ? 
+            Integer.parseInt(payload.get("discount").toString()) : 0;
+        
+        int totalPrice = appointmentService.calculateTotalPrice(medicalExaminationIds);
+        int priceAfterDiscount = appointmentService.calculatePriceAfterDiscount(totalPrice, discountPercent);
+        int deposit = appointmentService.calculateDeposit(priceAfterDiscount);
+        
+        Map<String, Integer> result = new java.util.HashMap<>();
+        result.put("totalPrice", totalPrice);
+        result.put("discount", discountPercent);
+        result.put("priceAfterDiscount", priceAfterDiscount);
+        result.put("deposit", deposit);
+        
+        return ResponseEntity.ok(result);
     }
     
     // // Lấy các khung giờ đã đặt của doctor

@@ -30,10 +30,14 @@ public class MedicalRecordMapper {
                    .appointmentTime(medicalRecord.getAppointment().getStartTime() != null 
                        ? medicalRecord.getAppointment().getStartTime().toString() : null);
             
-            // Medical examinations from appointment
-            if (medicalRecord.getAppointment().getMedicalExamnination() != null) {
+            // Medical examinations from service appointments (child appointments)
+            if (medicalRecord.getAppointment().getServiceAppointments() != null 
+                && !medicalRecord.getAppointment().getServiceAppointments().isEmpty()) {
                 List<MedicalRecordResponse.MedicalExaminationInfo> examinations = 
-                    medicalRecord.getAppointment().getMedicalExamnination().stream()
+                    medicalRecord.getAppointment().getServiceAppointments().stream()
+                        .filter(serviceApp -> serviceApp.getMedicalExamnination() != null)
+                        .flatMap(serviceApp -> serviceApp.getMedicalExamnination().stream())
+                        .distinct() // Remove duplicates if any
                         .map(exam -> MedicalRecordResponse.MedicalExaminationInfo.builder()
                             .id(exam.getId())
                             .name(exam.getName())

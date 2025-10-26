@@ -30,6 +30,11 @@ public class MedicalExamination {
    String id;
    String name;
    int price;
+
+   // Thời gian tối thiểu để hoàn thành dịch vụ (phút)
+   // VD: xét nghiệm máu = 30 phút, đo huyết áp = 5 phút
+   Integer minDuration;
+   
    
    @Enumerated(EnumType.STRING)
    MedicalSpecialty medicalSpecialty;

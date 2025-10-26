@@ -42,6 +42,15 @@ public class AppointmentResponse {
     // Service appointments (nếu là appointment chính)
     List<ServiceAppointmentInfo> serviceAppointments;
     
+    // Phần trăm giảm giá (0-100), null = không giảm
+    Integer discount;
+    
+    // Tiền đặt cọc (VND)
+    Integer deposit;
+    
+    // Trạng thái thanh toán đặt cọc
+    String depositStatus; // PENDING, PAID, DEPOSIT
+    
     // Nested classes cho thông tin chi tiết
     @Data
     @Builder
@@ -86,6 +95,7 @@ public class AppointmentResponse {
         String id;
         String name;
         int price;
+        Integer minDuration; // Thời gian tối thiểu (phút)
     }
 
     

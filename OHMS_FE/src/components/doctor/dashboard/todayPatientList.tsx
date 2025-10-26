@@ -110,7 +110,7 @@ export default function TodayPatientList() {
                     : response.data.results || [];
 
                 const transformedData: Patient[] = appointments
-                    .filter(apt => apt.status !== 'COMPLETED' && apt.status !== 'CANCELLED')
+                    .filter(apt => apt.status !== 'COMPLETED' && apt.status !== 'CANCELLED') //apt.status !== 'COMPLETED &&'
                     .map(apt => {
                         const age = Math.floor(Math.random() * 50) + 20;
                         
@@ -258,6 +258,8 @@ export default function TodayPatientList() {
             if (hasRecord) {
                 // Nếu có medical record rồi, chuyển sang COMPLETED
                 await changeStatus(patient.appointmentId, 'COMPLETED');
+                                // handleViewRecords(patient.id, patient.name, patient.appointmentId);
+
             } else {
                 // Chưa có thì mở modal
                 handleViewRecords(patient.id, patient.name, patient.appointmentId);

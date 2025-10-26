@@ -73,4 +73,19 @@ public class Appointment {
    LocalTime startTime;
    LocalTime endTime;
    String status;
+   
+   // Phần trăm giảm giá cho appointment (0-100)
+   // VD: discount = 10 nghĩa là giảm 10% cho online booking
+   // null hoặc 0 = không giảm giá
+   @Builder.Default
+   Integer discount = 0;
+   
+   // Tiền đặt cọc (VND) - thường là 50% tổng giá dịch vụ
+   // null hoặc 0 = không cần đặt cọc
+   Integer deposit;
+   
+   // Trạng thái thanh toán đặt cọc
+   @Enumerated(EnumType.STRING)
+   @Builder.Default
+   PaymentStatus depositStatus = PaymentStatus.PENDING;
 }

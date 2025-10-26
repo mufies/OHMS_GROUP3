@@ -6,6 +6,7 @@ interface MedicalExamination {
   id: string;
   name: string;
   price: number;
+  minDuration?: number; // Thời gian tối thiểu (phút)
 }
 
 interface TimeSlot {
@@ -21,6 +22,14 @@ interface DaySchedule {
   slots: TimeSlot[];
 }
 
+interface Appointment {
+  id: string;
+  workDate: string;
+  startTime: string;
+  endTime: string;
+  status: string;
+}
+
 function BookingPreventive() {
   const [services, setServices] = useState<MedicalExamination[]>([]);
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
@@ -29,8 +38,83 @@ function BookingPreventive() {
   const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
   const [loading, setLoading] = useState(true);
   const [showServiceModal, setShowServiceModal] = useState(false);
+  const [patientAppointments, setPatientAppointments] = useState<Appointment[]>([]);
 
-  // Generate default schedule (Mon-Sat, 7:00-17:00, 30-min slots)
+  // Helper: Decode JWT token to get userId
+  const decodeJWT = (token: string) => {
+    try {
+      const payload = token.split('.')[1];
+      const decoded = JSON.parse(atob(payload));
+      return decoded;
+    } catch (error) {
+      console.error('Error decoding JWT:', error);
+      return null;
+    }
+  };
+
+  // Fetch patient appointments on mount
+  useEffect(() => {
+    const fetchPatientAppointments = async () => {
+      try {
+        const token = localStorage.getItem('accessToken');
+        if (!token) {
+          console.error('No access token found');
+          return;
+        }
+
+        const decodedToken = decodeJWT(token);
+        const userId = decodedToken?.userId;
+
+        if (!userId) {
+          console.error('No userId found in token');
+          return;
+        }
+
+        const response = await axios.get(
+          `http://localhost:8080/appointments/patient/${userId}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+
+        console.log('Patient appointments:', response.data);
+        setPatientAppointments(Array.isArray(response.data) ? response.data : []);
+      } catch (error) {
+        console.error('Error fetching patient appointments:', error);
+        setPatientAppointments([]);
+      }
+    };
+
+    fetchPatientAppointments();
+  }, []);
+
+  // Helper: Check if slot conflicts with patient's existing appointments
+  const isSlotConflictingWithPatient = (date: string, startTime: string, endTime: string): boolean => {
+    return patientAppointments.some(apt => {
+      if (apt.workDate !== date || apt.status !== 'Schedule') return false;
+      
+      const aptStart = apt.startTime;
+      const aptEnd = apt.endTime;
+      
+      return startTime < aptEnd && endTime > aptStart;
+    });
+  };
+
+  // Helper: Check if slot is in the past
+  const isSlotInPast = (date: string, startTime: string): boolean => {
+    const now = new Date();
+    const [year, month, day] = date.split('-').map(Number);
+    const [hours, minutes] = startTime.split(':').map(Number);
+    
+    const slotDate = new Date(year, month - 1, day, hours, minutes);
+    
+    return slotDate < now;
+  };
+
+  // Generate default schedule (Mon-Sat, 8:00-17:00, 30-min slots)
   const generateDefaultSchedule = (): DaySchedule[] => {
     const buildWeekDates = (refDate: Date) => {
       const d = new Date(refDate);
@@ -52,7 +136,8 @@ function BookingPreventive() {
 
     const buildDefaultSlots = () => {
       const slots: TimeSlot[] = [];
-      for (let hour = 7; hour < 17; hour++) {
+      // Changed from 7:00 to 8:00
+      for (let hour = 8; hour < 17; hour++) {
         for (let min = 0; min < 60; min += 30) {
           const startHour = hour;
           const startMin = min;
@@ -139,7 +224,6 @@ function BookingPreventive() {
         }
       } catch (error) {
         console.error('Error fetching preventive services:', error);
-
       } finally {
         setLoading(false);
       }
@@ -181,28 +265,77 @@ function BookingPreventive() {
     }, 0);
   };
 
+  // Calculate total duration for selected services
+  const getTotalDuration = () => {
+    // Separate services by duration requirement
+    const longServices = selectedServices.filter(serviceId => {
+      const service = services.find(s => s.id === serviceId);
+      return service && service.minDuration && service.minDuration >= 30;
+    });
+    
+    const shortServices = selectedServices.filter(serviceId => {
+      const service = services.find(s => s.id === serviceId);
+      return service && (!service.minDuration || service.minDuration < 30);
+    });
+
+    // Long services (>= 30 min) must be done sequentially
+    const longServiceTime = longServices.reduce((total, serviceId) => {
+      const service = services.find(s => s.id === serviceId);
+      return total + (service?.minDuration || 0);
+    }, 0);
+
+    // Short services (< 30 min) can be done simultaneously, so we take the max
+    const shortServiceTime = shortServices.length > 0 
+      ? Math.max(...shortServices.map(serviceId => {
+          const service = services.find(s => s.id === serviceId);
+          return service?.minDuration || 0;
+        }))
+      : 0;
+
+    // Total time = sequential long services + max of short services (if they happen after)
+    return longServiceTime + shortServiceTime;
+  };
+
+  // Apply 10% discount for online booking
+  const applyDiscount = (totalPrice: number): number => {
+    return Math.round(totalPrice * 0.9); // 10% discount
+  };
+
+  // Calculate deposit (50% of discounted price)
+  const calculateDeposit = (discountedPrice: number): number => {
+    return Math.round(discountedPrice / 2);
+  };
+
   const handlePayment = async () => {
     if (selectedServices.length === 0 || !selectedSlot) {
       alert('Vui lòng chọn dịch vụ và thời gian!');
       return;
     }
 
+    // Calculate prices with discount and deposit
     const totalAmount = getTotalPrice();
+    const discountedAmount = applyDiscount(totalAmount);
+    const depositAmount = calculateDeposit(discountedAmount);
+
     const bookingData = {
       bookingType: 'PREVENTIVE_SERVICE',
       workDate: weekSchedule[selectedDay].date,
       startTime: selectedSlot.startTime,
       endTime: selectedSlot.endTime,
       medicalExaminationIds: selectedServices,
-      totalAmount
+      totalAmount,
+      discount: 10, // 10% discount for online booking
+      deposit: depositAmount,
+      depositStatus: 'PENDING'
     };
 
     sessionStorage.setItem('pendingBooking', JSON.stringify(bookingData));
 
     try {
+      // Use deposit amount for payment (50% of discounted price)
       const response = await axios.get('http://localhost:8080/api/v1/payment/vn-pay', {
         params: {
-          amount: totalAmount,
+          amount: depositAmount, // Pay deposit instead of full price
           bankCode: 'NCB'
         }
       });
@@ -256,7 +389,7 @@ function BookingPreventive() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   <span className="font-medium text-orange-800">
-                    ✅ Không cần bác sĩ - Thực hiện bởi điều dưỡng chuyên nghiệp
+                    ✅ Không cần bác sĩ - Thực hiện bởi điều dưỡng chuyên nghiệp (8h-17h hàng ngày)
                   </span>
                 </div>
               </div>
@@ -364,7 +497,8 @@ function BookingPreventive() {
                       const selectedDayData = weekSchedule[selectedDay];
                       const today = new Date();
                       today.setHours(0, 0, 0, 0);
-                      const [year, month, dayNum] = selectedDayData.date.split('-').map(Number);
+                      const dateStr = selectedDayData.date;
+                      const [year, month, dayNum] = dateStr.split('-').map(Number);
                       const dayDate = new Date(year, month - 1, dayNum);
                       const isDayPast = dayDate < today;
                       const hasSlots = selectedDayData?.slots && selectedDayData.slots.length > 0;
@@ -383,19 +517,38 @@ function BookingPreventive() {
                         <div className="bg-white rounded-lg border-2 border-orange-200 p-4">
                           <div className="max-h-[200px] overflow-y-auto pr-2">
                             <div className="grid grid-cols-4 gap-3">
-                              {selectedDayData.slots.map(slot => (
-                                <button
-                                  key={slot.startTime}
-                                  onClick={() => setSelectedSlot(slot)}
-                                  className={`py-4 px-6 rounded-lg font-semibold text-base transition-all ${
-                                    selectedSlot?.startTime === slot.startTime
-                                      ? "border-2 border-orange-600 bg-orange-600 text-white"
-                                      : "border border-gray-200 bg-gray-100 text-gray-900 hover:border-orange-300 hover:bg-orange-50"
-                                  }`}
-                                >
-                                  {formatTime(slot.startTime)}
-                                </button>
-                              ))}
+                              {selectedDayData.slots.map(slot => {
+                                const isPast = isSlotInPast(dateStr, slot.startTime);
+                                const hasConflict = isSlotConflictingWithPatient(dateStr, slot.startTime, slot.endTime);
+                                const isDisabled = isPast || hasConflict;
+                                
+                                return (
+                                  <button
+                                    key={slot.startTime}
+                                    onClick={() => !isDisabled && setSelectedSlot(slot)}
+                                    disabled={isDisabled}
+                                    className={`py-4 px-6 rounded-lg font-semibold text-base transition-all relative ${
+                                      selectedSlot?.startTime === slot.startTime
+                                        ? "border-2 border-orange-600 bg-orange-600 text-white"
+                                        : isDisabled
+                                        ? "border border-gray-300 bg-black text-white cursor-not-allowed opacity-70"
+                                        : "border border-gray-200 bg-gray-100 text-gray-900 hover:border-orange-300 hover:bg-orange-50"
+                                    }`}
+                                    title={
+                                      isPast 
+                                        ? 'Đã qua giờ' 
+                                        : hasConflict 
+                                        ? 'Bạn đã có lịch khám trong khung giờ này' 
+                                        : ''
+                                    }
+                                  >
+                                    {formatTime(slot.startTime)}
+                                    {hasConflict && (
+                                      <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></div>
+                                    )}
+                                  </button>
+                                );
+                              })}
                             </div>
                           </div>
                         </div>
@@ -419,16 +572,54 @@ function BookingPreventive() {
                   {selectedServices.map(serviceId => {
                     const service = services.find(s => s.id === serviceId);
                     return (
-                      <div key={serviceId} className="flex justify-between text-sm">
-                        <span className="text-gray-900">{service?.name}</span>
-                        <span className="font-semibold text-gray-900">{formatPrice(service?.price || 0)}</span>
+                      <div key={serviceId} className="space-y-1">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-900">{service?.name}</span>
+                          <span className="font-semibold text-gray-900">{formatPrice(service?.price || 0)}</span>
+                        </div>
+                        {/* Duration badge in sidebar */}
+                        {service?.minDuration && (
+                          <div className="flex items-center text-xs">
+                            <span className={`px-2 py-0.5 rounded ${
+                              service.minDuration < 30 
+                                ? 'bg-green-50 text-green-700' 
+                                : 'bg-orange-50 text-orange-700'
+                            }`}>
+                              ⏱ {service.minDuration} phút {service.minDuration < 30 ? '(Nhanh)' : '(Cần thời gian)'}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
                 </div>
-                <div className="mt-3 pt-3 border-t border-gray-100 flex justify-between items-center">
-                  <span className="text-sm font-semibold text-gray-700">Tổng cộng:</span>
-                  <span className="text-base font-bold text-orange-600">{formatPrice(getTotalPrice())}</span>
+                
+                {/* Duration Summary */}
+                {getTotalDuration() > 0 && (
+                  <div className="mt-3 pt-2 border-t border-gray-100 flex justify-between items-center text-sm">
+                    <span className="text-gray-600">Tổng thời gian:</span>
+                    <span className="font-semibold text-orange-600">{getTotalDuration()} phút</span>
+                  </div>
+                )}
+                
+                {/* Price Summary with Discount */}
+                <div className="mt-3 pt-3 border-t border-gray-200 space-y-2">
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-gray-600">Tổng giá dịch vụ:</span>
+                    <span className="font-medium text-gray-900">{formatPrice(getTotalPrice())}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-green-600">Giảm 10% (online):</span>
+                    <span className="font-medium text-green-600">-{formatPrice(getTotalPrice() - applyDiscount(getTotalPrice()))}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm pt-2 border-t border-gray-100">
+                    <span className="text-gray-700 font-semibold">Sau giảm giá:</span>
+                    <span className="text-base font-bold text-orange-600">{formatPrice(applyDiscount(getTotalPrice()))}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm bg-orange-50 -mx-2 px-2 py-2 rounded">
+                    <span className="text-orange-700 font-semibold">Cần đặt cọc (50%):</span>
+                    <span className="text-base font-bold text-orange-600">{formatPrice(calculateDeposit(applyDiscount(getTotalPrice())))}</span>
+                  </div>
                 </div>
               </div>
             )}
@@ -455,10 +646,16 @@ function BookingPreventive() {
               }`}
               disabled={!selectedSlot || selectedServices.length === 0}
             >
-              Thanh toán và đặt lịch
+              {selectedServices.length > 0 
+                ? `Đặt cọc ${formatPrice(calculateDeposit(applyDiscount(getTotalPrice())))} và xác nhận`
+                : 'Thanh toán và đặt lịch'
+              }
             </button>
             <div className="text-xs text-gray-500 text-center leading-relaxed">
-              Bằng cách nhấn nút thanh toán, bạn đã đồng ý với các điều khoản đặt lịch
+              {selectedServices.length > 0 
+                ? 'Bạn chỉ cần thanh toán 50% giá trị đơn hàng để giữ lịch hẹn. Số tiền còn lại sẽ thanh toán khi đến khám.'
+                : 'Bằng cách nhấn nút thanh toán, bạn đã đồng ý với các điều khoản đặt lịch'
+              }
             </div>
           </div>
         </div>
@@ -466,7 +663,7 @@ function BookingPreventive() {
 
       {/* Service Selection Modal */}
       {showServiceModal && (
-        <div className="fixed inset-0 bg-blue-100/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-gray-200/80 backdrop-blur-lg z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
               <div>
@@ -484,6 +681,23 @@ function BookingPreventive() {
             </div>
 
             <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
+              {/* Info Banner */}
+              <div className="mb-4 bg-orange-50 border border-orange-200 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <svg className="w-5 h-5 text-orange-600 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div className="flex-1">
+                    <div className="text-sm font-semibold text-orange-900 mb-1">Ưu đãi đặt lịch online:</div>
+                    <ul className="text-xs text-orange-800 space-y-1">
+                      <li>✓ Giảm 10% tổng giá trị dịch vụ</li>
+                      <li>✓ Chỉ cần đặt cọc 50% để giữ lịch hẹn</li>
+                      <li>✓ Thanh toán số tiền còn lại khi đến khám</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+              
               <div className="grid grid-cols-2 gap-4">
                 {services.map(service => (
                   <div
@@ -499,6 +713,31 @@ function BookingPreventive() {
                       <div className="flex-1">
                         <div className="font-semibold text-gray-900">{service.name}</div>
                         <div className="text-orange-600 font-bold mt-1">{formatPrice(service.price)}</div>
+                        
+                        {/* Duration Badge */}
+                        {service.minDuration && (
+                          <div className="mt-2 flex items-center gap-2">
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              service.minDuration < 30 
+                                ? 'bg-green-100 text-green-800' 
+                                : 'bg-orange-100 text-orange-800'
+                            }`}>
+                              <svg className="w-3 h-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              {service.minDuration} phút
+                            </span>
+                            <span className={`text-xs ${
+                              service.minDuration < 30 
+                                ? 'text-green-600' 
+                                : 'text-orange-600'
+                            }`}>
+                              {service.minDuration < 30 
+                                ? '(Có thể rời khỏi chờ kết quả)' 
+                                : '(Phải ở tại chỗ)'}
+                            </span>
+                          </div>
+                        )}
                       </div>
                       <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${
                         selectedServices.includes(service.id)
@@ -518,13 +757,63 @@ function BookingPreventive() {
             </div>
 
             <div className="flex items-center justify-between p-6 border-t border-gray-200 bg-gray-50">
-              <div>
-                <div className="text-sm text-gray-600">Đã chọn {selectedServices.length} dịch vụ</div>
-                <div className="text-lg font-bold text-orange-600">Tổng: {formatPrice(getTotalPrice())}</div>
+              <div className="flex-1">
+                <div className="text-sm text-gray-600 mb-1">Đã chọn {selectedServices.length} dịch vụ</div>
+                
+                {/* Duration Info */}
+                {selectedServices.length > 0 && getTotalDuration() > 0 && (
+                  <div className="mb-2">
+                    <div className="text-sm text-gray-600 flex items-center">
+                      <svg className="w-4 h-4 mr-1 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Tổng thời gian: <span className="font-semibold ml-1">{getTotalDuration()} phút</span>
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1 ml-5">
+                      {(() => {
+                        const longServices = selectedServices.filter(sid => {
+                          const s = services.find(x => x.id === sid);
+                          return s && s.minDuration && s.minDuration >= 30;
+                        });
+                        const shortServices = selectedServices.filter(sid => {
+                          const s = services.find(x => x.id === sid);
+                          return s && (!s.minDuration || s.minDuration < 30);
+                        });
+                        if (longServices.length > 0 && shortServices.length > 0) {
+                          return '⚡ Dịch vụ nhanh có thể làm đồng thời, dịch vụ lâu làm tuần tự';
+                        } else if (longServices.length > 1) {
+                          return '⏱️ Các dịch vụ sẽ được thực hiện tuần tự';
+                        } else {
+                          return '✓ Thời gian ước tính cho tất cả dịch vụ';
+                        }
+                      })()}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Price Breakdown */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Tổng giá dịch vụ:</span>
+                    <span className="font-medium text-gray-900">{formatPrice(getTotalPrice())}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-green-600">Giảm giá (10% đặt online):</span>
+                    <span className="font-medium text-green-600">-{formatPrice(getTotalPrice() - applyDiscount(getTotalPrice()))}</span>
+                  </div>
+                  <div className="flex justify-between text-sm pt-1 border-t border-gray-200">
+                    <span className="text-gray-600">Sau giảm giá:</span>
+                    <span className="font-semibold text-orange-600">{formatPrice(applyDiscount(getTotalPrice()))}</span>
+                  </div>
+                  <div className="flex justify-between text-sm pb-1">
+                    <span className="text-orange-600">Cần đặt cọc (50%):</span>
+                    <span className="font-bold text-orange-600">{formatPrice(calculateDeposit(applyDiscount(getTotalPrice())))}</span>
+                  </div>
+                </div>
               </div>
               <button
                 onClick={() => setShowServiceModal(false)}
-                className="px-6 py-3 bg-orange-600 text-white font-semibold rounded-lg hover:bg-orange-700 transition-colors"
+                className="ml-6 px-6 py-3 bg-orange-600 text-white font-semibold rounded-lg hover:bg-orange-700 transition-colors whitespace-nowrap"
               >
                 Xác nhận
               </button>

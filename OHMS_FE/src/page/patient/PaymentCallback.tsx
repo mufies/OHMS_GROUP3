@@ -7,6 +7,12 @@ function PaymentCallback() {
   const navigate = useNavigate();
   const [status, setStatus] = useState<'processing' | 'success' | 'failure'>('processing');
   const [message, setMessage] = useState('Đang xử lý kết quả thanh toán...');
+  const [paymentDetails, setPaymentDetails] = useState<{
+    depositPaid: number;
+    totalAmount: number;
+    remainingAmount: number;
+    discount: number;
+  } | null>(null);
   
   // THÊM useRef để track đã call API chưa
   const hasCalledAPI = useRef(false);
@@ -32,6 +38,20 @@ function PaymentCallback() {
       }
 
       const bookingData = JSON.parse(bookingDataStr);
+      
+      // Calculate payment details if discount and deposit are available
+      if (bookingData.discount && bookingData.deposit) {
+        const totalAmount = bookingData.totalAmount || 0;
+        const depositPaid = bookingData.deposit;
+        const remainingAmount = totalAmount - depositPaid - (totalAmount * bookingData.discount / 100);
+        
+        setPaymentDetails({
+          depositPaid,
+          totalAmount,
+          remainingAmount,
+          discount: bookingData.discount
+        });
+      }
       
       if (vnp_ResponseCode === '00' && vnp_TransactionStatus === '00') {
         try {
@@ -66,7 +86,10 @@ function PaymentCallback() {
                 workDate: bookingData.workDate,
                 startTime: bookingData.startTime,
                 endTime: bookingData.endTime,
-                medicalExaminationIds: [serviceIds[i]]
+                medicalExaminationIds: [serviceIds[i]],
+                discount: bookingData.discount || 0,
+                deposit: bookingData.deposit || 0,
+                depositStatus: bookingData.depositStatus || 'PENDING'
               };
 
               await axios.post(
@@ -93,7 +116,10 @@ function PaymentCallback() {
               workDate: bookingData.workDate,
               startTime: bookingData.startTime,
               endTime: bookingData.endTime,
-              medicalExaminationIds: bookingData.medicalExaminationIds || []
+              medicalExaminationIds: bookingData.medicalExaminationIds || [],
+              discount: bookingData.discount || 0,
+              deposit: bookingData.deposit || 0,
+              depositStatus: 'DEPOSIT' // Payment successful, mark as deposit paid
             };
 
             console.log('Creating consultation-only appointment:', parentAppointmentData);
@@ -124,7 +150,10 @@ function PaymentCallback() {
               workDate: bookingData.workDate,
               startTime: consultationSlot.startTime,
               endTime: consultationSlot.endTime,
-              medicalExaminationIds: bookingData.medicalExaminationIds || [] // Include "Khám bệnh" service
+              medicalExaminationIds: bookingData.medicalExaminationIds || [], // Include "Khám bệnh" service
+              discount: bookingData.discount || 0,
+              deposit: bookingData.deposit || 0,
+              depositStatus: 'DEPOSIT' // Payment successful, mark as deposit paid
             };
 
             console.log('Creating parent appointment with consultation time:', parentAppointmentData);
@@ -163,7 +192,10 @@ function PaymentCallback() {
                 startTime: serviceSlot.startTime,
                 endTime: serviceSlot.endTime,
                 medicalExaminationIds: [serviceSlot.serviceId],
-                parentAppointmentId: parentAppointmentId
+                parentAppointmentId: parentAppointmentId,
+                discount: 0, // Child appointments don't need discount info (parent has it)
+                deposit: 0,
+                depositStatus: 'DEPOSIT'
               };
 
               console.log(`Creating child appointment ${i + 1}/${serviceSlots.length}:`, childAppointmentData);
@@ -192,7 +224,10 @@ function PaymentCallback() {
               workDate: bookingData.workDate,
               startTime: bookingData.startTime,
               endTime: bookingData.endTime,
-              medicalExaminationIds: []
+              medicalExaminationIds: [],
+              discount: bookingData.discount || 0,
+              deposit: bookingData.deposit || 0,
+              depositStatus: 'DEPOSIT'
             };
 
             console.log('Creating appointment (legacy format):', parentAppointmentData);
@@ -254,8 +289,42 @@ function PaymentCallback() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-3">Thành công!</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-3">Thanh toán thành công!</h2>
             <p className="text-gray-600 mb-6">{message}</p>
+            
+            {/* Payment Details */}
+            {paymentDetails && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-left">
+                <div className="text-sm font-semibold text-blue-900 mb-3">Chi tiết thanh toán:</div>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-700">Tổng giá trị:</span>
+                    <span className="font-semibold text-gray-900">
+                      {paymentDetails.totalAmount.toLocaleString('vi-VN')}đ
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-green-700">Giảm giá ({paymentDetails.discount}%):</span>
+                    <span className="font-semibold text-green-700">
+                      -{(paymentDetails.totalAmount * paymentDetails.discount / 100).toLocaleString('vi-VN')}đ
+                    </span>
+                  </div>
+                  <div className="flex justify-between pt-2 border-t border-blue-200">
+                    <span className="text-blue-700">Đã đặt cọc:</span>
+                    <span className="font-bold text-blue-700">
+                      {paymentDetails.depositPaid.toLocaleString('vi-VN')}đ
+                    </span>
+                  </div>
+                  <div className="flex justify-between pb-2 border-b border-blue-200">
+                    <span className="text-orange-700 font-semibold">Còn lại (thanh toán khi khám):</span>
+                    <span className="font-bold text-orange-700">
+                      {paymentDetails.remainingAmount.toLocaleString('vi-VN')}đ
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+            
             <div className="text-sm text-gray-500">
               Bạn sẽ được chuyển đến danh sách lịch hẹn...
             </div>

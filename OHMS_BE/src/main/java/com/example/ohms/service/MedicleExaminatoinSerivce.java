@@ -54,6 +54,9 @@ public class MedicleExaminatoinSerivce{
       if(medicleExaminationRequest.getPrice() > 0){
          medicalExamination.setPrice(medicleExaminationRequest.getPrice());
       }
+      if(medicleExaminationRequest.getMinDuration() != null){
+         medicalExamination.setMinDuration(medicleExaminationRequest.getMinDuration());
+      }
       medicleExaminationRepository.save(medicalExamination);
       return medicalExaminationMapper.toMedicleExaminationResponse(medicalExamination);
    }
