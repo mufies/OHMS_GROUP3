@@ -219,3 +219,74 @@
   background-color: #ccc;
   margin-right: 8px;
 }
+/* Nếu không dùng Tailwind, thêm file này */
+.user-container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+}
+
+.main-content {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.header h1 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #1e40af;
+}
+
+.form-section, .list-section {
+  background: white;
+  border-radius: 1.5rem;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  padding: 2rem;
+}
+
+.user-form input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.75rem;
+  font-size: 1rem;
+}
+
+.user-form input:focus {
+  outline: none;
+  ring: 2px solid #4f46e5;
+  border-color: #4f46e5;
+}
+
+.submit-btn {
+  background: linear-gradient(to right, #4f46e5, #7c3aed);
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.75rem;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.submit-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px rgba(79, 70, 229, 0.3);
+}
+
+.user-card {
+  background: linear-gradient(to right, #f9fafb, #f3f4f6);
+  padding: 1.5rem;
+  border-radius: 1rem;
+  border: 1px solid #e5e7eb;
+  transition: all 0.3s;
+}
+
+.user-card:hover {
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+  border-color: #a5b4fc;
+}
+
+.users-list {
+  max-height: 500px;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+}
