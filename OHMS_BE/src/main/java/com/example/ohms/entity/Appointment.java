@@ -72,6 +72,8 @@ public class Appointment {
    LocalDate workDate;
    LocalTime startTime;
    LocalTime endTime;
+   // status để check khám chưa
+
    String status;
    
    // Phần trăm giảm giá cho appointment (0-100)

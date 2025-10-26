@@ -69,13 +69,13 @@ public class AppointmentService {
         User patient = userRepository.findById(request.getPatientId())
             .orElseThrow(() -> new RuntimeException("Patient not found with id: " + request.getPatientId()));
         
-        // Xử lý parent appointment nếu có
-        Appointment parentAppointment = null;
-        if (request.getParentAppointmentId() != null && !request.getParentAppointmentId().isBlank()) {
-            log.info("This is a service appointment with parent id: {}", request.getParentAppointmentId());
-            parentAppointment = appointmentRepository.findById(request.getParentAppointmentId())
-                .orElseThrow(() -> new RuntimeException("Parent appointment not found with id: " + request.getParentAppointmentId()));
-        }
+            // Xử lý parent appointment nếu có
+            Appointment parentAppointment = null;
+            if (request.getParentAppointmentId() != null && !request.getParentAppointmentId().isBlank()) {
+                log.info("This is a service appointment with parent id: {}", request.getParentAppointmentId());
+                parentAppointment = appointmentRepository.findById(request.getParentAppointmentId())
+                    .orElseThrow(() -> new RuntimeException("Parent appointment not found with id: " + request.getParentAppointmentId()));
+            }
         
         // Tạo appointment entity
         Appointment appointment = Appointment.builder()
