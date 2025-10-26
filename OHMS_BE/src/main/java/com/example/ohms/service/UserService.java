@@ -110,7 +110,7 @@ public UserResponse createUser(UserRequest userRequestDto, MultipartFile avatar)
          return userMapper.toUserResponseDto(userhehe);
       }
    // admin update user
-   @PreAuthorize("hasRole('ADMIN')")
+   @PreAuthorize("hasRole('admin')")
    public UserResponse updateUser(String userId,UserRequest userRequestDto,MultipartFile avatar) throws IOException{
       // 
       User user = userRepository.findById(userId).orElseThrow(()->new AppException(ErrorCode.USER_NOT_FOUND)); // user cũ
@@ -221,7 +221,7 @@ public UserResponse getDetailUser(Authentication authentication) {
     // nếu không phải Jwt thì ném lỗi
     throw new AppException(ErrorCode.USER_NOT_FOUND);
 }
-      @PreAuthorize("hasRole('ADMIN')")
+      @PreAuthorize("hasRole('admin')")
       public List<UserResponse> getListhehe(){
          return userRepository.findAll().stream().map(userMapper :: toUserResponseDto).toList();
       }

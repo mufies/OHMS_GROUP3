@@ -51,10 +51,16 @@ function App() {
                 <Route path="/booking-schedule-new" element={<BookingScheduleNew/>}/>
                 <Route path="/booking-preventive" element={<BookingPreventive/>}/>
                 <Route path="/payment-callback" element={<PaymentCallback/>}/>
-                <Route path="*" element={<Home />} />
                 <Route path="/chat" element={<PatientChatPage />} />
                 <Route path='/receptionPage' element={<ReceptionAppointmentPage/>}/>
  
+                <Route path="/doctor-list" element={<DoctorList />} />
+                
+                {/* Admin Routes */}
+                <Route path="/admin/*" element={<AdminRouter />} />
+                
+                <Route path="*" element={<Home />} />
+
             </Routes>
             </AppWithChat>
             {/*</AuthProvider>*/}
