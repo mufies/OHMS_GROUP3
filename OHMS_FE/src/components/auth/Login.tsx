@@ -4,7 +4,7 @@ import type React from "react"
 import { useState } from "react"
 import { X, Mail, Lock, Loader2 } from "lucide-react"
 import { toast } from "react-toastify"
-import { fetchLoginUser } from "../../utils/fetchFromAPI"
+import { axiosInstance, fetchGetProfile, fetchLoginUser } from "../../utils/fetchFromAPI"
 import { useNavigate } from "react-router-dom"
 import ForgotPasswordModal from "./ForgotPasswordModal"
 import ResetPasswordModal from "./ResetPasswordModal" // 👈 thêm dòng này
@@ -21,22 +21,40 @@ export default function LoginModal({ onClose }: LoginModalProps) {
   const [showForgot, setShowForgot] = useState(false)
   const [showReset, setShowReset] = useState(false) // 👈 thêm state reset modal
   const navigate = useNavigate()
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setError("");
+  setIsLoading(true);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError("")
-    setIsLoading(true)
-    try {
-      await fetchLoginUser(email, password, navigate)
-      toast.success("Đăng nhập thành công!")
-      onClose()
-    } catch (error) {
-      console.error("Login failed:", error)
-      toast.error("Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.")
-    } finally {
-      setIsLoading(false)
+  try {
+    // 1️⃣ Gọi API login
+    await fetchLoginUser(email, password, navigate);
+    toast.success("Đăng nhập thành công!");
+
+    // 2️⃣ Lấy profile sau khi login
+    const profile = await fetchGetProfile();
+    console.log("Profile:", profile);
+
+    // 3️⃣ Kiểm tra quyền và điều hướng
+    if (profile?.roles?.some((r: any) => r.name === "ADMIN")) {
+      navigate("/admin");
+    } else if (profile?.roles?.some((r: any) => r.name === "DOCTOR")) {
+      // nếu doctor thì nhảy qua doctor
+      navigate("/doctor");
+    } else {
+      navigate("/user");
     }
+
+    // 4️⃣ Đóng modal
+    onClose();
+  } catch (error) {
+    console.error("Login failed:", error);
+    toast.error("Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.");
+  } finally {
+    setIsLoading(false);
   }
+};
+
 
   const handleGoogleLogin = () => {
     window.location.href = "http://localhost:8080/oauth2/authorization/google"
