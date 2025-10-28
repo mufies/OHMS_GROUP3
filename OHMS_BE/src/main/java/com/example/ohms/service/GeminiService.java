@@ -21,7 +21,7 @@ import java.util.*;
 public class GeminiService {
 
     @Value("${gemini.api.key:}")
-    private String apiKey;
+    private String apiKey = "Strijsdfnshhfisfsb";
 
     // Có thể thay đổi giữa: gemini-2.5-flash / gemini-2.0-pro nếu cần
     @Value("${gemini.model:gemini-2.5-flash}")

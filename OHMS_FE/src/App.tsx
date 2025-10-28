@@ -30,6 +30,12 @@ import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import PatientChatPage from './page/patient/PatientChatPage.tsx';
 import AppWithChat from './provider/AppWithChat.tsx';
+import PatientProfile from "./components/patient/PatientProfile.tsx";
+import PatientAppointments from "./components/patient/PatientAppointments.tsx";
+
+import PatientAccount from "./components/patient/PatientAccount.tsx";
+import PatientDashboard from "./page/patient/PatientDashboard.tsx";
+import PatientMedicalRecords from './components/patient/PatientMedicalRecords.tsx';
 import ReceptionAppointmentPage from './components/reception/AppointmentControll.tsx';
 // import DoctorCall from "./page/doctor/DoctorCall.tsx";
 function App() {
@@ -51,6 +57,14 @@ function App() {
                 <Route path="/booking-schedule-new" element={<BookingScheduleNew/>}/>
                 <Route path="/booking-preventive" element={<BookingPreventive/>}/>
                 <Route path="/payment-callback" element={<PaymentCallback/>}/>
+                <Route path="*" element={<Home />} />
+                <Route path="/chat" element={<PatientChatPage />} />    
+                <Route path="/patient" element={<PatientDashboard />}>
+                    <Route path="appointments" element={<PatientAppointments />} />
+                    <Route path="medical-record" element={<PatientMedicalRecords />} />
+                    <Route path="profile" element={<PatientProfile />} />
+                    <Route path="account" element={<PatientAccount />} />
+                </Route>
                 <Route path="/chat" element={<PatientChatPage />} />
                 <Route path='/receptionPage' element={<ReceptionAppointmentPage/>}/>
  

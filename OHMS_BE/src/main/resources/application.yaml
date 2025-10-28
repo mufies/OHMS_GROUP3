@@ -22,7 +22,7 @@ spring:
   datasource:
     url: jdbc:mysql://localhost:3308/swpbackend?useSSL=false&serverTimezone=UTC
     username: root
-    password: ""
+    password: "12345"
 
   jpa:
     hibernate:
@@ -52,7 +52,7 @@ app:
 
 gemini:
   api:
-    key: AIzaSyAI9ix53IKrsrUBT_b7Z2pSB8fRuWhgKiA
+    key: AIzaSyB3NYOITWHAPBJMQ9vPyoT20WRoj8AObrE
     model: gemini-2.5-flash
 
 payment:

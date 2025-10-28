@@ -28,7 +28,7 @@ public class MedicineService {
 // get
 // update
 // delete
-@PreAuthorize("hasRole('admin')")
+@PreAuthorize("hasRole('ADMIN')")
 public MedicineResponse createMedicine(MedicineRequest medicineRequest) {
     Medicine medicine = medicleMapper.toMedicine(medicineRequest);
     // check thuốc xem có chưa
