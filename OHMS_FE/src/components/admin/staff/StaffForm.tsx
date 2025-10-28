@@ -21,16 +21,16 @@ interface StaffFormProps {
 }
 
 const STAFF_POSITIONS = [
-  'Registered Nurse',
-  'Lab Technician',
-  'Receptionist',
-  'Pharmacist',
-  'Security Guard',
-  'Maintenance Technician',
-  'Administrative Assistant',
-  'Radiology Technician',
-  'Housekeeping',
-  'IT Support'
+  { value: 'LABORATORY_MEDICINE', label: 'Kỹ thuật viên xét nghiệm' },
+  { value: 'PHYSICAL_THERAPY', label: 'Kỹ thuật viên vật lý trị liệu' },
+  { value: 'SPEECH_THERAPY', label: 'Kỹ thuật viên ngôn ngữ trị liệu' },
+  { value: 'PSYCHOLOGY', label: 'Tâm lý học' },
+  { value: 'DENTISTRY', label: 'Nha khoa' },
+  { value: 'EMERGENCY_MEDICINE', label: 'Cấp cứu' },
+  { value: 'PREVENTIVE_MEDICINE', label: 'Y tế dự phòng' },
+  { value: 'TRADITIONAL_MEDICINE', label: 'Y học cổ truyền' },
+  { value: 'INFECTIOUS_DISEASE', label: 'Truyền nhiễm' },
+  { value: 'NEPHROLOGY', label: 'Thận học' }
 ];
 
 const StaffForm: React.FC<StaffFormProps> = ({ user, onSubmit, onCancel }) => {
@@ -43,6 +43,8 @@ const StaffForm: React.FC<StaffFormProps> = ({ user, onSubmit, onCancel }) => {
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   useEffect(() => {
     if (user) {
@@ -122,25 +124,43 @@ const StaffForm: React.FC<StaffFormProps> = ({ user, onSubmit, onCancel }) => {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (validateForm()) {
-      const submitData: Partial<User> = {
-        username: formData.username,
-        email: formData.email,
-        phone: formData.phone || null,
-        roles: ['STAFF'], // Always set role as STAFF
-        medicleSpecially: formData.position, // Use medicleSpecially field to store position
-      };
+      setIsSubmitting(true);
+      setSubmitError(null);
+      
+      try {
+        const submitData: Partial<User> = {
+          username: formData.username,
+          email: formData.email,
+          phone: formData.phone || null,
+          roles: [{ name: 'STAFF', description: 'Staff role', permissions: [] }], // Always set role as STAFF
+          medicleSpecially: formData.position, // Use medicleSpecially field to store position
+        };
 
-      // Only include password for new users
-      if (!user && formData.password) {
-        (submitData as any).password = formData.password;
+        // Only include password for new users
+        if (!user && formData.password) {
+          (submitData as any).password = formData.password;
+        }
+
+        await onSubmit(submitData);
+        setIsSubmitting(false);
+      } catch (error: any) {
+        setIsSubmitting(false);
+        if (error.message?.includes('302') || error.message?.includes('USER_EXISTED')) {
+          setSubmitError('Email đã tồn tại trong hệ thống. Vui lòng sử dụng email khác.');
+        } else {
+          setSubmitError(error.message || 'Có lỗi xảy ra khi tạo nhân viên. Vui lòng thử lại.');
+        }
       }
-
-      onSubmit(submitData);
     }
+  };
+
+  const handleRetry = () => {
+    setSubmitError(null);
+    setErrors({});
   };
 
   return (
@@ -230,14 +250,14 @@ const StaffForm: React.FC<StaffFormProps> = ({ user, onSubmit, onCancel }) => {
             </label>
             <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto border border-gray-300 rounded-md p-3">
               {STAFF_POSITIONS.map((position) => (
-                <label key={position} className="flex items-center space-x-2">
+                <label key={position.value} className="flex items-center space-x-2">
                   <input
                     type="checkbox"
-                    checked={formData.position.includes(position)}
-                    onChange={() => handlePositionChange(position)}
+                    checked={formData.position.includes(position.value)}
+                    onChange={() => handlePositionChange(position.value)}
                     className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
-                  <span className="text-sm text-gray-700">{position}</span>
+                  <span className="text-sm text-gray-700">{position.label}</span>
                 </label>
               ))}
             </div>
@@ -245,6 +265,21 @@ const StaffForm: React.FC<StaffFormProps> = ({ user, onSubmit, onCancel }) => {
               <p className="text-red-500 text-sm mt-1">{errors.position}</p>
             )}
           </div>
+
+          {submitError && (
+            <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-4">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm text-red-800">{submitError}</p>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="flex justify-end space-x-3 pt-4">
             <button
@@ -254,11 +289,25 @@ const StaffForm: React.FC<StaffFormProps> = ({ user, onSubmit, onCancel }) => {
             >
               Hủy
             </button>
+            {submitError && (
+              <button
+                type="button"
+                onClick={handleRetry}
+                className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-md transition-colors"
+              >
+                Thử lại
+              </button>
+            )}
             <button
               type="submit"
-              className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md transition-colors"
+              disabled={isSubmitting}
+              className={`px-4 py-2 rounded-md transition-colors ${
+                isSubmitting 
+                  ? 'bg-gray-400 cursor-not-allowed' 
+                  : 'bg-blue-500 hover:bg-blue-600'
+              } text-white`}
             >
-              {user ? 'Cập nhật' : 'Thêm mới'}
+              {isSubmitting ? 'Đang xử lý...' : (user ? 'Cập nhật' : 'Thêm mới')}
             </button>
           </div>
         </form>
