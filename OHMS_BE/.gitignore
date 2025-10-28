@@ -37,6 +37,9 @@ build/
 .env.local
 .env.development
 .env.production
+.env
+
 
 # doc
 /src/main/swp_project.code-workspace
+**/.env

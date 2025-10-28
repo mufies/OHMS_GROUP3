@@ -43,3 +43,4 @@ build/
 .github/
 testsmth/
 OHMS_BE/src/main/java/com/example/ohms/SWP_Project.code-workspace
+OHMS_BE/.env

@@ -14,4 +14,5 @@ public class MedicleExaminationResponse {
    String id;
    String name;
    int price;
+   Integer minDuration; // Thời gian tối thiểu để hoàn thành (phút)
 }

@@ -13,4 +13,5 @@ import lombok.experimental.FieldDefaults;
 public class PrescriptionMedicineRequest {
    String medicineId;
    Integer amount;
+   String instruction;
 }

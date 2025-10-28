@@ -2,13 +2,32 @@ import React, { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import Navigator from "../../components/Navigator";
-
-
+import { MEDICAL_SPECIALTY_LABELS, MedicalSpecialtyType } from "../../constant/medicalSpecialty";
 
 interface MedicalExamination {
   id: string;
   name: string;
   price: number;
+  minDuration?: number; // Thời gian tối thiểu (phút)
+  category?: 'CLINICAL' | 'DIAGNOSTIC';
+  estimatedDuration?: number;
+  requiresResultWaitTime?: number;
+}
+
+interface ServiceStep {
+  service: MedicalExamination;
+  slot: TimeSlot;
+  room?: string;
+  estimatedResultTime?: string;
+}
+
+interface MultiStepSchedule {
+  steps: ServiceStep[];
+  totalDuration: number;
+  totalWaitTime: number;
+  startTime: string;
+  endTime: string;
+  isValid: boolean;
 }
 
 interface MedicalServicesRequest {
@@ -51,9 +70,9 @@ interface TimeSlot {
 interface DaySchedule {
   date: string;
   label: string;
-  weekLabel: string; // "Tuần này" or "Tuần sau"
+  weekLabel: string;
   slots: TimeSlot[];
-  hasApiSchedule?: boolean; // true if this day has schedule from API
+  hasApiSchedule?: boolean;
 }
 
 interface WeeklySchedule {
@@ -89,6 +108,279 @@ function BookingSchedule() {
   const [medicalRequests, setMedicalRequests] = useState<MedicalServicesRequest[]>([]);
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<MedicalServicesRequest | null>(null);
+  const [multiStepSchedules, setMultiStepSchedules] = useState<MultiStepSchedule[]>([]);
+  const [selectedSchedule, setSelectedSchedule] = useState<MultiStepSchedule | null>(null);
+  const [showMultiStepModal, setShowMultiStepModal] = useState(false);
+  const [bookingType, setBookingType] = useState<'CONSULTATION_ONLY' | 'SERVICE_AND_CONSULTATION' | null>(null);
+  const [showBookingTypeModal, setShowBookingTypeModal] = useState(true);
+  const [diagnosticSlots, setDiagnosticSlots] = useState<{service: MedicalExamination, slot: TimeSlot, resultTime: string}[]>([]);
+  const [consultationSlot, setConsultationSlot] = useState<TimeSlot | null>(null);
+  const [patientAppointments, setPatientAppointments] = useState<Appointment[]>([]);
+
+  // Fetch patient appointments on mount
+  useEffect(() => {
+    const fetchPatientAppointments = async () => {
+      try {
+        const token = localStorage.getItem('accessToken');
+        const userId = localStorage.getItem('userId');
+        
+        if (!userId || !token) return;
+
+        const response = await axios.get(
+          `http://localhost:8080/appointments/patient/${userId}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+
+        console.log('Patient appointments:', response.data);
+        setPatientAppointments(Array.isArray(response.data) ? response.data : []);
+      } catch (error) {
+        console.error('Error fetching patient appointments:', error);
+        setPatientAppointments([]);
+      }
+    };
+
+    fetchPatientAppointments();
+  }, []);
+
+  // Helper: Check if slot conflicts with patient's existing appointments
+  const isSlotConflictingWithPatient = (date: string, startTime: string, endTime: string): boolean => {
+    return patientAppointments.some(apt => {
+      if (apt.workDate !== date || apt.status !== 'Schedule') return false;
+      
+      const aptStart = apt.startTime;
+      const aptEnd = apt.endTime;
+      
+      return startTime < aptEnd && endTime > aptStart;
+    });
+  };
+
+  // Helper: Check if slot is in the past
+  const isSlotInPast = (date: string, startTime: string): boolean => {
+    const now = new Date();
+    const [year, month, day] = date.split('-').map(Number);
+    const [hours, minutes] = startTime.split(':').map(Number);
+    
+    const slotDate = new Date(year, month - 1, day, hours, minutes);
+    
+    return slotDate < now;
+  };
+
+  // Helper: Phân loại dịch vụ theo category
+  const categorizeServices = () => {
+    const diagnosticServices: MedicalExamination[] = [];
+    const clinicalServices: MedicalExamination[] = [];
+
+    selectedServices.forEach(serviceId => {
+      const service = services.find(s => s.id === serviceId);
+      if (!service) return;
+
+      const diagnosticKeywords = ['siêu âm', 'xét nghiệm', 'chụp', 'X-quang', 'CT', 'MRI', 'điện tim', 'ECG'];
+      const isDiagnostic = diagnosticKeywords.some(keyword => 
+        service.name.toLowerCase().includes(keyword.toLowerCase())
+      );
+
+      if (isDiagnostic) {
+        diagnosticServices.push({
+          ...service,
+          category: 'DIAGNOSTIC',
+          estimatedDuration: 30,
+          requiresResultWaitTime: 20
+        });
+      } else {
+        clinicalServices.push({
+          ...service,
+          category: 'CLINICAL',
+          estimatedDuration: 10
+        });
+      }
+    });
+
+    return { diagnosticServices, clinicalServices };
+  };
+
+  // Helper: Tính toán time slot sau khoảng thời gian chờ
+  const getSlotAfterWaitTime = (startSlot: TimeSlot, waitMinutes: number, daySlots: TimeSlot[]): TimeSlot | null => {
+    const [startHour, startMin] = startSlot.startTime.split(':').map(Number);
+    const startTotalMinutes = startHour * 60 + startMin;
+    const targetMinutes = startTotalMinutes + waitMinutes;
+    
+    const targetHour = Math.floor(targetMinutes / 60);
+    const targetMin = targetMinutes % 60;
+    const targetTime = `${String(targetHour).padStart(2, '0')}:${String(targetMin).padStart(2, '0')}:00`;
+
+    return daySlots.find(slot => 
+      slot.startTime >= targetTime && slot.available
+    ) || null;
+  };
+
+  // Helper: Generate combo schedules cho multi-step booking
+  const generateMultiStepSchedules = () => {
+    const { diagnosticServices, clinicalServices } = categorizeServices();
+    
+    if (diagnosticServices.length === 0) {
+      setMultiStepSchedules([]);
+      return;
+    }
+
+    const currentDaySlots = weekSchedule[selectedDay]?.slots || [];
+    if (currentDaySlots.length === 0) return;
+
+    const schedules: MultiStepSchedule[] = [];
+    const availableSlots = currentDaySlots.filter(slot => slot.available);
+
+    availableSlots.forEach(diagnosticSlot => {
+      const steps: ServiceStep[] = [];
+      let currentTime = diagnosticSlot.startTime;
+      let totalDuration = 0;
+      let totalWaitTime = 0;
+
+      diagnosticServices.forEach((service, index) => {
+        const duration = service.estimatedDuration || 30;
+        const waitTime = service.requiresResultWaitTime || 20;
+
+        steps.push({
+          service,
+          slot: diagnosticSlot,
+          room: `Phòng ${index + 1}`,
+          estimatedResultTime: addMinutesToTime(diagnosticSlot.startTime, duration + waitTime)
+        });
+
+        totalDuration += duration;
+        totalWaitTime += waitTime;
+      });
+
+      const minWaitTime = totalDuration + totalWaitTime;
+      const clinicalSlot = getSlotAfterWaitTime(diagnosticSlot, minWaitTime, currentDaySlots);
+
+      if (clinicalSlot && clinicalServices.length > 0) {
+        clinicalServices.forEach(service => {
+          steps.push({
+            service,
+            slot: clinicalSlot,
+            room: 'Phòng khám'
+          });
+          totalDuration += service.estimatedDuration || 30;
+        });
+
+        const [endHour, endMin] = clinicalSlot.endTime.split(':').map(Number);
+        const endTotalMin = endHour * 60 + endMin;
+        const [startHour, startMin] = diagnosticSlot.startTime.split(':').map(Number);
+        const startTotalMin = startHour * 60 + startMin;
+        const actualTotalDuration = endTotalMin - startTotalMin;
+
+        schedules.push({
+          steps,
+          totalDuration: actualTotalDuration,
+          totalWaitTime,
+          startTime: diagnosticSlot.startTime,
+          endTime: clinicalSlot.endTime,
+          isValid: true
+        });
+      }
+    });
+
+    setMultiStepSchedules(schedules.slice(0, 5));
+  };
+
+  // Helper: Tính toán slots cho các dịch vụ cận lâm sàng
+  const calculateDiagnosticSlots = (startSlot: TimeSlot, services: MedicalExamination[]): {service: MedicalExamination, slot: TimeSlot, resultTime: string}[] => {
+    const slots: {service: MedicalExamination, slot: TimeSlot, resultTime: string}[] = [];
+    
+    // Sắp xếp services: services có minDuration >= 30 (không thể rời) làm TRƯỚC
+    // services có minDuration < 30 (có thể rời) làm SAU
+    const sortedServices = [...services].sort((a, b) => {
+      const aDuration = a.minDuration || 0;
+      const bDuration = b.minDuration || 0;
+      
+      const aIsLong = aDuration >= 30;
+      const bIsLong = bDuration >= 30;
+      
+      // Nếu a là service dài và b là service ngắn, a đứng trước
+      if (aIsLong && !bIsLong) return -1;
+      // Nếu a là service ngắn và b là service dài, b đứng trước
+      if (!aIsLong && bIsLong) return 1;
+      // Nếu cùng loại, giữ nguyên thứ tự hoặc sắp theo duration giảm dần
+      return bDuration - aDuration;
+    });
+    
+    let currentStartTime = startSlot.startTime;
+
+    sortedServices.forEach((service, index) => {
+      const [hour, min] = currentStartTime.split(':').map(Number);
+      const serviceDuration = service.minDuration || 30; // Sử dụng minDuration thực tế
+      const endTotalMinutes = hour * 60 + min + serviceDuration;
+      const endHour = Math.floor(endTotalMinutes / 60);
+      const endMin = endTotalMinutes % 60;
+      const endTime = `${String(endHour).padStart(2, '0')}:${String(endMin).padStart(2, '0')}:00`;
+      
+      slots.push({
+        service,
+        slot: {
+          startTime: currentStartTime,
+          endTime: endTime,
+          available: true
+        },
+        resultTime: endTime
+      });
+
+      // Cập nhật thời gian bắt đầu cho service tiếp theo
+      if (index < sortedServices.length - 1) {
+        // Nếu service hiện tại là service dài (>= 30 phút), service tiếp theo bắt đầu sau khi service này kết thúc
+        const isCurrentLong = (service.minDuration || 0) >= 30;
+        const nextService = sortedServices[index + 1];
+        const isNextLong = (nextService.minDuration || 0) >= 30;
+        
+        if (isCurrentLong || isNextLong) {
+          // Service dài phải làm tuần tự, bắt đầu sau khi service trước kết thúc
+          currentStartTime = endTime;
+        } else {
+          // Service ngắn có thể làm gần như đồng thời (cách nhau 5 phút)
+          const nextStartMinutes = hour * 60 + min + 5;
+          const nextHour = Math.floor(nextStartMinutes / 60);
+          const nextMin = nextStartMinutes % 60;
+          currentStartTime = `${String(nextHour).padStart(2, '0')}:${String(nextMin).padStart(2, '0')}:00`;
+        }
+      }
+    });
+
+    return slots;
+  };
+
+  // Helper: Tính thời gian slot khám sau khi có kết quả dịch vụ cuối
+  const calculateConsultationSlotsAfterDiagnostic = (lastResultTime: string, daySlots: TimeSlot[]): TimeSlot[] => {
+    const [hour, min] = lastResultTime.split(':').map(Number);
+    const minConsultationMinutes = hour * 60 + min + 5;
+    const minHour = Math.floor(minConsultationMinutes / 60);
+    const minMin = minConsultationMinutes % 60;
+    const minConsultationTime = `${String(minHour).padStart(2, '0')}:${String(minMin).padStart(2, '0')}:00`;
+
+    return daySlots
+      .filter(slot => slot.startTime >= minConsultationTime && slot.available)
+      .map(slot => {
+        const [sh, sm] = slot.startTime.split(':').map(Number);
+        const endMinutes = sh * 60 + sm + 10;
+        const eh = Math.floor(endMinutes / 60);
+        const em = endMinutes % 60;
+        return {
+          ...slot,
+          endTime: `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}:00`
+        };
+      });
+  };
+
+  // Helper: Add minutes to time string
+  const addMinutesToTime = (timeStr: string, minutes: number): string => {
+    const [hour, min] = timeStr.split(':').map(Number);
+    const totalMinutes = hour * 60 + min + minutes;
+    const newHour = Math.floor(totalMinutes / 60);
+    const newMin = totalMinutes % 60;
+    return `${String(newHour).padStart(2, '0')}:${String(newMin).padStart(2, '0')}`;
+  };
 
   // Check for existing medical service requests
   useEffect(() => {
@@ -110,7 +402,6 @@ function BookingSchedule() {
         );
 
         if (response.data && Array.isArray(response.data) && response.data.length > 0) {
-          // Filter only active requests (status = true) and matching specialty
           const activeRequests = response.data.filter((req: MedicalServicesRequest) => 
             req.status === true && req.medicalSpecialty === specialty
           );
@@ -128,12 +419,18 @@ function BookingSchedule() {
     checkMedicalRequests();
   }, []);
 
+  // Generate multi-step schedules when services or day changes
+  useEffect(() => {
+    if (selectedServices.length > 0 && selectedDoctor && weekSchedule.length > 0) {
+      generateMultiStepSchedules();
+    }
+  }, [selectedServices, selectedDay, weekSchedule]);
+
   // Handle using existing medical request
   const handleUseExistingRequest = async (request: MedicalServicesRequest) => {
     try {
       const token = localStorage.getItem('accessToken');
       
-      // Update status to false
       await axios.put(
         `http://localhost:8080/medical-requests/${request.id}/status`,
         { status: false },
@@ -145,7 +442,6 @@ function BookingSchedule() {
         }
       );
 
-      // Set selected services from the request
       const serviceIds = request.medicalExaminations.map(exam => exam.id);
       setSelectedServices(serviceIds);
 
@@ -229,7 +525,6 @@ function BookingSchedule() {
         const token = localStorage.getItem('accessToken');
         if (!token) return;
         
-        // Call API lấy weekly schedule
         const scheduleResponse = await axios.get(
           `http://localhost:8080/schedule/${selectedDoctor.id}`,
           {
@@ -244,8 +539,6 @@ function BookingSchedule() {
           console.log('Weekly schedule fetched successfully:', scheduleResponse.data.results);
           
           const weeklySchedules: WeeklySchedule[] = scheduleResponse.data.results;
-          
-          // Generate week schedule từ weekly schedules
           const schedule = await generateWeekScheduleFromAPI(weeklySchedules, selectedDoctor.id, token);
           setWeekSchedule(schedule);
         }
@@ -266,10 +559,7 @@ function BookingSchedule() {
   ): Promise<DaySchedule[]> => {
     const buildWeekDates = (refDate: Date) => {
       const d = new Date(refDate);
-      
-      // Đảm bảo dùng local date, không bị ảnh hưởng timezone
       const localDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-      
       const day = localDate.getDay();
       const diffToMonday = (day === 0 ? -6 : 1) - day;
       
@@ -278,7 +568,7 @@ function BookingSchedule() {
       monday.setHours(0, 0, 0, 0);
 
       const weekDates: Date[] = [];
-      for (let i = 0; i < 5; i++) {
+      for (let i = 0; i < 6; i++) {
         const dt = new Date(monday);
         dt.setDate(monday.getDate() + i);
         weekDates.push(dt);
@@ -286,8 +576,6 @@ function BookingSchedule() {
       return weekDates;
     };
 
-
-    // Build slots for a day given working intervals (could be one or multiple intervals)
     const buildSlotsForIntervals = (intervals: {startTime: string; endTime:string}[], appointments: Appointment[]) => {
       const slots: TimeSlot[] = [];
       for (const interval of intervals) {
@@ -296,10 +584,10 @@ function BookingSchedule() {
         const startTotal = startParts[0] * 60 + (startParts[1] || 0);
         const endTotal = endParts[0] * 60 + (endParts[1] || 0);
 
-        for (let minutes = startTotal; minutes < endTotal; minutes += 30) {
+        for (let minutes = startTotal; minutes < endTotal; minutes += 10) {
           const sh = Math.floor(minutes / 60);
           const sm = minutes % 60;
-          const em = minutes + 30;
+          const em = minutes + 10;
           const eh = Math.floor(em / 60);
           const emm = em % 60;
           const startTime = `${String(sh).padStart(2,'0')}:${String(sm).padStart(2,'0')}:00`;
@@ -312,19 +600,18 @@ function BookingSchedule() {
       return slots;
     };
 
-    // Normalize weeklySchedules by date -> array of intervals
     const schedulesMap = weeklySchedules.reduce((acc, sch) => {
       if (!acc[sch.workDate]) acc[sch.workDate] = [];
       acc[sch.workDate].push({ startTime: sch.startTime, endTime: sch.endTime });
       return acc;
     }, {} as Record<string, {startTime:string; endTime:string}[]>);
 
-    // Fetch appointments helper for a list of date strings
     const fetchAppointmentsForDates = async (dates: string[]) => {
       const map: Record<string, Appointment[]> = {};
       for (const date of dates) {
         try {
-          const response = await axios.get(`http://localhost:8080/appointments/doctor/${doctorId}/date/${date}`, { headers: { 'Authorization': `Bearer ${token}` } });
+          const response = await axios.get(`http://localhost:8080/appointments/doctor/${doctorId}/date/${date}`, 
+            { headers: { 'Authorization': `Bearer ${token}` } });
           const appts = Array.isArray(response.data) ? response.data : response.data?.results || [];
           map[date] = appts;
         } catch (err) {
@@ -335,26 +622,22 @@ function BookingSchedule() {
       return map;
     };
 
-    // Get both current week and next week
     const today = new Date();
     const thisWeekDates = buildWeekDates(today);
     const nextWeekStart = new Date(thisWeekDates[0]);
     nextWeekStart.setDate(thisWeekDates[0].getDate() + 7);
     const nextWeekDates = buildWeekDates(nextWeekStart);
 
-    // Convert to yyyy-mm-dd strings
     const toYMD = (d: Date) => d.toISOString().slice(0,10);
     const thisWeekStrs = thisWeekDates.map(toYMD);
     const nextWeekStrs = nextWeekDates.map(toYMD);
     const allWeeksStrs = [...thisWeekStrs, ...nextWeekStrs];
 
-    // Determine if there are schedules in provided weeklySchedules for each week
     const hasSchedulesInWeek = (weekStrs: string[]) => weekStrs.some(s => !!schedulesMap[s]);
     const hasSchedulesThisWeek = hasSchedulesInWeek(thisWeekStrs);
     const hasSchedulesNextWeek = hasSchedulesInWeek(nextWeekStrs);
     const useDefault = !hasSchedulesThisWeek && !hasSchedulesNextWeek;
 
-    // Fetch appointments for all dates
     const appointmentsMap = await fetchAppointmentsForDates(allWeeksStrs);
 
     const schedule: DaySchedule[] = [];
@@ -368,9 +651,8 @@ function BookingSchedule() {
       const hasApiScheduleForDay = !!schedulesMap[dateStr];
 
       if (useDefault) {
-        // Create default Mon-Fri 07:00-17:00 (only weekdays)
-        const dayOfWeek = dateObj.getDay(); // 0 Sun .. 6 Sat
-        if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+        const dayOfWeek = dateObj.getDay();
+        if (dayOfWeek >= 0 && dayOfWeek <= 5) {
           const intervals = [{ startTime: '07:00:00', endTime: '17:00:00' }];
           const appts = appointmentsMap[dateStr] || [];
           slots = buildSlotsForIntervals(intervals, appts);
@@ -387,14 +669,12 @@ function BookingSchedule() {
         }
       }
 
-      // Only add if date is today or in the future, and not Sunday
-      const dayOfWeek = dateObj.getDay(); // 0 = Sunday, 1-6 = Mon-Sat
-      if (dateStr >= todayStr && dayOfWeek !== 0) {
+      if (dateStr >= todayStr) {
         schedule.push({ date: dateStr, label, weekLabel: 'Tuần này', slots, hasApiSchedule: hasApiScheduleForDay });
       }
     }
 
-    // Process next week - apply limiting logic
+    // Process next week
     for (const dateStr of nextWeekStrs) {
       const dateObj = new Date(dateStr);
       const label = formatDayLabel(dateObj);
@@ -402,8 +682,7 @@ function BookingSchedule() {
       const hasApiScheduleForDay = !!schedulesMap[dateStr];
 
       if (useDefault) {
-        // Create default Mon-Fri 07:00-17:00 (only weekdays)
-        const dayOfWeek = dateObj.getDay(); // 0 Sun .. 6 Sat
+        const dayOfWeek = dateObj.getDay();
         if (dayOfWeek >= 1 && dayOfWeek <= 5) {
           const intervals = [{ startTime: '07:00:00', endTime: '17:00:00' }];
           const appts = appointmentsMap[dateStr] || [];
@@ -412,10 +691,7 @@ function BookingSchedule() {
           slots = [];
         }
       } else {
-        // Nếu tuần sau có schedule từ API thì chỉ hiển thị ngày có schedule
-        // Nếu tuần sau không có schedule từ API thì hiển thị bình thường (default)
         if (hasSchedulesNextWeek) {
-          // Giới hạn: chỉ hiển thị ngày có schedule từ API
           if (hasApiScheduleForDay) {
             const intervals = schedulesMap[dateStr] || [];
             const appts = appointmentsMap[dateStr] || [];
@@ -425,11 +701,9 @@ function BookingSchedule() {
               slots = [];
             }
           } else {
-            // Ngày này không có schedule từ API, không tạo slot
             slots = [];
           }
         } else {
-          // Tuần sau không có schedule, dùng default
           const dayOfWeek = dateObj.getDay();
           if (dayOfWeek >= 1 && dayOfWeek <= 5) {
             const intervals = [{ startTime: '07:00:00', endTime: '17:00:00' }];
@@ -444,19 +718,13 @@ function BookingSchedule() {
       schedule.push({ date: dateStr, label, weekLabel: 'Tuần sau', slots, hasApiSchedule: hasApiScheduleForDay });
     }
 
-    // Filter out Sundays from schedule
-    const filteredSchedule = schedule.filter(day => {
-      const dayDate = new Date(day.date);
-      return dayDate.getDay() !== 0; // 0 = Sunday
-    });
+    const filteredSchedule = schedule;
 
     const todayIndex = filteredSchedule.findIndex(d => d.date === todayStr);
 
     if (todayIndex >= 0 && filteredSchedule[todayIndex].slots && filteredSchedule[todayIndex].slots.length > 0) {
-      // Nếu ngày hiện tại có trong lịch và có slot → chọn ngày đó
       setSelectedDay(todayIndex);
     } else {
-      // Nếu không, chọn ngày đầu tiên có slot available
       const firstAvailableIndex = filteredSchedule.findIndex(d => d.slots && d.slots.some(s => s.available));
       if (firstAvailableIndex >= 0) {
         setSelectedDay(firstAvailableIndex);
@@ -501,27 +769,103 @@ function BookingSchedule() {
     }, 0);
   };
 
+  // Calculate total duration for selected services
+  const getTotalDuration = () => {
+    // Separate services by duration requirement
+    const longServices = selectedServices.filter(serviceId => {
+      const service = services.find(s => s.id === serviceId);
+      return service && service.minDuration && service.minDuration >= 30;
+    });
+    
+    const shortServices = selectedServices.filter(serviceId => {
+      const service = services.find(s => s.id === serviceId);
+      return service && (!service.minDuration || service.minDuration < 30);
+    });
+
+    // Long services (>= 30 min) must be done sequentially
+    const longServiceTime = longServices.reduce((total, serviceId) => {
+      const service = services.find(s => s.id === serviceId);
+      return total + (service?.minDuration || 0);
+    }, 0);
+
+    // Short services (< 30 min) can be done simultaneously, so we take the max
+    const shortServiceTime = shortServices.length > 0 
+      ? Math.max(...shortServices.map(serviceId => {
+          const service = services.find(s => s.id === serviceId);
+          return service?.minDuration || 0;
+        }))
+      : 0;
+
+    // Total time = sequential long services + max of short services (if they happen after)
+    return longServiceTime + shortServiceTime;
+  };
+
+  // Apply 10% discount for online booking
+  const applyDiscount = (totalPrice: number): number => {
+    return Math.round(totalPrice * 0.9); // 10% discount
+  };
+
+  // Calculate deposit (50% of discounted price)
+  const calculateDeposit = (discountedPrice: number): number => {
+    return Math.round(discountedPrice / 2);
+  };
+
   const handlePayment = async () => {
-    if (!selectedDoctor || !selectedSlot || selectedServices.length === 0) {
+    if (!selectedDoctor || !selectedSlot) {
       alert('Vui lòng chọn đầy đủ thông tin!');
       return;
     }
 
+    if (bookingType === 'SERVICE_AND_CONSULTATION' && selectedServices.length > 0 && !consultationSlot) {
+      alert('Vui lòng chọn giờ khám bác sĩ!');
+      return;
+    }
+
+    // Calculate prices with discount and deposit
     const totalAmount = getTotalPrice();
-    const bookingData = {
+    const discountedAmount = applyDiscount(totalAmount);
+    const depositAmount = calculateDeposit(discountedAmount);
+    
+    const bookingData: any = {
       doctorId: selectedDoctor.id,
       workDate: weekSchedule[selectedDay].date,
-      startTime: selectedSlot.startTime,
-      endTime: selectedSlot.endTime,
-      medicalExaminationIds: selectedServices
+      bookingType: bookingType,
+      discount: 10, // 10% discount for online booking
+      deposit: depositAmount,
+      depositStatus: 'PENDING'
     };
+
+    if (bookingType === 'SERVICE_AND_CONSULTATION' && selectedServices.length > 0) {
+      bookingData.serviceSlots = diagnosticSlots.map(ds => ({
+        serviceId: ds.service.id,
+        startTime: ds.slot.startTime,
+        endTime: ds.slot.endTime
+      }));
+      bookingData.consultationSlot = {
+        startTime: consultationSlot!.startTime,
+        endTime: consultationSlot!.endTime
+      };
+      bookingData.medicalExaminationIds = selectedServices.filter(sid => {
+        const service = services.find(s => s.id === sid);
+        return service?.name === 'Khám bệnh';
+      });
+    } else if (bookingType === 'CONSULTATION_ONLY') {
+      bookingData.startTime = selectedSlot.startTime;
+      bookingData.endTime = selectedSlot.endTime;
+      bookingData.medicalExaminationIds = selectedServices;
+    } else {
+      bookingData.startTime = selectedSlot.startTime;
+      bookingData.endTime = selectedSlot.endTime;
+      bookingData.medicalExaminationIds = selectedServices; // Add this to include services in payment
+    }
 
     sessionStorage.setItem('pendingBooking', JSON.stringify(bookingData));
 
     try {
+      // Use deposit amount for payment (50% of discounted price)
       const response = await axios.get('http://localhost:8080/api/v1/payment/vn-pay', {
         params: {
-          amount: totalAmount,
+          amount: depositAmount, // Pay deposit instead of full price
           bankCode: 'NCB'
         }
       });
@@ -578,49 +922,80 @@ function BookingSchedule() {
           <div className="flex-1 bg-white rounded-2xl shadow-lg p-8">
             {/* Service and Doctor Selection */}
             <div className="mb-8">
-              <div className="text-2xl font-bold mb-4">
-                1&nbsp; Chọn dịch vụ và bác sĩ - {specialty}
+              <div className="text-2xl font-bold mb-2">
+                 {specialty ? MEDICAL_SPECIALTY_LABELS[specialty as MedicalSpecialtyType] || specialty : ''}
               </div>
+              {bookingType && (
+                <div className={`mb-4 p-3 rounded-lg ${
+                  bookingType === 'CONSULTATION_ONLY' 
+                    ? 'bg-green-50 border border-green-200' 
+                    : 'bg-purple-50 border border-purple-200'
+                }`}>
+                  <div className="flex items-center gap-2 text-sm">
+                    <svg className={`w-5 h-5 ${bookingType === 'CONSULTATION_ONLY' ? 'text-green-600' : 'text-purple-600'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span className={`font-medium ${bookingType === 'CONSULTATION_ONLY' ? 'text-green-800' : 'text-purple-800'}`}>
+                      {bookingType === 'CONSULTATION_ONLY' 
+                        ? '✅ Chế độ: Đặt khám trực tiếp (10 phút/lượt khám)' 
+                        : '✅ Chế độ: Dịch vụ + Khám (30 phút/dịch vụ, các dịch vụ cách nhau 5 phút, khám sau khi có kết quả 5 phút)'}
+                    </span>
+                  </div>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-6">
                 {/* Service Selection Card */}
-                <div 
-                  onClick={() => setShowServiceModal(true)}
-                  className="bg-white rounded-xl border-2 border-gray-200 p-6 cursor-pointer hover:border-blue-500 transition-all"
-                >
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
-                        <svg className="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                        </svg>
+                {bookingType === 'SERVICE_AND_CONSULTATION' && (
+                  <div 
+                    onClick={() => setShowServiceModal(true)}
+                    className="bg-white rounded-xl border-2 border-gray-200 p-6 cursor-pointer hover:border-blue-500 transition-all"
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
+                          <svg className="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                          </svg>
+                        </div>
+                        <div>
+                          <div className="font-semibold text-lg text-gray-900">Dịch vụ cận lâm sàng</div>
+                          <div className="text-sm text-gray-500">Xét nghiệm, siêu âm...</div>
+                        </div>
                       </div>
-                      <div>
-                        <div className="font-semibold text-lg text-gray-900">Dịch vụ khám</div>
-                        <div className="text-sm text-gray-500">Chọn dịch vụ phù hợp</div>
-                      </div>
+                      <svg className="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
                     </div>
-                    <svg className="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
+                    {selectedServices.length > 0 ? (
+                      <div className="bg-blue-50 rounded-lg p-3">
+                        <div className="text-sm font-medium text-blue-900">
+                          Đã chọn {selectedServices.length} dịch vụ
+                        </div>
+                        <div className="text-xs text-blue-700 mt-1">
+                          Tổng: {formatPrice(getTotalPrice())}
+                        </div>
+                        <div className="text-xs text-blue-600 mt-1">
+                          ⏱️ Thời gian dự kiến: {(() => {
+                            const diagnosticServices = selectedServices.filter(sid => {
+                              const service = services.find(s => s.id === sid);
+                              return service?.name !== 'Khám bệnh';
+                            });
+                            return diagnosticServices.length * 30 + (diagnosticServices.length - 1) * 5;
+                          })()} phút làm dịch vụ + 10 phút khám bác sĩ
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-sm text-gray-400">Chưa chọn dịch vụ nào</div>
+                    )}
                   </div>
-                  {selectedServices.length > 0 ? (
-                    <div className="bg-blue-50 rounded-lg p-3">
-                      <div className="text-sm font-medium text-blue-900">
-                        Đã chọn {selectedServices.length} dịch vụ
-                      </div>
-                      <div className="text-xs text-blue-700 mt-1">
-                        Tổng: {formatPrice(getTotalPrice())}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-sm text-gray-400">Chưa chọn dịch vụ nào</div>
-                  )}
-                </div>
+                )}
 
                 {/* Doctor Selection Card */}
                 <div 
                   onClick={() => setShowDoctorModal(true)}
-                  className="bg-white rounded-xl border-2 border-gray-200 p-6 cursor-pointer hover:border-blue-500 transition-all"
+                  className={`bg-white rounded-xl border-2 border-gray-200 p-6 cursor-pointer hover:border-blue-500 transition-all ${
+                    bookingType === 'CONSULTATION_ONLY' ? 'col-span-2' : ''
+                  }`}
                 >
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
@@ -630,8 +1005,10 @@ function BookingSchedule() {
                         </svg>
                       </div>
                       <div>
-                        <div className="font-semibold text-lg text-gray-900">Bác sĩ</div>
-                        <div className="text-sm text-gray-500">Chọn bác sĩ khám bệnh</div>
+                        <div className="font-semibold text-lg text-gray-900">Bác sĩ khám bệnh</div>
+                        <div className="text-sm text-gray-500">
+                          {bookingType === 'CONSULTATION_ONLY' ? 'Chọn bác sĩ để khám' : 'Chọn bác sĩ sau khi có kết quả'}
+                        </div>
                       </div>
                     </div>
                     <svg className="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -665,20 +1042,19 @@ function BookingSchedule() {
             {selectedDoctor && weekSchedule.length > 0 && (
               <div>
                 <div className="text-2xl font-bold mb-4">
-                  2&nbsp; Thời gian khám
+                  Thời gian khám
                 </div>
                 <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
                   <div className="font-semibold text-lg mb-4">
                     Ngày và giờ khám
                   </div>
                   
-                  {/* Days selector - both weeks */}
+                  {/* Days selector */}
                   <div className="space-y-4">
                     {['Tuần này', 'Tuần sau'].map(week => {
                       const weekDays = weekSchedule.filter(d => d.weekLabel === week);
                       if (weekDays.length === 0) return null;
 
-                      // Get today's date at 00:00:00 local time
                       const today = new Date();
                       today.setHours(0, 0, 0, 0);
 
@@ -690,7 +1066,6 @@ function BookingSchedule() {
                           <div className="flex items-center gap-2 overflow-x-auto pb-2">
                             {weekDays.map((day) => {
                               const hasSlots = day.slots && day.slots.length > 0;
-                              // Parse date in local timezone
                               const [year, month, dayNum] = day.date.split('-').map(Number);
                               const dayDate = new Date(year, month - 1, dayNum);
                               const isPast = dayDate < today;
@@ -728,55 +1103,277 @@ function BookingSchedule() {
                     })}
                   </div>
 
-                  {/* Time slots */}
-                  <div className="font-semibold text-lg mb-3 mt-6">
-                    <span className="inline-block w-6 h-6 rounded-full bg-gray-900 text-white text-center leading-6 font-bold mr-2">O</span>
-                    Khung giờ khám
-                  </div>
-                  {(() => {
-                    const selectedDayData = weekSchedule[selectedDay];
-                    // Get today's date at 00:00:00 local time
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-                    // Parse date in local timezone
-                    const dateStr = selectedDayData?.date || '';
-                    const [year, month, dayNum] = dateStr.split('-').map(Number);
-                    const dayDate = new Date(year, month - 1, dayNum);
-                    const isDayPast = dayDate < today;
-                    const hasSlots = selectedDayData?.slots && selectedDayData.slots.length > 0;
-                    
-                    if (isDayPast || !hasSlots) {
-                      return (
-                        <div className="text-center py-8">
-                          <p className="text-gray-500">
-                            {isDayPast ? 'Ngày này đã trôi qua' : 'Không có khung giờ trống trong ngày này'}
-                          </p>
-                        </div>
-                      );
-                    }
-                    
-                    return (
-                      <div className="flex flex-wrap gap-4">
-                        {selectedDayData?.slots.map(slot => (
-                          <button
-                            key={slot.startTime}
-                            onClick={() => setSelectedSlot(slot)}
-                            disabled={!slot.available}
-                            className={`py-4 px-6 rounded-lg font-semibold text-base cursor-pointer transition-all ${
-                              selectedSlot?.startTime === slot.startTime
-                                ? "border-2 border-blue-600 bg-blue-600 text-white"
-                                : slot.available
-                                ? "border border-gray-200 bg-gray-100 text-gray-900 hover:border-gray-300"
-                                : "border border-gray-200 bg-gray-200 text-gray-400 cursor-not-allowed"
-                            }`}
-                          >
-                            {formatTime(slot.startTime)} - {formatTime(slot.endTime)}
-                          </button>
-                        ))}
+                  {/* Time slots - CONSULTATION_ONLY mode */}
+                  {bookingType !== 'SERVICE_AND_CONSULTATION' && (
+                    <div>
+                      <div className="font-semibold text-lg mb-3 mt-6">
+                        <span className="inline-block w-6 h-6 rounded-full bg-gray-900 text-white text-center leading-6 font-bold mr-2">O</span>
+                        Khung giờ khám
                       </div>
-                    );
-                  })()}
-                
+                      {(() => {
+                        const selectedDayData = weekSchedule[selectedDay];
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        const dateStr = selectedDayData?.date || '';
+                        const [year, month, dayNum] = dateStr.split('-').map(Number);
+                        const dayDate = new Date(year, month - 1, dayNum);
+                        const isDayPast = dayDate < today;
+                        const hasSlots = selectedDayData?.slots && selectedDayData.slots.length > 0;
+                        
+                        if (isDayPast || !hasSlots) {
+                          return (
+                            <div className="text-center py-8">
+                              <p className="text-gray-500">
+                                {isDayPast ? 'Ngày này đã trôi qua' : 'Không có khung giờ trống trong ngày này'}
+                              </p>
+                            </div>
+                          );
+                        }
+                        
+                        return (
+                          <div className="bg-white rounded-lg border-2 border-blue-200 p-4">
+                            <div className="max-h-[200px] overflow-y-auto pr-2">
+                              <div className="grid grid-cols-4 gap-3">
+                                {selectedDayData?.slots.map(slot => {
+                                  const isPast = isSlotInPast(dateStr, slot.startTime);
+                                  const hasConflict = isSlotConflictingWithPatient(dateStr, slot.startTime, slot.endTime);
+                                  const isDisabled = !slot.available || isPast || hasConflict;
+                                  
+                                  return (
+                                    <button
+                                      key={slot.startTime}
+                                      onClick={() => !isDisabled && setSelectedSlot(slot)}
+                                      disabled={isDisabled}
+                                      className={`py-4 px-6 rounded-lg font-semibold text-base transition-all relative ${
+                                        selectedSlot?.startTime === slot.startTime
+                                          ? "border-2 border-blue-600 bg-blue-600 text-white"
+                                          : isDisabled
+                                          ? "border border-gray-300 bg-black text-white cursor-not-allowed opacity-70"
+                                          : "border border-gray-200 bg-gray-100 text-gray-900 hover:border-gray-300 hover:bg-blue-50 cursor-pointer"
+                                      }`}
+                                      title={
+                                        isPast 
+                                          ? 'Đã qua giờ' 
+                                          : hasConflict 
+                                          ? 'Bạn đã có lịch khám trong khung giờ này' 
+                                          : !slot.available 
+                                          ? 'Đã có người đặt' 
+                                          : ''
+                                      }
+                                    >
+                                      {formatTime(slot.startTime)} - {formatTime(slot.endTime)}
+                                      {hasConflict && (
+                                        <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></div>
+                                      )}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
+
+                  {/* Time slots - SERVICE_AND_CONSULTATION mode */}
+                  {bookingType === 'SERVICE_AND_CONSULTATION' && selectedServices.length > 0 && (
+                    <div>
+                      <div className="font-semibold text-lg mb-3 mt-6">
+                        <span className="inline-block w-6 h-6 rounded-full bg-purple-600 text-white text-center leading-6 font-bold mr-2">1</span>
+                        Chọn giờ bắt đầu làm dịch vụ
+                      </div>
+                      {(() => {
+                        const selectedDayData = weekSchedule[selectedDay];
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        const dateStr = selectedDayData?.date || '';
+                        const [year, month, dayNum] = dateStr.split('-').map(Number);
+                        const dayDate = new Date(year, month - 1, dayNum);
+                        const isDayPast = dayDate < today;
+                        const hasSlots = selectedDayData?.slots && selectedDayData.slots.length > 0;
+                        
+                        if (isDayPast || !hasSlots) {
+                          return (
+                            <div className="text-center py-8">
+                              <p className="text-gray-500">
+                                {isDayPast ? 'Ngày này đã trôi qua' : 'Không có khung giờ trống trong ngày này'}
+                              </p>
+                            </div>
+                          );
+                        }
+                        
+                        return (
+                          <div>
+                            <div className="bg-white rounded-lg border-2 border-purple-200 p-4 mb-6">
+                              <div className="max-h-[200px] overflow-y-auto pr-2">
+                                <div className="grid grid-cols-4 gap-3">
+                                  {selectedDayData?.slots.filter(s => s.available).map(slot => {
+                                    const isPast = isSlotInPast(dateStr, slot.startTime);
+                                    
+                                    const diagServices = selectedServices
+                                      .map(sid => services.find(s => s.id === sid)!)
+                                      .filter(s => s && s.name !== 'Khám bệnh');
+                                    
+                                    const totalServiceTime = diagServices.length * 30;
+                                    const gapTime = (diagServices.length - 1) * 5;
+                                    const waitTime = 5;
+                                    const consultTime = 10;
+                                    const totalMinutes = totalServiceTime + gapTime + waitTime + consultTime;
+                                    
+                                    const [sh, sm] = slot.startTime.split(':').map(Number);
+                                    const endTotalMinutes = sh * 60 + sm + totalMinutes;
+                                    const eh = Math.floor(endTotalMinutes / 60);
+                                    const em = endTotalMinutes % 60;
+                                    const estimatedEndTime = `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}:00`;
+                                    
+                                    const hasConflict = isSlotConflictingWithPatient(dateStr, slot.startTime, estimatedEndTime);
+                                    const isDisabled = isPast || hasConflict;
+                                    
+                                    return (
+                                      <button
+                                        key={slot.startTime}
+                                        onClick={() => {
+                                          if (!isDisabled) {
+                                            setSelectedSlot(slot);
+                                            const diagSlots = calculateDiagnosticSlots(slot, diagServices);
+                                            setDiagnosticSlots(diagSlots);
+                                          }
+                                        }}
+                                        disabled={isDisabled}
+                                        className={`py-4 px-6 rounded-lg font-semibold text-base transition-all relative ${
+                                          selectedSlot?.startTime === slot.startTime
+                                            ? "border-2 border-purple-600 bg-purple-600 text-white"
+                                            : isDisabled
+                                            ? "border border-gray-300 bg-black text-white cursor-not-allowed opacity-70"
+                                            : "border border-gray-200 bg-gray-100 text-gray-900 hover:border-gray-300 hover:bg-purple-50 cursor-pointer"
+                                        }`}
+                                        title={
+                                          isPast 
+                                            ? 'Đã qua giờ' 
+                                            : hasConflict 
+                                            ? 'Bạn đã có lịch khám trong khung giờ này' 
+                                            : ''
+                                        }
+                                      >
+                                        {formatTime(slot.startTime)}
+                                        {hasConflict && (
+                                          <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></div>
+                                        )}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Timeline */}
+                            {selectedSlot && diagnosticSlots.length > 0 && (
+                              <div className="bg-purple-50 border-2 border-purple-200 rounded-xl p-6">
+                                <div className="font-semibold text-lg mb-4 text-purple-900">
+                                  📋 Quy trình khám chi tiết
+                                </div>
+                                <div className="space-y-4">
+                                  {diagnosticSlots.map((diagSlot, index) => {
+                                    const serviceDuration = diagSlot.service.minDuration || 30;
+                                    const isLongService = serviceDuration >= 30;
+                                    
+                                    return (
+                                      <div key={index} className="flex items-start gap-4">
+                                        <div className={`flex-shrink-0 w-8 h-8 rounded-full ${isLongService ? 'bg-orange-600' : 'bg-purple-600'} text-white flex items-center justify-center font-bold text-sm`}>
+                                          {index + 1}
+                                        </div>
+                                        <div className="flex-1 bg-white rounded-lg p-4 border border-purple-200">
+                                          <div className="flex items-center gap-2">
+                                            <div className="font-semibold text-gray-900">{diagSlot.service.name}</div>
+                                            {diagSlot.service.minDuration && (
+                                              <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                                                isLongService 
+                                                  ? 'bg-orange-100 text-orange-800' 
+                                                  : 'bg-green-100 text-green-800'
+                                              }`}>
+                                                {isLongService ? '⏱️ Phải ở tại chỗ' : '⚡ Có thể rời khỏi'}
+                                              </span>
+                                            )}
+                                          </div>
+                                          <div className="text-sm text-gray-600 mt-1">
+                                            🕐 {formatTime(diagSlot.slot.startTime)} - {formatTime(diagSlot.slot.endTime)}
+                                          </div>
+                                          <div className="text-xs text-purple-700 mt-1">
+                                            ⏱️ Thời gian làm: {serviceDuration} phút • Kết quả: {formatTime(diagSlot.resultTime)}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+
+                                  <div className="flex items-center gap-4 ml-12">
+                                    <div className="flex-1 border-l-4 border-dashed border-gray-300 pl-4 py-2">
+                                      <div className="text-sm text-gray-600">
+                                        ⏳ Chờ kết quả (~5 phút)
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div className="font-semibold text-base mb-3 text-gray-900 mt-4">
+                                    <span className="inline-block w-6 h-6 rounded-full bg-green-600 text-white text-center leading-6 font-bold mr-2 text-sm">✓</span>
+                                    Chọn giờ khám bác sĩ
+                                  </div>
+                                  {(() => {
+                                    const lastResult = diagnosticSlots[diagnosticSlots.length - 1]?.resultTime;
+                                    if (!lastResult) return null;
+                                    
+                                    const consultationSlots = calculateConsultationSlotsAfterDiagnostic(lastResult, selectedDayData.slots);
+                                    
+                                    return (
+                                      <div className="ml-12 bg-white rounded-lg border-2 border-green-200 p-4">
+                                        <div className="max-h-[200px] overflow-y-auto pr-2">
+                                          <div className="grid grid-cols-4 gap-3">
+                                            {consultationSlots.map((conSlot) => {
+                                              const isPast = isSlotInPast(dateStr, conSlot.startTime);
+                                              const hasConflict = isSlotConflictingWithPatient(dateStr, conSlot.startTime, conSlot.endTime);
+                                              const isDisabled = isPast || hasConflict;
+                                              
+                                              return (
+                                                <button
+                                                  key={conSlot.startTime}
+                                                  onClick={() => !isDisabled && setConsultationSlot(conSlot)}
+                                                  disabled={isDisabled}
+                                                  className={`py-3 px-4 rounded-lg font-medium text-sm transition-all relative ${
+                                                    consultationSlot?.startTime === conSlot.startTime
+                                                      ? "border-2 border-green-600 bg-green-600 text-white"
+                                                      : isDisabled
+                                                      ? "border border-gray-300 bg-black text-white cursor-not-allowed opacity-70"
+                                                      : "border border-gray-200 bg-gray-50 text-gray-900 hover:border-green-300 hover:bg-green-50 cursor-pointer"
+                                                  }`}
+                                                  title={
+                                                    isPast 
+                                                      ? 'Đã qua giờ' 
+                                                      : hasConflict 
+                                                      ? 'Bạn đã có lịch khám trong khung giờ này' 
+                                                      : ''
+                                                  }
+                                                >
+                                                  {formatTime(conSlot.startTime)}
+                                                  {hasConflict && (
+                                                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></div>
+                                                  )}
+                                                </button>
+                                              );
+                                            })}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    );
+                                  })()}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -788,7 +1385,6 @@ function BookingSchedule() {
               Thông tin đặt khám
             </div>
 
-            {/* Selected Services */}
             {selectedServices.length > 0 && (
               <div className="mb-4 pb-4 border-b border-gray-200">
                 <div className="text-sm font-semibold text-gray-700 mb-3">Dịch vụ đã chọn:</div>
@@ -796,21 +1392,58 @@ function BookingSchedule() {
                   {selectedServices.map(serviceId => {
                     const service = services.find(s => s.id === serviceId);
                     return (
-                      <div key={serviceId} className="flex justify-between items-start text-sm">
-                        <span className="text-gray-600 flex-1 pr-2">{service?.name}</span>
-                        <span className="font-medium text-gray-900 whitespace-nowrap">{formatPrice(service?.price || 0)}</span>
+                      <div key={serviceId} className="space-y-1">
+                        <div className="flex justify-between items-start text-sm">
+                          <span className="text-gray-600 flex-1 pr-2">{service?.name}</span>
+                          <span className="font-medium text-gray-900 whitespace-nowrap">{formatPrice(service?.price || 0)}</span>
+                        </div>
+                        {/* Duration badge in sidebar */}
+                        {service?.minDuration && (
+                          <div className="flex items-center text-xs">
+                            <span className={`px-2 py-0.5 rounded ${
+                              service.minDuration < 30 
+                                ? 'bg-green-50 text-green-700' 
+                                : 'bg-orange-50 text-orange-700'
+                            }`}>
+                              ⏱ {service.minDuration} phút {service.minDuration < 30 ? '(Nhanh)' : '(Cần thời gian)'}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
                 </div>
-                <div className="mt-3 pt-3 border-t border-gray-100 flex justify-between items-center">
-                  <span className="text-sm font-semibold text-gray-700">Tổng cộng:</span>
-                  <span className="text-base font-bold text-blue-600">{formatPrice(getTotalPrice())}</span>
+                
+                {/* Duration Summary */}
+                {getTotalDuration() > 0 && (
+                  <div className="mt-3 pt-2 border-t border-gray-100 flex justify-between items-center text-sm">
+                    <span className="text-gray-600">Tổng thời gian:</span>
+                    <span className="font-semibold text-blue-600">{getTotalDuration()} phút</span>
+                  </div>
+                )}
+                
+                {/* Price Summary with Discount */}
+                <div className="mt-3 pt-3 border-t border-gray-200 space-y-2">
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-gray-600">Tổng giá dịch vụ:</span>
+                    <span className="font-medium text-gray-900">{formatPrice(getTotalPrice())}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-green-600">Giảm 10% (online):</span>
+                    <span className="font-medium text-green-600">-{formatPrice(getTotalPrice() - applyDiscount(getTotalPrice()))}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm pt-2 border-t border-gray-100">
+                    <span className="text-gray-700 font-semibold">Sau giảm giá:</span>
+                    <span className="text-base font-bold text-blue-600">{formatPrice(applyDiscount(getTotalPrice()))}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm bg-orange-50 -mx-2 px-2 py-2 rounded">
+                    <span className="text-orange-700 font-semibold">Cần đặt cọc (50%):</span>
+                    <span className="text-base font-bold text-orange-600">{formatPrice(calculateDeposit(applyDiscount(getTotalPrice())))}</span>
+                  </div>
                 </div>
               </div>
             )}
 
-            {/* Selected Doctor */}
             {selectedDoctor && (
               <div className="mb-4 pb-4 border-b border-gray-200">
                 <div className="text-sm font-semibold text-gray-700 mb-3">Bác sĩ:</div>
@@ -835,8 +1468,37 @@ function BookingSchedule() {
               </div>
             )}
 
-            {/* Selected Time */}
-            {selectedSlot && (
+            {bookingType === 'SERVICE_AND_CONSULTATION' && selectedServices.length > 0 ? (
+              <div className="mb-4 pb-4 border-b border-gray-200">
+                <div className="text-sm font-semibold text-gray-700 mb-3">Thời gian:</div>
+                <div className="space-y-3">
+                  {diagnosticSlots.length > 0 && (
+                    <div>
+                      <div className="text-xs text-gray-600 mb-2">Làm dịch vụ:</div>
+                      {diagnosticSlots.map((ds, idx) => (
+                        <div key={idx} className="text-xs text-gray-900 mb-1">
+                          <span className="font-medium">{ds.service.name}</span>
+                          <span className="text-purple-600 ml-2">
+                            {formatTime(ds.slot.startTime)} - {formatTime(ds.slot.endTime)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {consultationSlot && (
+                    <div>
+                      <div className="text-xs text-gray-600 mb-1">Khám bác sĩ:</div>
+                      <div className="text-sm font-medium text-gray-900">
+                        <span>{weekSchedule[selectedDay].label}</span>
+                        <div className="text-green-600 font-semibold mt-1">
+                          {formatTime(consultationSlot.startTime)} - {formatTime(consultationSlot.endTime)}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : selectedSlot && (
               <div className="mb-4 pb-4 border-b border-gray-200">
                 <div className="text-sm font-semibold text-gray-700 mb-2">Thời gian khám:</div>
                 <div className="text-sm text-gray-900">
@@ -848,38 +1510,29 @@ function BookingSchedule() {
               </div>
             )}
 
-            {/* Clinic Info */}
-            <div className="mb-6">
-              <div className="text-sm font-semibold text-gray-700 mb-3">Địa điểm khám:</div>
-              <div className="flex items-start gap-3">
-                <div className="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
-                  <svg className="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                </div>
-                <div className="flex-1">
-                  <div className="font-semibold text-sm text-gray-900">Phòng khám Đa khoa</div>
-                  <div className="text-xs text-gray-600 mt-1">
-                    53 Phạm Hữu Chí, Phường 12, Quận 5, Hồ Chí Minh
-                  </div>
-                </div>
-              </div>
-            </div>
-
             <button
               onClick={handlePayment}
               className={`w-full font-bold text-base border-none rounded-lg py-4 mb-3 transition-all ${
-                selectedSlot && selectedServices.length > 0 && selectedDoctor
+                (bookingType === 'CONSULTATION_ONLY' && selectedSlot) ||
+                (bookingType === 'SERVICE_AND_CONSULTATION' && selectedSlot && consultationSlot)
                   ? "bg-blue-600 text-white cursor-pointer hover:bg-blue-700"
                   : "bg-gray-300 text-gray-500 cursor-not-allowed"
               }`}
-              disabled={!selectedSlot || selectedServices.length === 0 || !selectedDoctor}
+              disabled={
+                !(bookingType === 'CONSULTATION_ONLY' && selectedSlot) &&
+                !(bookingType === 'SERVICE_AND_CONSULTATION' && selectedSlot && consultationSlot)
+              }
             >
-              Thanh toán và đặt khám
+              {selectedServices.length > 0 
+                ? `Đặt cọc ${formatPrice(calculateDeposit(applyDiscount(getTotalPrice())))} và xác nhận`
+                : 'Thanh toán và đặt khám'
+              }
             </button>
             <div className="text-xs text-gray-500 text-center leading-relaxed">
-              Bằng cách nhấn nút thanh toán, bạn đã đồng ý với các điều khoản và điều kiện đặt khám
+              {selectedServices.length > 0 
+                ? 'Bạn chỉ cần thanh toán 50% giá trị đơn hàng để giữ lịch hẹn. Số tiền còn lại sẽ thanh toán khi đến khám.'
+                : 'Bằng cách nhấn nút thanh toán, bạn đã đồng ý với các điều khoản và điều kiện đặt khám'
+              }
             </div>
           </div>
         </div>
@@ -887,7 +1540,7 @@ function BookingSchedule() {
 
       {/* Service Selection Modal */}
       {showServiceModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-blue-100/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
               <div>
@@ -905,6 +1558,23 @@ function BookingSchedule() {
             </div>
 
             <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
+              {/* Info Banner */}
+              <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <svg className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div className="flex-1">
+                    <div className="text-sm font-semibold text-blue-900 mb-1">Ưu đãi đặt khám online:</div>
+                    <ul className="text-xs text-blue-800 space-y-1">
+                      <li>✓ Giảm 10% tổng giá trị dịch vụ</li>
+                      <li>✓ Chỉ cần đặt cọc 50% để giữ lịch hẹn</li>
+                      <li>✓ Thanh toán số tiền còn lại khi đến khám</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+              
               <div className="grid grid-cols-2 gap-4">
                 {services.map(service => (
                   <div
@@ -920,6 +1590,31 @@ function BookingSchedule() {
                       <div className="flex-1">
                         <div className="font-semibold text-base text-gray-900">{service.name}</div>
                         <div className="text-sm text-blue-600 font-medium mt-1">{formatPrice(service.price)}</div>
+                        
+                        {/* Duration Badge */}
+                        {service.minDuration && (
+                          <div className="mt-2 flex items-center gap-2">
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              service.minDuration < 30 
+                                ? 'bg-green-100 text-green-800' 
+                                : 'bg-orange-100 text-orange-800'
+                            }`}>
+                              <svg className="w-3 h-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              {service.minDuration} phút
+                            </span>
+                            <span className={`text-xs ${
+                              service.minDuration < 30 
+                                ? 'text-green-600' 
+                                : 'text-orange-600'
+                            }`}>
+                              {service.minDuration < 30 
+                                ? '(Có thể rời khỏi chờ kết quả)' 
+                                : '(Phải ở tại chỗ)'}
+                            </span>
+                          </div>
+                        )}
                       </div>
                       <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${
                         selectedServices.includes(service.id)
@@ -939,13 +1634,63 @@ function BookingSchedule() {
             </div>
 
             <div className="flex items-center justify-between p-6 border-t border-gray-200 bg-gray-50">
-              <div>
-                <div className="text-sm text-gray-600">Đã chọn {selectedServices.length} dịch vụ</div>
-                <div className="text-lg font-bold text-blue-600">Tổng: {formatPrice(getTotalPrice())}</div>
+              <div className="flex-1">
+                <div className="text-sm text-gray-600 mb-1">Đã chọn {selectedServices.length} dịch vụ</div>
+                
+                {/* Duration Info */}
+                {selectedServices.length > 0 && getTotalDuration() > 0 && (
+                  <div className="mb-2">
+                    <div className="text-sm text-gray-600 flex items-center">
+                      <svg className="w-4 h-4 mr-1 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Tổng thời gian: <span className="font-semibold ml-1">{getTotalDuration()} phút</span>
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1 ml-5">
+                      {(() => {
+                        const longServices = selectedServices.filter(sid => {
+                          const s = services.find(x => x.id === sid);
+                          return s && s.minDuration && s.minDuration >= 30;
+                        });
+                        const shortServices = selectedServices.filter(sid => {
+                          const s = services.find(x => x.id === sid);
+                          return s && (!s.minDuration || s.minDuration < 30);
+                        });
+                        if (longServices.length > 0 && shortServices.length > 0) {
+                          return '⚡ Dịch vụ nhanh có thể làm đồng thời, dịch vụ lâu làm tuần tự';
+                        } else if (longServices.length > 1) {
+                          return '⏱️ Các dịch vụ sẽ được thực hiện tuần tự';
+                        } else {
+                          return '✓ Thời gian ước tính cho tất cả dịch vụ';
+                        }
+                      })()}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Price Breakdown */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Tổng giá dịch vụ:</span>
+                    <span className="font-medium text-gray-900">{formatPrice(getTotalPrice())}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-green-600">Giảm giá (10% đặt online):</span>
+                    <span className="font-medium text-green-600">-{formatPrice(getTotalPrice() - applyDiscount(getTotalPrice()))}</span>
+                  </div>
+                  <div className="flex justify-between text-sm pt-1 border-t border-gray-200">
+                    <span className="text-gray-600">Sau giảm giá:</span>
+                    <span className="font-semibold text-blue-600">{formatPrice(applyDiscount(getTotalPrice()))}</span>
+                  </div>
+                  <div className="flex justify-between text-sm pb-1">
+                    <span className="text-orange-600">Cần đặt cọc (50%):</span>
+                    <span className="font-bold text-orange-600">{formatPrice(calculateDeposit(applyDiscount(getTotalPrice())))}</span>
+                  </div>
+                </div>
               </div>
               <button
                 onClick={handleServiceModalClose}
-                className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+                className="ml-6 px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors whitespace-nowrap"
               >
                 Xác nhận
               </button>
@@ -956,7 +1701,7 @@ function BookingSchedule() {
 
       {/* Doctor Selection Modal */}
       {showDoctorModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-blue-100/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden">
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
               <div>
@@ -1042,9 +1787,154 @@ function BookingSchedule() {
         </div>
       )}
 
+      {/* Booking Type Selection Modal */}
+      {showBookingTypeModal && (
+        <div className="fixed inset-0 bg-blue-100/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-2xl w-full overflow-hidden shadow-2xl">
+            <div className="p-8 text-center">
+              <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <svg className="w-10 h-10 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                </svg>
+              </div>
+              <h2 className="text-3xl font-bold text-gray-900 mb-3">Chọn loại đặt lịch</h2>
+              <p className="text-gray-600 mb-8">Vui lòng chọn hình thức đặt lịch phù hợp với nhu cầu của bạn</p>
+
+              <div className="grid grid-cols-2 gap-6">
+                {/* Consultation Only */}
+                <div
+                  onClick={async () => {
+                    try {
+                      const response = await axios.post(
+                        'http://localhost:8080/medical-examination/by-specialty',
+                        {
+                          specility: specialty
+                        }
+                      );
+                      
+                      if (response.data?.results) {
+                        const khamBenhService = response.data.results.find(
+                          (service: any) => service.name === 'Khám bệnh'
+                        );
+                        
+                        if (khamBenhService) {
+                          setSelectedServices([khamBenhService.id]);
+                          setBookingType('CONSULTATION_ONLY');
+                          setShowBookingTypeModal(false);
+                          console.log('Auto-assigned Khám bệnh service:', khamBenhService);
+                        } else {
+                          alert('Không tìm thấy dịch vụ "Khám bệnh" cho chuyên khoa này. Vui lòng liên hệ quản trị viên.');
+                          return;
+                        }
+                      } else {
+                        alert('Không thể tải danh sách dịch vụ. Vui lòng thử lại.');
+                        return;
+                      }
+                    } catch (error) {
+                      console.error('Error fetching Khám bệnh service:', error);
+                      alert('Lỗi khi tải dịch vụ khám bệnh. Vui lòng thử lại.');
+                      return;
+                    }
+                  }}
+                  className="group p-6 rounded-xl border-2 border-gray-200 bg-white hover:border-blue-500 hover:bg-blue-50 cursor-pointer transition-all transform hover:scale-105"
+                >
+                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:bg-green-200 transition-colors">
+                    <svg className="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">Đặt khám</h3>
+                  <p className="text-sm text-gray-600 mb-4">Khám bác sĩ trực tiếp</p>
+                  <div className="text-xs text-gray-500 space-y-1">
+                    <div className="flex items-center justify-center gap-2">
+                      <svg className="w-4 h-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span>Thời gian khám: ~10 phút</span>
+                    </div>
+                    <div className="flex items-center justify-center gap-2">
+                      <svg className="w-4 h-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span>Nhanh gọn, tiện lợi</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Service + Consultation */}
+                <div
+                  onClick={async () => {
+                    try {
+                      const response = await axios.post(
+                        'http://localhost:8080/medical-examination/by-specialty',
+                        {
+                          specility: specialty
+                        }
+                      );
+                      
+                      if (response.data?.results) {
+                        const khamBenhService = response.data.results.find(
+                          (service: any) => service.name === 'Khám bệnh'
+                        );
+                        
+                        if (khamBenhService) {
+                          setSelectedServices([khamBenhService.id]);
+                          setBookingType('SERVICE_AND_CONSULTATION');
+                          setShowBookingTypeModal(false);
+                          console.log('Auto-assigned Khám bệnh service for SERVICE_AND_CONSULTATION:', khamBenhService);
+                        } else {
+                          alert('Không tìm thấy dịch vụ "Khám bệnh" cho chuyên khoa này. Vui lòng liên hệ quản trị viên.');
+                          return;
+                        }
+                      } else {
+                        alert('Không thể tải danh sách dịch vụ. Vui lòng thử lại.');
+                        return;
+                      }
+                    } catch (error) {
+                      console.error('Error fetching Khám bệnh service:', error);
+                      alert('Lỗi khi tải dịch vụ khám bệnh. Vui lòng thử lại.');
+                      return;
+                    }
+                  }}
+                  className="group p-6 rounded-xl border-2 border-gray-200 bg-white hover:border-purple-500 hover:bg-purple-50 cursor-pointer transition-all transform hover:scale-105"
+                >
+                  <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:bg-purple-200 transition-colors">
+                    <svg className="w-8 h-8 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">Dịch vụ + Khám</h3>
+                  <p className="text-sm text-gray-600 mb-4">Làm dịch vụ trước, sau đó khám</p>
+                  <div className="text-xs text-gray-500 space-y-1">
+                    <div className="flex items-center justify-center gap-2">
+                      <svg className="w-4 h-4 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span>Dịch vụ: 30 phút/dịch vụ</span>
+                    </div>
+                    <div className="flex items-center justify-center gap-2">
+                      <svg className="w-4 h-4 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span>Khám với kết quả đầy đủ</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-8 text-center">
+                <p className="text-xs text-gray-500">
+                  💡 Chọn "Dịch vụ + Khám" nếu bạn cần làm xét nghiệm, siêu âm trước khi gặp bác sĩ
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Medical Service Request Modal */}
       {showRequestModal && medicalRequests.length > 0 && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-blue-100/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
               <div>
@@ -1066,7 +1956,6 @@ function BookingSchedule() {
                     onClick={() => setSelectedRequest(request)}
                   >
                     <div className="space-y-3">
-                      {/* Doctor Info */}
                       <div className="flex items-center gap-3 pb-3 border-b border-gray-200">
                         <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
                           <svg className="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1079,7 +1968,6 @@ function BookingSchedule() {
                         </div>
                       </div>
 
-                      {/* Services List */}
                       <div>
                         <div className="text-sm font-semibold text-gray-700 mb-2">Dịch vụ khám ({request.medicalExaminations.length}):</div>
                         <div className="space-y-2">

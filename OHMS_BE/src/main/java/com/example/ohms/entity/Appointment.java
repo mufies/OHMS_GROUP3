@@ -56,8 +56,38 @@ public class Appointment {
    @Builder.Default
    List<MedicalExamination> medicalExamnination = new java.util.ArrayList<>();
 
+   // Relationship: appointment chính (khám bác sĩ) có nhiều appointment phụ (dịch vụ)
+   // VD: Appointment khám bác sĩ -> serviceAppointments = [apt_xét_nghiệm, apt_siêu_âm, apt_x_quang]
+   @OneToMany(mappedBy = "parentAppointment")
+   @Builder.Default
+   List<Appointment> serviceAppointments = new java.util.ArrayList<>();
+
+   // Appointment phụ (dịch vụ) tham chiếu về appointment chính
+   // VD: apt_xét_nghiệm.parentAppointment -> Appointment khám bác sĩ
+   // DB sẽ có column: parent_appointment_id (nullable, vì appointment chính thì null)
+   @ManyToOne
+   @JoinColumn(name = "parent_appointment_id")
+   Appointment parentAppointment;
+
    LocalDate workDate;
    LocalTime startTime;
    LocalTime endTime;
+   // status để check khám chưa
+
    String status;
+   
+   // Phần trăm giảm giá cho appointment (0-100)
+   // VD: discount = 10 nghĩa là giảm 10% cho online booking
+   // null hoặc 0 = không giảm giá
+   @Builder.Default
+   Integer discount = 0;
+   
+   // Tiền đặt cọc (VND) - thường là 50% tổng giá dịch vụ
+   // null hoặc 0 = không cần đặt cọc
+   Integer deposit;
+   
+   // Trạng thái thanh toán đặt cọc
+   @Enumerated(EnumType.STRING)
+   @Builder.Default
+   PaymentStatus depositStatus = PaymentStatus.PENDING;
 }

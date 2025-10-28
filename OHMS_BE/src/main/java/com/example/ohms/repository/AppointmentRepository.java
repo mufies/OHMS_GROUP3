@@ -90,6 +90,10 @@ public interface AppointmentRepository extends JpaRepository<Appointment, String
     @Query("SELECT a FROM Appointment a JOIN FETCH a.patient WHERE a.doctor.id = :doctorId AND a.workDate = :workDate ORDER BY a.startTime")
     List<Appointment> findByDoctorAndDateWithPatientDetails(@Param("doctorId") String doctorId, @Param("workDate") LocalDate workDate);
     
+    // Find appointments by patient with all details for a specific date
+    @Query("SELECT a FROM Appointment a LEFT JOIN FETCH a.doctor WHERE a.patient.id = :patientId AND a.workDate = :workDate AND a.status = 'Schedule' ORDER BY a.startTime")
+    List<Appointment> findByPatientAndDate(@Param("patientId") String patientId, @Param("workDate") LocalDate workDate);
+    
     // Count appointments by doctor for a specific date
     @Query("SELECT COUNT(a) FROM Appointment a WHERE a.doctor.id = :doctorId AND a.workDate = :workDate")
     long countByDoctorAndDate(@Param("doctorId") String doctorId, @Param("workDate") LocalDate workDate);

@@ -17,6 +17,7 @@ import com.example.ohms.dto.response.AppointmentResponse;
 import com.example.ohms.entity.Appointment;
 import com.example.ohms.entity.MedicalExamination;
 import com.example.ohms.entity.User;
+import com.example.ohms.enums.PaymentStatus;
 import com.example.ohms.repository.AppointmentRepository;
 import com.example.ohms.repository.MedicleExaminatioRepository;
 import com.example.ohms.repository.UserRepository;
@@ -43,6 +44,8 @@ public class AppointmentService {
         log.info("Creating appointment for patient: {} with doctor: {}", request.getPatientId(), request.getDoctorId());
         
         // Kiểm tra conflict
+        if(request.getParentAppointmentId()== null)
+        {
         boolean canCreate = appointmentRepository.canCreateAppointment(
             request.getDoctorId(),
             request.getPatientId(),
@@ -54,6 +57,7 @@ public class AppointmentService {
         if (!canCreate) {
             throw new RuntimeException("Time slot already booked for doctor or patient!");
         }
+    }
         
         // Lấy thông tin doctor và patient
         User doctor = null; // Khởi tạo doctor là null
@@ -65,6 +69,14 @@ public class AppointmentService {
         User patient = userRepository.findById(request.getPatientId())
             .orElseThrow(() -> new RuntimeException("Patient not found with id: " + request.getPatientId()));
         
+            // Xử lý parent appointment nếu có
+            Appointment parentAppointment = null;
+            if (request.getParentAppointmentId() != null && !request.getParentAppointmentId().isBlank()) {
+                log.info("This is a service appointment with parent id: {}", request.getParentAppointmentId());
+                parentAppointment = appointmentRepository.findById(request.getParentAppointmentId())
+                    .orElseThrow(() -> new RuntimeException("Parent appointment not found with id: " + request.getParentAppointmentId()));
+            }
+        
         // Tạo appointment entity
         Appointment appointment = Appointment.builder()
             .doctor(doctor)
@@ -73,6 +85,11 @@ public class AppointmentService {
             .startTime(request.getStartTime())
             .endTime(request.getEndTime())
             .status("Schedule")
+            .parentAppointment(parentAppointment)
+            .discount(request.getDiscount() != null ? request.getDiscount() : 0)
+            .deposit(request.getDeposit())
+            .depositStatus(request.getDepositStatus() != null ? 
+                PaymentStatus.valueOf(request.getDepositStatus()) : PaymentStatus.PENDING)
             .build();
         
         // Handle medical examinations nếu có trong request
@@ -170,6 +187,8 @@ public class AppointmentService {
                           .map(this::toAppointmentResponse)
                           .collect(Collectors.toList());
     }
+
+
     
     // Lấy appointment sắp tới của doctor
     public List<AppointmentResponse> getUpcomingAppointmentsByDoctor(String doctorId) {
@@ -196,6 +215,16 @@ public class AppointmentService {
         log.info("Getting appointments for doctor: {} on date: {}", doctorId, date);
         
         List<Appointment> appointments = appointmentRepository.findByDoctorAndDateWithPatientDetails(doctorId, date);
+        return appointments.stream()
+                          .map(this::toAppointmentResponse)
+                          .collect(Collectors.toList());
+    }
+    
+    // Lấy appointment của patient theo ngày cụ thể
+    public List<AppointmentResponse> getPatientAppointmentsByDate(String patientId, LocalDate date) {
+        log.info("Getting appointments for patient: {} on date: {}", patientId, date);
+        
+        List<Appointment> appointments = appointmentRepository.findByPatientAndDate(patientId, date);
         return appointments.stream()
                           .map(this::toAppointmentResponse)
                           .collect(Collectors.toList());
@@ -295,7 +324,7 @@ public class AppointmentService {
     // }
     
     // Convert Appointment entity sang AppointmentResponse
-    private AppointmentResponse toAppointmentResponse(Appointment appointment) {
+    public AppointmentResponse toAppointmentResponse(Appointment appointment) {
         if (appointment == null) {
             return null;
         }
@@ -305,7 +334,11 @@ public class AppointmentService {
             .workDate(appointment.getWorkDate())
             .startTime(appointment.getStartTime())
             .endTime(appointment.getEndTime())
-            .status(appointment.getStatus()); // Default status
+            .status(appointment.getStatus())
+            .discount(appointment.getDiscount())
+            .deposit(appointment.getDeposit())
+            .depositStatus(appointment.getDepositStatus() != null ? 
+                appointment.getDepositStatus().name() : null);
         
         // Map patient info
         if (appointment.getPatient() != null) {
@@ -337,11 +370,110 @@ public class AppointmentService {
                     .id(exam.getId())
                     .name(exam.getName())
                     .price(exam.getPrice())
+                    .minDuration(exam.getMinDuration()) // Map minDuration
                     .build())
                 .collect(Collectors.toList());
             builder.medicalExaminations(examInfos);
         }
         
+        // Map parent appointment ID
+        if (appointment.getParentAppointment() != null) {
+            builder.parentAppointmentId(appointment.getParentAppointment().getId());
+        }
+        
+        // Map service appointments (nếu là appointment chính)
+        if (appointment.getServiceAppointments() != null && !appointment.getServiceAppointments().isEmpty()) {
+            List<AppointmentResponse.ServiceAppointmentInfo> serviceInfos = appointment.getServiceAppointments()
+                .stream()
+                .map(serviceAppt -> {
+                    // Map medical examinations của service appointment
+                    List<AppointmentResponse.MedicalExaminationInfo> serviceExamInfos = null;
+                    if (serviceAppt.getMedicalExamnination() != null && !serviceAppt.getMedicalExamnination().isEmpty()) {
+                        serviceExamInfos = serviceAppt.getMedicalExamnination()
+                            .stream()
+                            .map(exam -> AppointmentResponse.MedicalExaminationInfo.builder()
+                                .id(exam.getId())
+                                .name(exam.getName())
+                                .price(exam.getPrice())
+                                .minDuration(exam.getMinDuration()) // Map minDuration for service appointments
+                                .build())
+                            .collect(Collectors.toList());
+                    }
+                    
+                    return AppointmentResponse.ServiceAppointmentInfo.builder()
+                        .id(serviceAppt.getId())
+                        .startTime(serviceAppt.getStartTime())
+                        .endTime(serviceAppt.getEndTime())
+                        .status(serviceAppt.getStatus())
+                        .medicalExaminations(serviceExamInfos)
+                        .build();
+                })
+                .collect(Collectors.toList());
+            builder.serviceAppointments(serviceInfos);
+        }
+        
         return builder.build();
+    }
+
+    // Update medical examinations for appointment - ADD only, don't remove existing ones
+    public AppointmentResponse updateAppointmentMedicalExaminations(String appointmentId, List<String> medicalExaminationIds) {
+        log.info("Adding medical examinations to appointment: {}", appointmentId);
+        
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+            .orElseThrow(() -> new RuntimeException("Appointment not found with id: " + appointmentId));
+        
+        // Get existing medical examinations list
+        List<MedicalExamination> existingExams = appointment.getMedicalExamnination();
+        if (existingExams == null) {
+            existingExams = new ArrayList<>();
+            appointment.setMedicalExamnination(existingExams);
+        }
+        
+        // Add new medical examinations (only if not already present)
+        if (medicalExaminationIds != null && !medicalExaminationIds.isEmpty()) {
+            for (String examId : medicalExaminationIds) {
+                // Check if already exists
+                boolean alreadyExists = existingExams.stream()
+                    .anyMatch(exam -> exam.getId().equals(examId));
+                
+                if (!alreadyExists) {
+                    MedicalExamination examination = medicleExaminatioRepository.findById(examId)
+                        .orElseThrow(() -> new RuntimeException("Medical examination not found: " + examId));
+                    existingExams.add(examination);
+                    log.info("Added medical examination {} to appointment {}", examination.getName(), appointmentId);
+                }
+            }
+            
+            log.info("Total {} medical examinations for appointment: {}", existingExams.size(), appointmentId);
+        }
+        
+        appointmentRepository.save(appointment);
+        return toAppointmentResponse(appointment);
+    }
+    
+    // Helper: Tính tổng giá của các medical examinations
+    public int calculateTotalPrice(List<String> medicalExaminationIds) {
+        if (medicalExaminationIds == null || medicalExaminationIds.isEmpty()) {
+            return 0;
+        }
+        
+        return medicalExaminationIds.stream()
+            .map(id -> medicleExaminatioRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Medical examination not found: " + id)))
+            .mapToInt(MedicalExamination::getPrice)
+            .sum();
+    }
+    
+    // Helper: Tính deposit (50% tổng giá)
+    public int calculateDeposit(int totalPrice) {
+        return totalPrice / 2;
+    }
+    
+    // Helper: Tính giá sau discount
+    public int calculatePriceAfterDiscount(int totalPrice, int discountPercent) {
+        if (discountPercent <= 0 || discountPercent > 100) {
+            return totalPrice;
+        }
+        return totalPrice - (totalPrice * discountPercent / 100);
     }
 }

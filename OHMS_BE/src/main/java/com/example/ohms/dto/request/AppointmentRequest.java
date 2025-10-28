@@ -39,4 +39,17 @@ public class AppointmentRequest {
     @Builder.Default
     String status = "Scheduled";
 
+    // Parent appointment ID (nếu là service appointment)
+    // Null nếu là appointment chính (có doctorId)
+    String parentAppointmentId;
+    
+    // Phần trăm giảm giá (0-100), null = không giảm
+    // VD: discount = 10 cho online booking
+    Integer discount;
+    
+    // Tiền đặt cọc (VND) - tính bằng 50% tổng giá service
+    Integer deposit;
+    
+    // Trạng thái thanh toán đặt cọc
+    String depositStatus; // PENDING, PAID, DEPOSIT
 }

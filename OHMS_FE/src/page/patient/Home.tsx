@@ -42,6 +42,9 @@ function Home() {
                 setTimeout(() => {
                     if (newRole === 'ROLE_doctor') { // Giả sử scope là "ROLE_doctor"
                         window.location.href = '/doctor';
+                    } else if (newRole === 'ROLE_admin') {
+                        // Redirect admin to admin dashboard
+                        window.location.href = '/admin';
                     } else if (newRole === 'ROLE_patient') {
                         // Giữ nguyên Home hoặc redirect dashboard nếu có
                         window.location.href = '/dashboard'; // Tùy chỉnh nếu cần
@@ -77,8 +80,12 @@ function Home() {
 
     // Effect redirect dựa trên role (chỉ nếu không đang xử lý token)
     useEffect(() => {
-        if (!isProcessingToken && role === "ROLE_doctor") { // Thay "doctor" bằng "ROLE_doctor" để match scope
-            window.location.href = "/doctor";
+        if (!isProcessingToken) {
+            if (role === "ROLE_doctor") {
+                window.location.href = "/doctor";
+            } else if (role === "ROLE_admin") {
+                window.location.href = "/admin";
+            }
         }
     }, [role, isProcessingToken]);
 

@@ -2,6 +2,7 @@ package com.example.ohms.controller;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -17,7 +18,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.ohms.dto.request.AppointmentRequest;
+import com.example.ohms.dto.response.ApiResponse;
 import com.example.ohms.dto.response.AppointmentResponse;
+import com.example.ohms.entity.Appointment;
 import com.example.ohms.service.AppointmentService;
 
 import jakarta.validation.Valid;
@@ -36,7 +39,7 @@ public class AppointmentController {
     AppointmentService appointmentService;
     
     // Tạo appointment mới
-    @PostMapping
+    @PostMapping()
     public ResponseEntity<AppointmentResponse> createAppointment(@Valid @RequestBody AppointmentRequest request) {
         log.info("Creating new appointment for patient: {} with doctor: {}", request.getPatientId(), request.getDoctorId());
         
@@ -72,6 +75,8 @@ public class AppointmentController {
         List<AppointmentResponse> appointments = appointmentService.getAppointmentsByPatient(patientId);
         return ResponseEntity.ok(appointments);
     }
+
+
     
     // Lấy danh sách appointment của doctor
     @GetMapping("/doctor/{doctorId}")
@@ -127,6 +132,17 @@ public class AppointmentController {
         log.info("Getting appointments for doctor: {} on date: {}", doctorId, date);
         
         List<AppointmentResponse> appointments = appointmentService.getDoctorAppointmentsByDate(doctorId, date);
+        return ResponseEntity.ok(appointments);
+    }
+    
+    // Lấy appointment của patient theo ngày cụ thể
+    @GetMapping("/patient/{patientId}/date/{date}")
+    public ResponseEntity<List<AppointmentResponse>> getPatientAppointmentsByDate(
+            @PathVariable String patientId,
+            @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        log.info("Getting appointments for patient: {} on date: {}", patientId, date);
+        
+        List<AppointmentResponse> appointments = appointmentService.getPatientAppointmentsByDate(patientId, date);
         return ResponseEntity.ok(appointments);
     }
     
@@ -189,13 +205,52 @@ public class AppointmentController {
             throw e;
         }
     }
-    
-    // Lấy các khung giờ đã đặt của doctor
-    @GetMapping("/doctor/{doctorId}/booked-slots")
-    public ResponseEntity<List<String>> getBookedTimeSlots(
-            @PathVariable String doctorId,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
-        log.info("Getting booked time slots for doctor {} on date {}", doctorId, date);
-        return ResponseEntity.ok(List.of());
+
+    // Update appointment medical examinations
+    @PutMapping("/{appointmentId}/medical-examinations")
+    public ResponseEntity<AppointmentResponse> updateAppointmentMedicalExaminations(
+            @PathVariable String appointmentId,
+            @RequestBody Map<String, List<String>> payload) {
+        log.info("Updating medical examinations for appointment {}", appointmentId);
+        
+        try {
+            List<String> medicalExaminationIds = payload.get("medicalExaminationIds");
+            AppointmentResponse response = appointmentService.updateAppointmentMedicalExaminations(appointmentId, medicalExaminationIds);
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            log.error("Error updating medical examinations: {}", e.getMessage());
+            throw e;
+        }
     }
+    
+    // Calculate total price and deposit for medical examinations
+    @PostMapping("/calculate-price")
+    public ResponseEntity<Map<String, Integer>> calculatePrice(@RequestBody Map<String, Object> payload) {
+        @SuppressWarnings("unchecked")
+        List<String> medicalExaminationIds = (List<String>) payload.get("medicalExaminationIds");
+        Integer discountPercent = payload.get("discount") != null ? 
+            Integer.parseInt(payload.get("discount").toString()) : 0;
+        
+        int totalPrice = appointmentService.calculateTotalPrice(medicalExaminationIds);
+        int priceAfterDiscount = appointmentService.calculatePriceAfterDiscount(totalPrice, discountPercent);
+        int deposit = appointmentService.calculateDeposit(priceAfterDiscount);
+        
+        Map<String, Integer> result = new java.util.HashMap<>();
+        result.put("totalPrice", totalPrice);
+        result.put("discount", discountPercent);
+        result.put("priceAfterDiscount", priceAfterDiscount);
+        result.put("deposit", deposit);
+        
+        return ResponseEntity.ok(result);
+    }
+    
+    // // Lấy các khung giờ đã đặt của doctor
+    // @GetMapping("/doctor/{doctorId}/booked-slots")
+    // public ResponseEntity<List<String>> getBookedTimeSlots(
+    //         @PathVariable String doctorId,
+    //         @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+    //     log.info("Getting booked time slots for doctor {} on date {}", doctorId, date);
+    //     return ResponseEntity.ok(List.of());
+    // }
+    // tạo khám cho thằng user vãng lai 
 }

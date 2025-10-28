@@ -23,6 +23,7 @@ import OnlineConsultSpecialty from "./page/patient/OnlineConsultSpecialty";
 import OnlineConsultTime from "./page/patient/OnlineConsultTime";
 import BookingSchedule from "./page/patient/BookingSchedule";
 import BookingScheduleNew from "./page/patient/BookingSchedule_New";
+import BookingPreventive from "./page/patient/BookingPreventive";
 import PaymentCallback from "./page/patient/PaymentCallback";
 import Doctor from "./page/patient/Doctor";
 import { ToastContainer } from 'react-toastify';
@@ -35,6 +36,7 @@ import PatientAppointments from "./components/patient/PatientAppointments.tsx";
 import PatientAccount from "./components/patient/PatientAccount.tsx";
 import PatientDashboard from "./page/patient/PatientDashboard.tsx";
 import PatientMedicalRecords from './components/patient/PatientMedicalRecords.tsx';
+import ReceptionAppointmentPage from './components/reception/AppointmentControll.tsx';
 // import DoctorCall from "./page/doctor/DoctorCall.tsx";
 function App() {
     return (
@@ -53,6 +55,7 @@ function App() {
                 <Route path="/online-doctor" element={<Doctor/>}/>
                 <Route path="/booking-schedule" element={<BookingSchedule/>}/>
                 <Route path="/booking-schedule-new" element={<BookingScheduleNew/>}/>
+                <Route path="/booking-preventive" element={<BookingPreventive/>}/>
                 <Route path="/payment-callback" element={<PaymentCallback/>}/>
                 <Route path="*" element={<Home />} />
                 <Route path="/chat" element={<PatientChatPage />} />    
@@ -62,6 +65,16 @@ function App() {
                     <Route path="profile" element={<PatientProfile />} />
                     <Route path="account" element={<PatientAccount />} />
                 </Route>
+                <Route path="/chat" element={<PatientChatPage />} />
+                <Route path='/receptionPage' element={<ReceptionAppointmentPage/>}/>
+ 
+                <Route path="/doctor-list" element={<DoctorList />} />
+                
+                {/* Admin Routes */}
+                <Route path="/admin/*" element={<AdminRouter />} />
+                
+                <Route path="*" element={<Home />} />
+
             </Routes>
             </AppWithChat>
             {/*</AuthProvider>*/}
