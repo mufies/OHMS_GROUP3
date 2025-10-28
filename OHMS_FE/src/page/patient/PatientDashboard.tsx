@@ -5,28 +5,28 @@ import { AnimatePresence, motion } from "framer-motion";
 
 const SIDEBAR_ITEMS = [
   { path: "/patient/appointments", label: "Lịch khám" },
-  { path: "/patient/transactions", label: "Lịch sử thanh toán" },
+  { path: "/patient/medical-record", label: "Lịch sử thanh toán" },
   { path: "/patient/profile", label: "Hồ sơ" },
   { path: "/patient/account", label: "Tài khoản" },
 ];
 
 export default function PatientDashboard() {
-  const location = useLocation();
+  const location = useLocation(); 
 
   return (
     <div className="patient-dashboard-bg">
       <div className="patient-dashboard-container">
         <aside className="patient-sidebar">
           <ul>
-            {SIDEBAR_ITEMS.map(item => (
-              <li
-                key={item.path}
-                className={location.pathname === item.path ? "active" : ""}
-              >
-                <Link to={item.path}>{item.label}</Link>
-              </li>
-            ))}
-          </ul>
+  {SIDEBAR_ITEMS.map(item => (
+    <Link key={item.path} to={item.path} style={{ textDecoration: 'none' }}>
+      <li className={location.pathname === item.path ? "active" : ""}>
+        {item.label}
+      </li>
+    </Link>
+  ))}
+</ul>
+
         </aside>
               
         <main className="patient-main">

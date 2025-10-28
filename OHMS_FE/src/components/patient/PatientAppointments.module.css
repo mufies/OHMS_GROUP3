@@ -1,6 +1,9 @@
 /* PatientAppointments.module.css */
 .section {
-  padding: 0 0 0 32px;
+  padding: 24px;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
 }
 
 .title {

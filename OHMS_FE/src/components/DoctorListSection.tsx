@@ -83,7 +83,7 @@ export default function DoctorListSection() {
             Bác sĩ TƯ VẤN khám bệnh qua video
           </h2>
           <Link
-            to="/doctor"
+            to="/patient"
             style={{
               color: "#0ea5e9",
               textDecoration: "none",
