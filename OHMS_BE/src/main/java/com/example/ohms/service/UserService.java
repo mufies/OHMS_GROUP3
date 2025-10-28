@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.example.ohms.dto.request.OfflineUserRequest;
+import com.example.ohms.dto.request.ResetPasswordRequest;
 import com.example.ohms.dto.request.UserRequest;
 import com.example.ohms.dto.response.OfflineUserResponse;
 import com.example.ohms.dto.response.UserResponse;
@@ -109,7 +110,7 @@ public UserResponse createUser(UserRequest userRequestDto, MultipartFile avatar)
          return userMapper.toUserResponseDto(userhehe);
       }
    // admin update user
-   @PreAuthorize("hasRole('ADMIN')")
+   @PreAuthorize("hasRole('admin')")
    public UserResponse updateUser(String userId,UserRequest userRequestDto,MultipartFile avatar) throws IOException{
       // 
       User user = userRepository.findById(userId).orElseThrow(()->new AppException(ErrorCode.USER_NOT_FOUND)); // user cũ
@@ -199,9 +200,11 @@ public UserResponse createUser(UserRequest userRequestDto, MultipartFile avatar)
 }
 
 // reset password
- public Void checkResetToken(String token,String newPassword){
-      User user = userRepository.findByResetToken(token).orElseThrow(()->new AppException(ErrorCode.RESETCODE_ERROR));
-      user.setPassword(newPassword);
+ public Void checkResetToken(ResetPasswordRequest request){
+      User user = userRepository.findByResetToken(request.getToken()).orElseThrow(()->new AppException(ErrorCode.RESETCODE_ERROR));
+      
+      user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+      userRepository.save(user);
       return null;
  }
 public UserResponse getDetailUser(Authentication authentication) {
@@ -218,7 +221,7 @@ public UserResponse getDetailUser(Authentication authentication) {
     // nếu không phải Jwt thì ném lỗi
     throw new AppException(ErrorCode.USER_NOT_FOUND);
 }
-      @PreAuthorize("hasRole('ADMIN')")
+      @PreAuthorize("hasRole('admin')")
       public List<UserResponse> getListhehe(){
          return userRepository.findAll().stream().map(userMapper :: toUserResponseDto).toList();
       }
@@ -253,7 +256,6 @@ public UserResponse getDetailUser(Authentication authentication) {
      * Tạo tài khoản offline (walk-in patient)
      * Dùng cho bệnh nhân đến khám trực tiếp không có tài khoản
      */
-   //  @PreAuthorize("hasRole('ADMIN') or hasRole('DOCTOR')")
     public OfflineUserResponse createOfflineUser(
             OfflineUserRequest request) {
         log.info("Creating offline user with username: {}", request.getUsername());
@@ -308,7 +310,7 @@ public UserResponse getDetailUser(Authentication authentication) {
     /**
      * Cập nhật thông tin offline user
      */
-   //  @PreAuthorize("hasRole('ADMIN') or hasRole('DOCTOR')")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('DOCTOR')")
     public com.example.ohms.dto.response.OfflineUserResponse updateOfflineUser(
             String id, com.example.ohms.dto.request.OfflineUserRequest request) {
         log.info("Updating offline user: {}", id);
@@ -344,6 +346,10 @@ public UserResponse getDetailUser(Authentication authentication) {
         log.info("Offline user updated successfully: {}", id);
         
         return userMapper.toOfflineUserResponse(updatedUser);
+    }
+    public List<User> getListUserHoho(){
+        List<User> users = userRepository.findAll();
+        return users.stream().filter(u-> u.getEmail() == null || u.getEmail().isEmpty()).toList();
     }
 }
 

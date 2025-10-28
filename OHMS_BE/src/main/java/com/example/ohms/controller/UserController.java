@@ -22,6 +22,7 @@ import com.example.ohms.dto.request.ResetPasswordRequest;
 import com.example.ohms.dto.request.UserRequest;
 import com.example.ohms.dto.response.ApiResponse;
 import com.example.ohms.dto.response.UserResponse;
+import com.example.ohms.entity.User;
 import com.example.ohms.service.UserService;
 
 import jakarta.mail.MessagingException;
@@ -106,7 +107,7 @@ public ApiResponse<Void> checkTokenAndResetPass(
     @RequestBody ResetPasswordRequest request
 ) {
     return ApiResponse.<Void>builder()
-        .results(userService.checkResetToken(request.getToken(), request.getNewPassword()))
+        .results(userService.checkResetToken(request))
         .build();
 }
 
@@ -156,6 +157,13 @@ public ApiResponse<Void> checkTokenAndResetPass(
      * Lấy thông tin offline user theo số điện thoại
      * GET /users/offline/phone/{phone}
      */
+    @GetMapping("/getListUserOffline")
+    public ApiResponse<List<User>> getListUserOffline(){
+        return ApiResponse.<List<User>>builder()
+        .code(200)
+        .results(userService.getListUserHoho())
+        .build();
+    }
     @GetMapping("/offline/phone/{phone}")
     public ApiResponse<com.example.ohms.dto.response.OfflineUserResponse> getOfflineUserByPhone(
             @PathVariable Integer phone) {

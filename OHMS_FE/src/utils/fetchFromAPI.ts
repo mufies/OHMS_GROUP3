@@ -127,6 +127,8 @@ export const fetchForgotPass = async(email : string)=>{
 }
 export const fetchResetPass = async(payload : {token:string, newPassword:string})=>{
     try {
+         console.log(payload);
+         
         const { data } = await axiosInstance.post(`/users/resetPassword`, payload);
         return data;
     } catch (error) {

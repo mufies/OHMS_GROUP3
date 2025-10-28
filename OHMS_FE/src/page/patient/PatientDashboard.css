@@ -5,18 +5,22 @@
 }
 .patient-dashboard-container {
   max-width: 1200px;
-  margin: 0 auto;
+  margin: 0 ;
   display: flex;
   gap: 32px;
+  padding-top: 50px;
 }
 .patient-sidebar {
-  width: 240px;
+  width: 340px;
   background: #fff;
-  border-radius: 12px;
+  border-radius: 0 12px 12px 0; /* chỉ bo góc phải thôi cho đẹp */
   box-shadow: 0 2px 8px rgba(0,0,0,0.04);
   padding: 16px 0;
-  height: fit-content;
+  height: 100vh; /* full chiều cao màn hình */
+  position: sticky;
+  top: 0;
 }
+
 .patient-sidebar ul {
   list-style: none;
   padding: 0;
@@ -24,16 +28,23 @@
 }
 .patient-sidebar li {
   padding: 16px 24px;
-  cursor: pointer;
   color: #222;
   font-weight: 500;
   border-left: 4px solid transparent;
   transition: background 0.2s;
+  list-style: none;
 }
+
+.patient-sidebar a {
+  display: block;              /* làm cho link chiếm toàn bộ li */
+  color: inherit;              /* giữ nguyên màu chữ */
+  text-decoration: none;       /* bỏ gạch chân */
+}
+
 .patient-sidebar li.active {
-  background: #f3f4f6;
+  background: #0055ff;
   border-left: 4px solid #2563eb;
-  color: #2563eb;
+  color: #ffffff;
 }
 .patient-main {
   flex: 1;
