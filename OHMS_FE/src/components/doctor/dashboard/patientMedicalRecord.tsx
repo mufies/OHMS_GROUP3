@@ -857,6 +857,7 @@ export default function MedicalRecordModal({
                                                     
                                                     return availableMedicalExaminations
                                                         .filter(exam => !selectedExamIds.has(exam.id))
+                                                        .filter(exam => !exam.name.toLowerCase().includes('khám')) // Loại bỏ service có chữ "khám"
                                                         .filter(exam =>
                                                             searchServiceFilter === '' ||
                                                             exam.name.toLowerCase().includes(searchServiceFilter.toLowerCase()) ||
@@ -868,7 +869,7 @@ export default function MedicalRecordModal({
                                                             sa.medicalExaminations?.map(e => e.id) || []
                                                         )
                                                     );
-                                                    return !selectedExamIds.has(exam.id);
+                                                    return !selectedExamIds.has(exam.id) && !exam.name.toLowerCase().includes('khám'); // Loại bỏ service có chữ "khám"
                                                 }).length})
                                             </h4>
                                             <div className="flex-1 overflow-y-auto space-y-3 pr-1">
@@ -882,6 +883,7 @@ export default function MedicalRecordModal({
                                                     
                                                     const filteredExams = availableMedicalExaminations
                                                         .filter(exam => !selectedExamIds.has(exam.id))
+                                                        .filter(exam => !exam.name.toLowerCase().includes('khám')) // Loại bỏ service có chữ "khám"
                                                         .filter(exam =>
                                                             searchServiceFilter === '' ||
                                                             exam.name.toLowerCase().includes(searchServiceFilter.toLowerCase()) ||

@@ -45,7 +45,7 @@ function Navigator({ doctorSpecialty = "General Medicine" }: NavigatorProps) {
                         <FontAwesomeIcon icon={faStethoscope} className="text-2xl" />
                     </div>
                     <div>
-                        <h2 className="text-l font-bold text-black ">{doctorSpecialty}</h2>
+                        <h2 className="text-l font-bold text-black ">Doctor Portal</h2>
                     </div>
                 </div>
             </div>
@@ -94,7 +94,7 @@ function Navigator({ doctorSpecialty = "General Medicine" }: NavigatorProps) {
             {/* Footer */}
             <div className="p-4 border-t border-gray-200 bg-gray-50">
                 <p className="text-xs text-gray-500 text-center">
-                    OACS Doctor Portal v1.0
+                    OAHCS Doctor Portal v1.0
                 </p>
                 <p className="text-xs text-gray-400 text-center mt-1">
                     © 2025 Healthcare System
