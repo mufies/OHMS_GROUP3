@@ -136,3 +136,31 @@ export const fetchResetPass = async(payload : {token:string, newPassword:string}
         throw error;
     }
 }
+
+export const fetchCreateUser = async (payload: FormData) => {
+    try {
+        const { data } = await axiosInstance.post(`/users/createUser`, payload, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        });
+        return data;
+    } catch (error: any) {
+        console.error("Error creating user:", error);
+        
+        // Handle specific error cases
+        if (error.response?.status === 302) {
+            throw new Error('Email đã tồn tại trong hệ thống');
+        }
+        
+        if (error.response?.data?.message) {
+            throw new Error(error.response.data.message);
+        }
+        
+        if (error.message) {
+            throw new Error(error.message);
+        }
+        
+        throw new Error('Có lỗi xảy ra khi tạo người dùng');
+    }
+}
