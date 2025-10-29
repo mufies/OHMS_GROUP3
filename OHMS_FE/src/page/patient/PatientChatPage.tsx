@@ -14,26 +14,32 @@ const PatientChatPage = () => {
 
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
+    console.log('Token:', token);
     
     if (token) {
       const payload = token.split('.')[1];
-      const decodedPayload = JSON.parse(atob(payload));   
+      const decodedPayload = JSON.parse(atob(payload));
+      console.log('Decoded Payload:', decodedPayload);
       
-      if (decodedPayload.scope === 'ROLE_patient') {
+      if (decodedPayload.scope === 'ROLE_PATIENT') {
         const transformedUser: User = {
           id: decodedPayload.userId,
           role: 'patient',
         };
         setCurrentUser(transformedUser);
+        console.log('Set current user as patient:', transformedUser);
       } else if (decodedPayload.scope === 'doctor') {
         // Nếu là doctor, redirect tới doctor chat
+        console.log('Redirecting to doctor chat');
         navigate('/doctor/chat', { replace: true });
       } else {
         // Nếu scope khác, redirect tới home
+        console.log('Invalid scope, redirecting to home:', decodedPayload.scope);
         navigate('/', { replace: true });
       }
     } else {
       // No user logged in, redirect to main page
+      console.log('No token, redirecting to home');
       navigate('/', { replace: true });
     }
   }, [navigate]);

@@ -112,6 +112,7 @@ public class AppointmentService {
 
         // Kiểm tra nếu có dịch vụ "Tư vấn online" thì tạo chat room
         if (request.getMedicalExaminationIds() != null && !request.getMedicalExaminationIds().isEmpty()) {
+            log.info("tao chat rom");
             boolean isOnlineConsult = request.getMedicalExaminationIds().stream()
                 .anyMatch(id -> {
                     Optional<MedicalExamination> exam = medicleExaminatioRepository.findById(id);
@@ -234,21 +235,29 @@ public class AppointmentService {
     public AppointmentResponse updateAppointment(String appointmentId, AppointmentRequest request) {
         log.info("Updating appointment: {}", appointmentId);
         
+
         Appointment appointment = appointmentRepository.findById(appointmentId)
             .orElseThrow(() -> new RuntimeException("Appointment not found with id: " + appointmentId));
         
         // Kiểm tra conflict với thời gian mới
-        boolean canUpdate = appointmentRepository.canCreateAppointment(
-            appointment.getDoctor().getId(),
-            appointment.getPatient().getId(),
-            request.getWorkDate(),
-            request.getStartTime(),
-            request.getEndTime()
-        );
+
+        // boolean canUpdate = true;
+
+        // if(request.getParentAppointmentId()== null)
+        // {
+        // canUpdate = appointmentRepository.canCreateAppointment(
+        //     appointment.getDoctor().getId(),
+        //     appointment.getPatient().getId(),
+        //     request.getWorkDate(),
+        //     request.getStartTime(),
+        //     request.getEndTime()
+        // );
+        // }
+
         
-        if (!canUpdate) {
-            throw new RuntimeException("New time slot conflicts with existing appointments!");
-        }
+        // if (!canUpdate) {
+        //     throw new RuntimeException("New time slot conflicts with existing appointments!");
+        // }
         
         // Update thông tin
         appointment.setWorkDate(request.getWorkDate());
@@ -338,7 +347,8 @@ public class AppointmentService {
             .discount(appointment.getDiscount())
             .deposit(appointment.getDeposit())
             .depositStatus(appointment.getDepositStatus() != null ? 
-                appointment.getDepositStatus().name() : null);
+                appointment.getDepositStatus().name() : null)
+            .cancelTime(appointment.getCancelTime());
         
         // Map patient info
         if (appointment.getPatient() != null) {
@@ -346,7 +356,9 @@ public class AppointmentService {
             builder.patientId(patient.getId())
                    .patientName(patient.getUsername())
                    .patientEmail(patient.getEmail())
-                   .patientPhone(patient.getPhone() != null ? patient.getPhone().toString() : null);
+                   .patientPhone(patient.getPhone() != null ? patient.getPhone().toString() : null)
+                   .patientBankName(patient.getBankName())
+                   .patientBankNumber(patient.getBankNumber());
         }
         
         // Map doctor info
@@ -475,5 +487,60 @@ public class AppointmentService {
             return totalPrice;
         }
         return totalPrice - (totalPrice * discountPercent / 100);
+    }
+    
+    // Cancel appointment and set cancel date
+    public AppointmentResponse cancelAppointment(String appointmentId) {
+        log.info("Cancelling appointment: {}", appointmentId);
+        
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+            .orElseThrow(() -> new RuntimeException("Appointment not found with id: " + appointmentId));
+        
+        // Update status to Cancelled
+        appointment.setStatus("CANCELLED");
+        
+        // Set cancel date to current date
+        appointment.setCancelTime(new java.sql.Date(System.currentTimeMillis()));
+        
+        Appointment cancelledAppointment = appointmentRepository.save(appointment);
+        log.info("Appointment cancelled successfully: {}", appointmentId);
+        
+        return toAppointmentResponse(cancelledAppointment);
+    }
+    
+    // Get all cancelled appointments with deposit info
+    public List<AppointmentResponse> getCancelledAppointmentsWithDeposit() {
+        log.info("Getting all cancelled appointments with deposit");
+        
+        List<Appointment> cancelledAppointments = appointmentRepository
+            .findAll()
+            .stream()
+            .filter(apt -> "CANCELLED".equals(apt.getStatus()) && apt.getCancelTime() != null)
+            .collect(Collectors.toList());
+        
+        return cancelledAppointments.stream()
+            .map(this::toAppointmentResponse)
+            .collect(Collectors.toList());
+    }
+    
+    // Confirm refund - change deposit to negative value (refunded amount)
+    public AppointmentResponse confirmRefund(String appointmentId, Double refundAmount) {
+        log.info("Confirming refund for appointment: {} with amount: {}", appointmentId, refundAmount);
+        
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+            .orElseThrow(() -> new RuntimeException("Appointment not found with id: " + appointmentId));
+        
+        // Check if already cancelled
+        if (!"CANCELLED".equals(appointment.getStatus())) {
+            throw new RuntimeException("Appointment is not cancelled");
+        }
+        
+        // Update deposit to negative value (represents refunded amount)
+        appointment.setDeposit(-refundAmount.intValue());
+        
+        Appointment updatedAppointment = appointmentRepository.save(appointment);
+        log.info("Refund confirmed successfully for appointment: {}", appointmentId);
+        
+        return toAppointmentResponse(updatedAppointment);
     }
 }

@@ -17,6 +17,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.example.ohms.dto.request.OfflineUserRequest;
 import com.example.ohms.dto.request.ResetPasswordRequest;
+import com.example.ohms.dto.request.ChangePasswordRequest;
 import com.example.ohms.dto.request.UserRequest;
 import com.example.ohms.dto.response.OfflineUserResponse;
 import com.example.ohms.dto.response.UserResponse;
@@ -104,13 +105,13 @@ public UserResponse createUser(UserRequest userRequestDto, MultipartFile avatar)
    }
 
    
-      @PreAuthorize("hasRole('ADMIN')")
+    //   @PreAuthorize("hasRole('ADMIN')")
       public UserResponse findUserbyId(String userId){
          User userhehe = userRepository.findById(userId).orElseThrow(()->(new AppException(ErrorCode.USER_NOT_FOUND)));
          return userMapper.toUserResponseDto(userhehe);
       }
    // admin update user
-   @PreAuthorize("hasRole('admin')")
+//    @PreAuthorize("hasRole('ADMIN')")
    public UserResponse updateUser(String userId,UserRequest userRequestDto,MultipartFile avatar) throws IOException{
       // 
       User user = userRepository.findById(userId).orElseThrow(()->new AppException(ErrorCode.USER_NOT_FOUND)); // user cũ
@@ -153,37 +154,90 @@ public UserResponse createUser(UserRequest userRequestDto, MultipartFile avatar)
    }
    // user update user
 @PostAuthorize("returnObject.id == authentication.name")
-      public UserResponse userUpdateUser(String userId,UserRequest userRequestDto,MultipartFile avatar) throws IOException{
-      // 
-      User user = userRepository.findById(userId).orElseThrow(()->new AppException(ErrorCode.USER_NOT_FOUND)); // user cũ
-      if(userRequestDto.getEmail()!= null){
-         user.setEmail(userRequestDto.getEmail());
-      }
-      if(userRequestDto.getUsername() != null){
-         user.setUsername(userRequestDto.getUsername());
-      }
-      if(userRequestDto.getPassword() != null){
-           user.setPassword(passwordEncoder.encode(userRequestDto.getPassword()));
-      }
-      if(avatar != null && !avatar.isEmpty()){
-         user.setImageUrl(cloudinaryService.uploadFile(avatar));
-      }
-      if(userRequestDto.getPhone() != null){
-         user.setPhone(userRequestDto.getPhone());
-      }
-
-      // này đang làm hơi sai, user không có update role được user á
-      // fe làm thì ẩn cái này đi
-      // lấy mảng role mới áp vào mảng cũ
-        if (userRequestDto.getRoles() != null && !userRequestDto.getRoles().isEmpty()) {
-        Set<Role> roles = userRequestDto.getRoles().stream()
-                .map(roleName -> roleRepository.findById(roleName)
-                        .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND)))
-                .collect(Collectors.toSet());
-        user.setRoles(roles);
+public UserResponse userUpdateUser(String userId, UserRequest userRequestDto, MultipartFile avatar) throws IOException {
+    // Tìm user
+    User user = userRepository.findById(userId)
+        .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+    
+    // Update email
+    if (userRequestDto.getEmail() != null && !userRequestDto.getEmail().isEmpty()) {
+        user.setEmail(userRequestDto.getEmail());
     }
+    
+    // Update username
+    if (userRequestDto.getUsername() != null && !userRequestDto.getUsername().isEmpty()) {
+        user.setUsername(userRequestDto.getUsername());
+    }
+    
+    // Update password
+    if (userRequestDto.getPassword() != null && !userRequestDto.getPassword().isEmpty()) {
+        user.setPassword(passwordEncoder.encode(userRequestDto.getPassword()));
+    }
+    
+    // Update avatar - XÓA ẢNH CŨ TRƯỚC KHI UPLOAD MỚI
+    if (avatar != null && !avatar.isEmpty()) {
+        // Xóa ảnh cũ trên Cloudinary nếu có
+        if (user.getImageUrl() != null && !user.getImageUrl().isEmpty()) {
+            try {
+                String publicId = extractPublicIdFromUrl(user.getImageUrl());
+                cloudinaryService.deleteFile(publicId);
+                log.info("Deleted old avatar: {}", publicId);
+            } catch (Exception e) {
+                log.warn("Failed to delete old avatar: {}", e.getMessage());
+                // Không throw exception, vẫn tiếp tục upload ảnh mới
+            }
+        }
+        
+        // Upload ảnh mới
+        String newImageUrl = cloudinaryService.uploadFile(avatar);
+        user.setImageUrl(newImageUrl);
+        log.info("Uploaded new avatar: {}", newImageUrl);
+    }
+    
+    // Update phone
+    if (userRequestDto.getPhone() != null) {
+        user.setPhone(userRequestDto.getPhone());
+    }
+    
+    // Update DOB
+    if (userRequestDto.getDob() != null) {
+        user.setDob(userRequestDto.getDob());
+    }
+    
+    // Update gender
+    if (userRequestDto.getGender() != null && !userRequestDto.getGender().isEmpty()) {
+        user.setGender(userRequestDto.getGender());
+    }
+    
+
+    
+
+    
     return userMapper.toUserResponseDto(userRepository.save(user));
-   }
+}
+
+// Helper method để extract public_id từ Cloudinary URL
+private String extractPublicIdFromUrl(String cloudinaryUrl) {
+
+    try {
+        String[] parts = cloudinaryUrl.split("/upload/");
+        if (parts.length > 1) {
+            String pathWithVersion = parts[1];
+            // Bỏ version number (v1234567890/)
+            String path = pathWithVersion.substring(pathWithVersion.indexOf("/") + 1);
+            // Bỏ extension
+            int lastDot = path.lastIndexOf(".");
+            if (lastDot > 0) {
+                return path.substring(0, lastDot);
+            }
+            return path;
+        }
+    } catch (Exception e) {
+        log.error("Failed to extract public_id from URL: {}", cloudinaryUrl, e);
+    }
+    return null;
+}
+
 // forgot password
   public Void sendCodeToEmail(String email) throws MessagingException {
    User user = userRepository.findByEmail(email).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
@@ -207,6 +261,49 @@ public UserResponse createUser(UserRequest userRequestDto, MultipartFile avatar)
       userRepository.save(user);
       return null;
  }
+
+ // change password (khi user biết mk cũ)
+ public Void changePassword(String id, ChangePasswordRequest request) {
+      log.info("Changing password for user: {}", id);
+      
+      // Kiểm tra newPassword và confirmPassword khớp nhau
+      if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+           throw new AppException(ErrorCode.UNAUTHENTICATED);
+      }
+      
+      // Tìm user theo username/email
+      User user = userRepository.findById(id)
+           .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+      
+      // Kiểm tra mật khẩu cũ có đúng không
+      if (!passwordEncoder.matches(request.getOldPassword(), user.getPassword())) {
+           throw new AppException(ErrorCode.PASSWORD_INVALID);
+      }
+      
+      // Cập nhật mật khẩu mới
+      user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+      userRepository.save(user);
+      
+      return null;
+ }
+
+
+@PostAuthorize("returnObject.id == authentication.name")
+public UserResponse updateUserBankInfo(String userId, UserRequest userRequestDto) throws IOException {
+    User user = userRepository.findById(userId)
+        .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+    if(userRequestDto.getBankName() != null && !userRequestDto.getBankName().isEmpty()) {
+        user.setBankName(userRequestDto.getBankName());
+    }
+
+    if(userRequestDto.getBankNumber() != null && !userRequestDto.getBankNumber().isEmpty()) {
+        user.setBankNumber(userRequestDto.getBankNumber()); // ✅ SỬA LẠI ĐÂY
+    }
+    
+    return userMapper.toUserResponseDto(userRepository.save(user));
+}
+
 public UserResponse getDetailUser(Authentication authentication) {
     if (authentication.getPrincipal() instanceof Jwt jwt) {
         // Lấy thông tin từ claims

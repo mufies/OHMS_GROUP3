@@ -1,5 +1,6 @@
 package com.example.ohms.dto.request;
 
+  import java.sql.Date;
   import java.util.Set;
 
 import com.example.ohms.enums.MedicalSpecialty;
@@ -32,5 +33,9 @@ import jakarta.validation.constraints.Email;
       //  làm thêm cái phone với cái chuyên ngành hẹp cho thằng bác sĩ
       // 1 bác sĩ có thể có nhiều chuyên khoa hẹp
       Integer phone;
+      Date dob;
+      String gender;
+      String bankNumber;
+      String bankName;
       Set<MedicalSpecialty> medicleSpecially;
    }

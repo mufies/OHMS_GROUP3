@@ -22,13 +22,50 @@ interface DaySchedule {
   slots: TimeSlot[];
 }
 
-interface Appointment {
+interface ServiceAppointment {
   id: string;
-  workDate: string;
   startTime: string;
   endTime: string;
   status: string;
+  medicalExaminations: MedicalExamination[];
 }
+
+interface Appointment {
+  id: string;
+  
+  // Patient info
+  patientId: string;
+  patientName: string;
+  patientEmail: string;
+  patientPhone: string;
+  
+  // Doctor info
+  doctorId: string;
+  doctorName: string;
+  doctorSpecialty: string;
+  
+  // Time & status
+  workDate: string;
+  startTime: string;
+  endTime: string;
+  status: string; // 'Schedule' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
+  
+  // Medical services
+  medicalExaminations: MedicalExamination[];
+  
+  // Appointment hierarchy
+  parentAppointmentId: string | null;
+  serviceAppointments?: ServiceAppointment[];
+  
+  // Payment
+  discount: number;
+  deposit: number;
+  depositStatus: string; // 'DEPOSIT' | 'PAID' | 'REFUNDED'
+  
+  // Cancel tracking
+  cancelTime: string | null;
+}
+
 
 function BookingPreventive() {
   const [services, setServices] = useState<MedicalExamination[]>([]);
@@ -92,16 +129,36 @@ function BookingPreventive() {
   }, []);
 
   // Helper: Check if slot conflicts with patient's existing appointments
-  const isSlotConflictingWithPatient = (date: string, startTime: string, endTime: string): boolean => {
-    return patientAppointments.some(apt => {
-      if (apt.workDate !== date || apt.status !== 'Schedule') return false;
-      
-      const aptStart = apt.startTime;
-      const aptEnd = apt.endTime;
-      
-      return startTime < aptEnd && endTime > aptStart;
-    });
-  };
+const isSlotConflictingWithPatient = (date: string, startTime: string, endTime: string): boolean => {
+  return patientAppointments.some(apt => {
+    // Only check parent appointments
+    if (apt.parentAppointmentId !== null) return false;
+    if (apt.workDate !== date) return false;
+    
+    // Skip cancelled appointments
+    if (apt.status === 'CANCELLED') return false;
+    
+    // Collect all time ranges (parent + services)
+    const timeRanges: Array<{start: string, end: string}> = [
+      { start: apt.startTime, end: apt.endTime }
+    ];
+    
+    if (apt.serviceAppointments && apt.serviceAppointments.length > 0) {
+      apt.serviceAppointments.forEach(service => {
+        if (service.status === 'Schedule' || service.status === 'IN_PROGRESS') {
+          timeRanges.push({ start: service.startTime, end: service.endTime });
+        }
+      });
+    }
+    
+    // Find earliest and latest using string comparison (works for HH:mm:ss format)
+    const earliestStart = timeRanges.reduce((min, r) => r.start < min ? r.start : min, timeRanges[0].start);
+    const latestEnd = timeRanges.reduce((max, r) => r.end > max ? r.end : max, timeRanges[0].end);
+    
+    // Check overlap
+    return startTime < latestEnd && endTime > earliestStart;
+  });
+};
 
   // Helper: Check if slot is in the past
   const isSlotInPast = (date: string, startTime: string): boolean => {
@@ -115,96 +172,104 @@ function BookingPreventive() {
   };
 
   // Generate default schedule (Mon-Sat, 8:00-17:00, 30-min slots)
-  const generateDefaultSchedule = (): DaySchedule[] => {
-    const buildWeekDates = (refDate: Date) => {
-      const d = new Date(refDate);
-      const localDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-      const day = localDate.getDay();
-      const diffToMonday = (day === 0 ? -6 : 1) - day;
-      const monday = new Date(localDate);
-      monday.setDate(localDate.getDate() + diffToMonday);
-      monday.setHours(0, 0, 0, 0);
+  // Generate default schedule (Mon-Sat, 8:00-17:00, 30-min slots)
+const generateDefaultSchedule = (): DaySchedule[] => {
+  const buildWeekDates = (refDate: Date) => {
+    const d = new Date(refDate);
+    const localDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const day = localDate.getDay();
+    const diffToMonday = (day === 0 ? -6 : 1) - day;
+    const monday = new Date(localDate);
+    monday.setDate(localDate.getDate() + diffToMonday);
+    monday.setHours(0, 0, 0, 0);
 
-      const weekDates: Date[] = [];
-      for (let i = 0; i < 6; i++) {
-        const dt = new Date(monday);
-        dt.setDate(monday.getDate() + i);
-        weekDates.push(dt);
-      }
-      return weekDates;
-    };
-
-    const buildDefaultSlots = () => {
-      const slots: TimeSlot[] = [];
-      // Changed from 7:00 to 8:00
-      for (let hour = 8; hour < 17; hour++) {
-        for (let min = 0; min < 60; min += 30) {
-          const startHour = hour;
-          const startMin = min;
-          const endMin = min + 30;
-          const endHour = endMin >= 60 ? hour + 1 : hour;
-          const adjustedEndMin = endMin % 60;
-          
-          const startTime = `${String(startHour).padStart(2, '0')}:${String(startMin).padStart(2, '0')}:00`;
-          const endTime = `${String(endHour).padStart(2, '0')}:${String(adjustedEndMin).padStart(2, '0')}:00`;
-          
-          slots.push({ startTime, endTime, available: true });
-        }
-      }
-      return slots;
-    };
-
-    const formatDayLabel = (date: Date): string => {
-      const days = ['CN', 'Th 2', 'Th 3', 'Th 4', 'Th 5', 'Th 6', 'Th 7'];
-      const day = date.getDate();
-      const month = date.getMonth() + 1;
-      const dayOfWeek = days[date.getDay()];
-      return `${dayOfWeek}, ${day.toString().padStart(2, '0')}-${month.toString().padStart(2, '0')}`;
-    };
-
-    const today = new Date();
-    const thisWeekDates = buildWeekDates(today);
-    const nextWeekStart = new Date(thisWeekDates[0]);
-    nextWeekStart.setDate(thisWeekDates[0].getDate() + 7);
-    const nextWeekDates = buildWeekDates(nextWeekStart);
-
-    const toYMD = (d: Date) => d.toISOString().slice(0, 10);
-    const todayStr = toYMD(today);
-
-    const schedule: DaySchedule[] = [];
-
-    // This week
-    thisWeekDates.forEach(dateObj => {
-      const dateStr = toYMD(dateObj);
-      const dayOfWeek = dateObj.getDay();
-      
-      if (dateStr >= todayStr && dayOfWeek !== 0) {
-        schedule.push({
-          date: dateStr,
-          label: formatDayLabel(dateObj),
-          weekLabel: 'Tuần này',
-          slots: buildDefaultSlots()
-        });
-      }
-    });
-
-    // Next week
-    nextWeekDates.forEach(dateObj => {
-      const dateStr = toYMD(dateObj);
-      const dayOfWeek = dateObj.getDay();
-      
-      if (dayOfWeek !== 0) {
-        schedule.push({
-          date: dateStr,
-          label: formatDayLabel(dateObj),
-          weekLabel: 'Tuần sau',
-          slots: buildDefaultSlots()
-        });
-      }
-    });
-
-    return schedule;
+    const weekDates: Date[] = [];
+    for (let i = 0; i < 6; i++) {
+      const dt = new Date(monday);
+      dt.setDate(monday.getDate() + i);
+      weekDates.push(dt);
+    }
+    return weekDates;
   };
+
+  const buildDefaultSlots = () => {
+    const slots: TimeSlot[] = [];
+    for (let hour = 8; hour < 17; hour++) {
+      for (let min = 0; min < 60; min += 30) {
+        const startHour = hour;
+        const startMin = min;
+        const endMin = min + 30;
+        const endHour = endMin >= 60 ? hour + 1 : hour;
+        const adjustedEndMin = endMin % 60;
+        
+        const startTime = `${String(startHour).padStart(2, '0')}:${String(startMin).padStart(2, '0')}:00`;
+        const endTime = `${String(endHour).padStart(2, '0')}:${String(adjustedEndMin).padStart(2, '0')}:00`;
+        
+        slots.push({ startTime, endTime, available: true });
+      }
+    }
+    return slots;
+  };
+
+  const formatDayLabel = (date: Date): string => {
+    const days = ['CN', 'Th 2', 'Th 3', 'Th 4', 'Th 5', 'Th 6', 'Th 7'];
+    const day = date.getDate();
+    const month = date.getMonth() + 1;
+    const dayOfWeek = days[date.getDay()];
+    return `${dayOfWeek}, ${day.toString().padStart(2, '0')}-${month.toString().padStart(2, '0')}`;
+  };
+
+  // ✅ FIX: Format local date properly
+  const toYMD = (d: Date): string => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const today = new Date();
+  const thisWeekDates = buildWeekDates(today);
+  const nextWeekStart = new Date(thisWeekDates[0]);
+  nextWeekStart.setDate(thisWeekDates[0].getDate() + 7);
+  const nextWeekDates = buildWeekDates(nextWeekStart);
+
+  const todayStr = toYMD(today);
+
+  const schedule: DaySchedule[] = [];
+
+  // This week
+  thisWeekDates.forEach(dateObj => {
+    const dateStr = toYMD(dateObj);
+    const dayOfWeek = dateObj.getDay();
+    
+    if (dateStr >= todayStr && dayOfWeek !== 0) {
+      schedule.push({
+        date: dateStr,
+        label: formatDayLabel(dateObj),
+        weekLabel: 'Tuần này',
+        slots: buildDefaultSlots()
+      });
+    }
+  });
+
+  // Next week
+  nextWeekDates.forEach(dateObj => {
+    const dateStr = toYMD(dateObj);
+    const dayOfWeek = dateObj.getDay();
+    
+    if (dayOfWeek !== 0) {
+      schedule.push({
+        date: dateStr,
+        label: formatDayLabel(dateObj),
+        weekLabel: 'Tuần sau',
+        slots: buildDefaultSlots()
+      });
+    }
+  });
+
+  return schedule;
+};
+
 
   // Fetch preventive services (tiêm chủng, đo huyết áp, etc.)
   useEffect(() => {

@@ -1,5 +1,6 @@
 package com.example.ohms.dto.request;
 
+import java.sql.Date;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
@@ -52,4 +53,6 @@ public class AppointmentRequest {
     
     // Trạng thái thanh toán đặt cọc
     String depositStatus; // PENDING, PAID, DEPOSIT
+    Date cancelTime;
+
 }

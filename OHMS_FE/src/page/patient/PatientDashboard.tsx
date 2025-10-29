@@ -2,10 +2,11 @@ import React from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import "./PatientDashboard.css";
 import { AnimatePresence, motion } from "framer-motion";
+import Navigator from "../../components/Navigator";
 
 const SIDEBAR_ITEMS = [
   { path: "/patient/appointments", label: "Lịch khám" },
-  { path: "/patient/medical-record", label: "Lịch sử thanh toán" },
+  { path: "/patient/medical-record", label: "Hồ sơ bệnh án" },
   { path: "/patient/profile", label: "Hồ sơ" },
   { path: "/patient/account", label: "Tài khoản" },
 ];
@@ -15,18 +16,18 @@ export default function PatientDashboard() {
 
   return (
     <div className="patient-dashboard-bg">
+      <Navigator />
       <div className="patient-dashboard-container">
         <aside className="patient-sidebar">
           <ul>
-  {SIDEBAR_ITEMS.map(item => (
-    <Link key={item.path} to={item.path} style={{ textDecoration: 'none' }}>
-      <li className={location.pathname === item.path ? "active" : ""}>
-        {item.label}
-      </li>
-    </Link>
-  ))}
-</ul>
-
+            {SIDEBAR_ITEMS.map(item => (
+              <Link key={item.path} to={item.path} style={{ textDecoration: 'none' }}>
+                <li className={location.pathname === item.path ? "active" : ""}>
+                  {item.label}
+                </li>
+              </Link>
+            ))}
+          </ul>
         </aside>
               
         <main className="patient-main">
@@ -37,6 +38,7 @@ export default function PatientDashboard() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.25 }}
+              style={{ width: '100%', maxWidth: '900px' }} // Thêm inline style để center
             >
               <Outlet />
             </motion.div>

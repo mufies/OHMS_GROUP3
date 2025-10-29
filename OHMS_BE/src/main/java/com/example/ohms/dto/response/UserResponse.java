@@ -1,4 +1,5 @@
 package com.example.ohms.dto.response;
+import java.sql.Date;
 import java.util.Set;
 
 import com.example.ohms.enums.MedicalSpecialty;
@@ -21,11 +22,15 @@ public class UserResponse{
    String username;
    @Size(min = 6, message = "PASSWORD_INVALID")
    String password;
-    String imageUrl;
+   String imageUrl;
    @Email(message = "EMAIL_NOT_VAILID")
    String email;
    Set<RoleResponse> roles;
    // Set<String> reviews; // những cái mảng nó sẽ ẩn trong mapper và gán lại ở service
-    Integer phone;
+   Integer phone;
+   String gender;
+   Date dob;
+   String bankNumber;
+   String bankName;
    Set<MedicalSpecialty> medicleSpecially;
 }

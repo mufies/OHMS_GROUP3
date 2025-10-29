@@ -162,7 +162,7 @@ function Navigator() {
                                             <p className="text-xs opacity-75">Role: {getHighestRole(user?.roles)}</p>
                                         </div>
                                         <a
-                                            href="/profile"
+                                            href="/patient/profile"
                                             className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md block-text"
                                         >
                                             Profile

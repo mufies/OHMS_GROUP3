@@ -22,7 +22,7 @@ import WebRTCApp from './page/WebRTCApp.tsx';
 import OnlineConsultSpecialty from "./page/patient/OnlineConsultSpecialty";
 import OnlineConsultTime from "./page/patient/OnlineConsultTime";
 import BookingSchedule from "./page/patient/BookingSchedule";
-import BookingScheduleNew from "./page/patient/BookingSchedule_New";
+import BookingScheduleNew from "./page/patient/BookingSchedule_New_BACKUP.tsx";
 import BookingPreventive from "./page/patient/BookingPreventive";
 import PaymentCallback from "./page/patient/PaymentCallback";
 import Doctor from "./page/patient/Doctor";
@@ -37,6 +37,7 @@ import PatientAccount from "./components/patient/PatientAccount.tsx";
 import PatientDashboard from "./page/patient/PatientDashboard.tsx";
 import PatientMedicalRecords from './components/patient/PatientMedicalRecords.tsx';
 import ReceptionAppointmentPage from './components/reception/AppointmentControll.tsx';
+import StaffDashboard from "./page/staff/StaffDashboard.tsx";
 // import DoctorCall from "./page/doctor/DoctorCall.tsx";
 function App() {
     return (
@@ -57,7 +58,6 @@ function App() {
                 <Route path="/booking-schedule-new" element={<BookingScheduleNew/>}/>
                 <Route path="/booking-preventive" element={<BookingPreventive/>}/>
                 <Route path="/payment-callback" element={<PaymentCallback/>}/>
-                <Route path="*" element={<Home />} />
                 <Route path="/chat" element={<PatientChatPage />} />    
                 <Route path="/patient" element={<PatientDashboard />}>
                     <Route path="appointments" element={<PatientAppointments />} />
@@ -65,13 +65,13 @@ function App() {
                     <Route path="profile" element={<PatientProfile />} />
                     <Route path="account" element={<PatientAccount />} />
                 </Route>
-                <Route path="/chat" element={<PatientChatPage />} />
                 <Route path='/receptionPage' element={<ReceptionAppointmentPage/>}/>
+                <Route path='/staff' element={<StaffDashboard/>}/>
  
-                <Route path="/doctor-list" element={<DoctorList />} />
+                {/* <Route path="/doctor-list" element={<DoctorList />} /> */}
                 
                 {/* Admin Routes */}
-                <Route path="/admin/*" element={<AdminRouter />} />
+                {/* <Route path="/admin/*" element={<AdminRouter />} /> */}
                 
                 <Route path="*" element={<Home />} />
 

@@ -11,12 +11,14 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.example.ohms.dto.request.ChangePasswordRequest;
 import com.example.ohms.dto.request.EmailRequest;
 import com.example.ohms.dto.request.ResetPasswordRequest;
 import com.example.ohms.dto.request.UserRequest;
@@ -93,7 +95,8 @@ public ApiResponse<UserResponse> register(
         .code(200)
         .results(userService.userUpdateUser(id, userRequestDto, avatar))
         .build();
-    }@PostMapping("/sendResetCode")
+    }
+    @PostMapping("/sendResetCode")
 public ApiResponse<Void> sendResetCode(@RequestBody EmailRequest request) throws MessagingException {
     log.info("{}", request.getEmail());
     return ApiResponse.<Void>builder()
@@ -110,6 +113,30 @@ public ApiResponse<Void> checkTokenAndResetPass(
         .results(userService.checkResetToken(request))
         .build();
 }
+
+    @PostMapping("/changePassword/{id}")
+    public ApiResponse<Void> changePassword(
+        @RequestBody ChangePasswordRequest request,
+        @PathVariable("id") String id
+    ) {
+        return ApiResponse.<Void>builder()
+            .code(200)
+            .message("Change password successful")
+            .results(userService.changePassword(id, request))
+            .build();
+    }
+
+    @PatchMapping("/changeBank/{id}")
+    public ApiResponse<UserResponse> changeBank(
+        @PathVariable("id") String id,
+        @RequestBody UserRequest userRequestDto
+    ) throws IOException {
+        return ApiResponse.<UserResponse>builder()
+            .code(200)
+            .results(userService.updateUserBankInfo(id, userRequestDto))
+            .build();
+    }
+
 
 
      @GetMapping("/getinfo")

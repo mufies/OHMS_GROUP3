@@ -1,5 +1,6 @@
 package com.example.ohms.dto.response;
 
+import java.sql.Date;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
@@ -25,6 +26,8 @@ public class AppointmentResponse {
     String patientName;
     String patientEmail;
     String patientPhone;
+    String patientBankName;
+    String patientBankNumber;
     
     String doctorId;
     String doctorName;
@@ -50,6 +53,8 @@ public class AppointmentResponse {
     
     // Trạng thái thanh toán đặt cọc
     String depositStatus; // PENDING, PAID, DEPOSIT
+    Date cancelTime;
+
     
     // Nested classes cho thông tin chi tiết
     @Data

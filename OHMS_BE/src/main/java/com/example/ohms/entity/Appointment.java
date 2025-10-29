@@ -1,5 +1,6 @@
 package com.example.ohms.entity;
 
+import java.sql.Date;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.HashSet;
@@ -90,4 +91,6 @@ public class Appointment {
    @Enumerated(EnumType.STRING)
    @Builder.Default
    PaymentStatus depositStatus = PaymentStatus.PENDING;
+      Date cancelTime;
+
 }

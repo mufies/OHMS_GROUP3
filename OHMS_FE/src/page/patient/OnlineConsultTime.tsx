@@ -193,7 +193,6 @@ function OnlineConsultTime() {
     token: string
   ): Promise<DaySchedule[]> => {
     
-    // Helper: build week dates (Mon-Fri only)
     const buildWeekDates = (refDate: Date) => {
       const d = new Date(refDate);
       const day = d.getDay();
@@ -404,27 +403,41 @@ function OnlineConsultTime() {
       return;
     }
 
+    // Build booking payload compatible with PaymentCallback
+    const amount = service.price || 0;
+    const discount = 0; // currently no discount selection in this flow
+    const deposit = Math.round(amount * 0.5); // default 50% deposit
+
     const bookingData = {
+      bookingType: 'CONSULTATION_ONLY', // online consult is consultation-only
       doctorId: selectedDoctor.id,
       workDate: weekSchedule[selectedDay].date,
       startTime: selectedSlot.startTime,
       endTime: selectedSlot.endTime,
-      medicalExaminationIds: [service.id]
+      medicalExaminationIds: [service.id],
+      totalAmount: amount,
+      discount: discount,
+      deposit: deposit,
+      depositStatus: 'PENDING'
     };
 
+    // Persist pending booking so PaymentCallback can finalize appointment after payment
     sessionStorage.setItem('pendingBooking', JSON.stringify(bookingData));
 
     try {
+      // Call payment init endpoint (backend should return paymentUrl in results.paymentUrl)
       const response = await axios.get('http://localhost:8080/api/v1/payment/vn-pay', {
         params: {
-          amount: service.price,
+          amount: amount,
           bankCode: 'NCB'
         }
       });
 
       if (response.data?.results?.paymentUrl) {
+        // Redirect user to payment provider
         window.location.href = response.data.results.paymentUrl;
       } else {
+        console.error('Payment init response:', response.data);
         alert('Không thể tạo link thanh toán!');
       }
     } catch (error) {

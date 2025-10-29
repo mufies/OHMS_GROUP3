@@ -244,6 +244,51 @@ public class AppointmentController {
         return ResponseEntity.ok(result);
     }
     
+    // Cancel appointment and set cancel date
+    @PutMapping("/{appointmentId}/cancel")
+    public ResponseEntity<AppointmentResponse> cancelAppointment(@PathVariable String appointmentId) {
+        log.info("Cancelling appointment: {}", appointmentId);
+        
+        try {
+            AppointmentResponse response = appointmentService.cancelAppointment(appointmentId);
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            log.error("Error cancelling appointment: {}", e.getMessage());
+            throw e;
+        }
+    }
+    
+    // Get cancelled appointments with deposit
+    @GetMapping("/cancelled")
+    public ResponseEntity<List<AppointmentResponse>> getCancelledAppointments() {
+        log.info("Getting all cancelled appointments with deposit");
+        
+        try {
+            List<AppointmentResponse> appointments = appointmentService.getCancelledAppointmentsWithDeposit();
+            return ResponseEntity.ok(appointments);
+        } catch (Exception e) {
+            log.error("Error getting cancelled appointments: {}", e.getMessage());
+            throw e;
+        }
+    }
+    
+    // Confirm refund - update deposit to negative value (refunded amount)
+    @PutMapping("/{appointmentId}/refund")
+    public ResponseEntity<AppointmentResponse> confirmRefund(
+            @PathVariable String appointmentId,
+            @RequestBody Map<String, Object> refundData) {
+        log.info("Confirming refund for appointment: {}", appointmentId);
+        
+        try {
+            Double refundAmount = ((Number) refundData.get("refundAmount")).doubleValue();
+            AppointmentResponse response = appointmentService.confirmRefund(appointmentId, refundAmount);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Error confirming refund: {}", e.getMessage());
+            throw e;
+        }
+    }
+    
     // // Lấy các khung giờ đã đặt của doctor
     // @GetMapping("/doctor/{doctorId}/booked-slots")
     // public ResponseEntity<List<String>> getBookedTimeSlots(

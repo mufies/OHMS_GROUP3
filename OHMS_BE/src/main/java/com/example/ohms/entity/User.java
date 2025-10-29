@@ -54,6 +54,8 @@ Boolean enabled = true;
  @Enumerated(EnumType.STRING)
    Set<MedicalSpecialty> medicleSpecially;
    String identification; // mã số định danh, thực ra cái này hơi không cần để xử lí ấy, nó làm legit hơn thôi
+   String bankNumber;
+   String bankName;
 
  
 }
