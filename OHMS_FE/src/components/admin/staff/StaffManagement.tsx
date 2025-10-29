@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import StaffList from './StaffList';
 import StaffForm from './StaffForm';
+import { fetchCreateUser } from '../../../utils/fetchFromAPI';
 
 interface User {
   id: string;
@@ -135,12 +136,16 @@ const StaffManagement: React.FC = () => {
             if (key === 'medicleSpecially' && Array.isArray(value)) {
               // Handle medicleSpecially array (used for staff positions) - send each value as separate form field
               value.forEach((position) => {
-                formData.append('medicleSpecially', position);
+                formData.append('medicleSpecially', String(position));
               });
             } else if (key === 'roles' && Array.isArray(value)) {
-              // Handle roles array - send each role as separate form field
+              // Handle roles array - send each role name as separate form field
               value.forEach((role) => {
-                formData.append('roles', role);
+                if (typeof role === 'object' && role.name) {
+                  formData.append('roles', role.name);
+                } else if (typeof role === 'string') {
+                  formData.append('roles', role);
+                }
               });
             } else if (Array.isArray(value)) {
               // Handle other arrays
@@ -184,12 +189,16 @@ const StaffManagement: React.FC = () => {
             if (key === 'medicleSpecially' && Array.isArray(value)) {
               // Handle medicleSpecially array (used for staff positions) - send each value as separate form field
               value.forEach((position) => {
-                formData.append('medicleSpecially', position);
+                formData.append('medicleSpecially', String(position));
               });
             } else if (key === 'roles' && Array.isArray(value)) {
-              // Handle roles array - send each role as separate form field
+              // Handle roles array - send each role name as separate form field
               value.forEach((role) => {
-                formData.append('roles', role);
+                if (typeof role === 'object' && role.name) {
+                  formData.append('roles', role.name);
+                } else if (typeof role === 'string') {
+                  formData.append('roles', role);
+                }
               });
             } else if (Array.isArray(value)) {
               // Handle other arrays
@@ -204,29 +213,16 @@ const StaffManagement: React.FC = () => {
           }
         });
 
-        const response = await fetch('http://localhost:8080/users/createUser', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            // Remove Content-Type header to let browser set it with boundary for FormData
-          },
-          body: formData,
-        });
-
-        if (response.ok) {
-          const result: UpdateResponse = await response.json();
-          console.log('Create successful:', result);
-          setShowForm(false);
-          setEditingUser(null);
-          fetchUsers(); // Refresh the list
-        } else {
-          const errorData = await response.json();
-          throw new Error(errorData.message || 'Failed to create user');
-        }
+        const result = await fetchCreateUser(formData);
+        console.log('Create successful:', result);
+        setShowForm(false);
+        setEditingUser(null);
+        fetchUsers(); // Refresh the list
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+    } catch (err: any) {
       console.error('Error submitting form:', err);
+      // Re-throw error to be caught by StaffForm
+      throw new Error(err.response?.data?.message || err.message || 'Có lỗi xảy ra khi tạo nhân viên');
     }
   };
 

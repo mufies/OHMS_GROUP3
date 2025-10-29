@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import DoctorList from './DoctorList';
 import DoctorForm from './DoctorForm';
+import { fetchCreateUser } from '../../../utils/fetchFromAPI';
 
 interface Doctor {
   id: string;
@@ -14,6 +15,7 @@ interface Doctor {
     permissions: any[];
   }>;
   medicleSpecially: string[] | null;
+  avatar?: File | null;
 }
 
 interface ApiResponse {
@@ -128,15 +130,22 @@ const DoctorManagement: React.FC = () => {
         // Add all doctor data fields to FormData
         Object.entries(doctorData).forEach(([key, value]) => {
           if (value !== null && value !== undefined) {
-            if (key === 'medicleSpecially' && Array.isArray(value)) {
+            if (key === 'avatar' && value instanceof File) {
+              // Handle avatar file
+              formData.append('avatar', value);
+            } else if (key === 'medicleSpecially' && Array.isArray(value)) {
               // Handle medicleSpecially array - send each enum value as separate form field
               value.forEach((specialty) => {
-                formData.append('medicleSpecially', specialty);
+                formData.append('medicleSpecially', String(specialty));
               });
             } else if (key === 'roles' && Array.isArray(value)) {
-              // Handle roles array - send each role as separate form field
+              // Handle roles array - send each role name as separate form field
               value.forEach((role) => {
-                formData.append('roles', role);
+                if (typeof role === 'object' && role.name) {
+                  formData.append('roles', role.name);
+                } else if (typeof role === 'string') {
+                  formData.append('roles', role);
+                }
               });
             } else if (Array.isArray(value)) {
               // Handle other arrays
@@ -171,13 +180,52 @@ const DoctorManagement: React.FC = () => {
           throw new Error(errorData.message || 'Failed to update doctor');
         }
       } else {
-        // For creating new doctor, we'll need a different API endpoint
-        // For now, show error message
-        throw new Error('Chức năng tạo bác sĩ mới chưa được hỗ trợ. Vui lòng liên hệ admin để tạo tài khoản.');
+        // Create new doctor using POST API
+        const formData = new FormData();
+        
+        // Add all doctor data fields to FormData
+        Object.entries(doctorData).forEach(([key, value]) => {
+          if (value !== null && value !== undefined) {
+            if (key === 'avatar' && value instanceof File) {
+              // Handle avatar file
+              formData.append('avatar', value);
+            } else if (key === 'medicleSpecially' && Array.isArray(value)) {
+              // Handle medicleSpecially array - send each enum value as separate form field
+              value.forEach((specialty) => {
+                formData.append('medicleSpecially', String(specialty));
+              });
+            } else if (key === 'roles' && Array.isArray(value)) {
+              // Handle roles array - send each role name as separate form field
+              value.forEach((role) => {
+                if (typeof role === 'object' && role.name) {
+                  formData.append('roles', role.name);
+                } else if (typeof role === 'string') {
+                  formData.append('roles', role);
+                }
+              });
+            } else if (Array.isArray(value)) {
+              // Handle other arrays
+              formData.append(key, JSON.stringify(value));
+            } else if (typeof value === 'object') {
+              // Handle objects
+              formData.append(key, JSON.stringify(value));
+            } else {
+              // Handle primitive values
+              formData.append(key, String(value));
+            }
+          }
+        });
+
+        const result = await fetchCreateUser(formData);
+        console.log('Create successful:', result);
+        setShowForm(false);
+        setEditingDoctor(null);
+        fetchDoctors(); // Refresh the list
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+    } catch (err: any) {
       console.error('Error submitting form:', err);
+      // Re-throw error to be caught by DoctorForm
+      throw new Error(err.response?.data?.message || err.message || 'Có lỗi xảy ra khi tạo bác sĩ');
     }
   };
 
