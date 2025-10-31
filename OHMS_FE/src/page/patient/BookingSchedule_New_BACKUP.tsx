@@ -154,6 +154,7 @@ function BookingSchedule() {
   const [diagnosticSlots, setDiagnosticSlots] = useState<{service: MedicalExamination, slot: TimeSlot, resultTime: string}[]>([]);
   const [consultationSlot, setConsultationSlot] = useState<TimeSlot | null>(null);
   const [patientAppointments, setPatientAppointments] = useState<Appointment[]>([]);
+  const [dateAppointments, setDateAppointments] = useState<Appointment[]>([]);
   const sortServicesByType = (servicesArray: MedicalExamination[]): MedicalExamination[] => {
   const waitServices = servicesArray.filter(s => !s.type || s.type === 'WAIT');
   const stayServices = servicesArray.filter(s => s.type === 'STAY');
@@ -192,40 +193,72 @@ function BookingSchedule() {
     fetchPatientAppointments();
   }, []);
 
-const isSlotConflictingWithPatient = (date: string, startTime: string, endTime: string): boolean => {
-  return patientAppointments.some(apt => {
-    // Only check parent appointments
+  // Fetch appointments for the selected date to check conflicts
+  useEffect(() => {
+    const fetchDateAppointments = async () => {
+      if (weekSchedule.length === 0 || !weekSchedule[selectedDay]) return;
+      
+      const selectedDate = weekSchedule[selectedDay].date;
+      
+      try {
+        const token = localStorage.getItem('accessToken');
+        if (!token) return;
+
+        const response = await axios.get(
+          `http://localhost:8080/appointments/date/${selectedDate}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+
+        const appointments: Appointment[] = Array.isArray(response.data) ? response.data : [];
+        setDateAppointments(appointments);
+      } catch (error) {
+        console.error('Error fetching date appointments:', error);
+        setDateAppointments([]);
+      }
+    };
+
+    fetchDateAppointments();
+  }, [selectedDay, weekSchedule]);
+
+const isSlotConflictingWithPatient = (startTime: string, endTime: string): boolean => {
+  // Check conflicts in dateAppointments (all appointments for selected date)
+  const hasDateConflict = dateAppointments.some(apt => {
+    // Only check parent appointments (not service appointments)
     if (apt.parentAppointmentId !== null) return false;
-    if (apt.workDate !== date) return false;
     
     // Skip cancelled appointments
     if (apt.status === 'CANCELLED') return false;
     
-    // Collect all time ranges (parent + services)
-    const timeRanges: Array<{start: string, end: string}> = [
-      { start: apt.startTime, end: apt.endTime }
-    ];
-    
-    if (apt.serviceAppointments && apt.serviceAppointments.length > 0) {
-      apt.serviceAppointments.forEach(service => {
-        if (service.status === 'Schedule' || service.status === 'IN_PROGRESS') {
-          timeRanges.push({ start: service.startTime, end: service.endTime });
-        }
-      });
-    }
-    
-    // Find earliest and latest using string comparison (works for HH:mm:ss format)
-    const earliestStart = timeRanges.reduce((min, r) => r.start < min ? r.start : min, timeRanges[0].start);
-    const latestEnd = timeRanges.reduce((max, r) => r.end > max ? r.end : max, timeRanges[0].end);
-    
-    // Check overlap
-    return startTime < latestEnd && endTime > earliestStart;
+    // Check only the parent appointment's time range
+    return startTime < apt.endTime && endTime > apt.startTime;
   });
+
+  // Check conflicts in patientAppointments (patient's own appointments across all dates)
+  const selectedDate = weekSchedule[selectedDay]?.date;
+  const hasPatientConflict = patientAppointments.some(apt => {
+    // Only check parent appointments (not service appointments)
+    if (apt.parentAppointmentId !== null) return false;
+    
+    // Only check appointments on the selected date
+    if (apt.workDate !== selectedDate) return false;
+    
+    // Skip cancelled appointments
+    if (apt.status === 'CANCELLED') return false;
+    
+    // Check only the parent appointment's time range
+    return startTime < apt.endTime && endTime > apt.startTime;
+  });
+
+  return hasDateConflict || hasPatientConflict;
 };
 
 
 
-  // Helper: Check if slot is in the past
   const isSlotInPast = (date: string, startTime: string): boolean => {
     const now = new Date();
     const [year, month, day] = date.split('-').map(Number);
@@ -1210,7 +1243,7 @@ const calculateDiagnosticSlots = (
                               <div className="grid grid-cols-4 gap-3">
                                 {selectedDayData?.slots.map(slot => {
                                   const isPast = isSlotInPast(dateStr, slot.startTime);
-                                  const hasConflict = isSlotConflictingWithPatient(dateStr, slot.startTime, slot.endTime);
+                                  const hasConflict = isSlotConflictingWithPatient(slot.startTime, slot.endTime);
                                   const isDisabled = !slot.available || isPast || hasConflict;
                                   
                                   return (
@@ -1301,7 +1334,7 @@ const calculateDiagnosticSlots = (
                                     const em = endTotalMinutes % 60;
                                     const estimatedEndTime = `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}:00`;
                                     
-                                    const hasConflict = isSlotConflictingWithPatient(dateStr, slot.startTime, estimatedEndTime);
+                                    const hasConflict = isSlotConflictingWithPatient(slot.startTime, estimatedEndTime);
                                     const isDisabled = isPast || hasConflict;
                                     
                                     return (
@@ -1405,7 +1438,7 @@ const calculateDiagnosticSlots = (
                                           <div className="grid grid-cols-4 gap-3">
                                             {consultationSlots.map((conSlot) => {
                                               const isPast = isSlotInPast(dateStr, conSlot.startTime);
-                                              const hasConflict = isSlotConflictingWithPatient(dateStr, conSlot.startTime, conSlot.endTime);
+                                              const hasConflict = isSlotConflictingWithPatient(conSlot.startTime, conSlot.endTime);
                                               const isDisabled = isPast || hasConflict;
                                               
                                               return (

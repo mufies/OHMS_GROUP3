@@ -5,8 +5,9 @@ import StaffNavigator from "../../components/staff/StaffNavigator";
 import DoctorScheduleManager from "../../components/staff/DoctorScheduleManager";
 import AppointmentManager from "../../components/staff/AppointmentManager";
 import CancelRequestManager from "../../components/staff/CancelRequestManager";
+import WeekScheduleManager from "../../components/staff/WeekScheduleManager";
 
-type TabType = "schedule" | "appointments" | "cancellations";
+type TabType = "weekSchedule" | "schedule" | "appointments" | "cancellations";
 
 interface Role {
   name: string;
@@ -53,7 +54,7 @@ const decodeJWT = (token: string) => {
 };
 
 export default function StaffDashboard() {
-  const [activeTab, setActiveTab] = useState<TabType>("schedule");
+  const [activeTab, setActiveTab] = useState<TabType>("weekSchedule");
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [staffInfo, setStaffInfo] = useState<StaffInfo | null>(null);
@@ -126,6 +127,15 @@ export default function StaffDashboard() {
 
   const tabs = [
     { 
+      id: "weekSchedule" as TabType, 
+      label: "Lịch tuần",
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+      )
+    },
+    { 
       id: "schedule" as TabType, 
       label: "Quản lý lịch làm việc",
       icon: (
@@ -180,7 +190,7 @@ export default function StaffDashboard() {
           {/* Header */}
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              👨‍💼 Bảng điều khiển Staff
+              Bảng điều khiển Staff
             </h1>
             <p className="text-gray-600">Quản lý lịch làm việc bác sĩ và xử lý yêu cầu</p>
           </div>
@@ -207,6 +217,7 @@ export default function StaffDashboard() {
 
           {/* Tab Content */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            {activeTab === "weekSchedule" && <WeekScheduleManager staffInfo={staffInfo} />}
             {activeTab === "schedule" && <DoctorScheduleManager staffInfo={staffInfo} />}
             {activeTab === "appointments" && <AppointmentManager staffInfo={staffInfo} />}
             {activeTab === "cancellations" && <CancelRequestManager />}

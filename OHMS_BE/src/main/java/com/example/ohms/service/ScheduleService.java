@@ -2,6 +2,7 @@ package com.example.ohms.service;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.temporal.TemporalAdjusters;
 import java.util.List;
 
@@ -29,6 +30,7 @@ public class ScheduleService {
    ScheduleRepository scheduleRepository;
    ScheduleMapper scheduleMapper;
    UserRepository userRepository;
+   AppointmentService appointmentService; // Inject AppointmentService
 // tạo lịch mới
 public ScheduleResponse createSchedule(ScheduleRequest scheduleRequest,String doctorId){
 if (scheduleRequest.getWorkDate().isBefore(LocalDate.now())) {
@@ -42,6 +44,20 @@ if (scheduleRequest.getWorkDate().isBefore(LocalDate.now())) {
    Schedule schedule =  scheduleMapper.toSchedule(scheduleRequest);
    schedule.setDoctor(user);
    scheduleRepository.save(schedule);
+   
+   // Auto-assign appointments có doctorId = null vào schedule mới này
+   int assignedCount = appointmentService.autoAssignAppointmentsOnScheduleCreate(
+       doctorId,
+       scheduleRequest.getWorkDate(),
+       scheduleRequest.getStartTime(),
+       scheduleRequest.getEndTime()
+   );
+   
+   if (assignedCount > 0) {
+       // Log để debug
+       System.out.println("Auto-assigned " + assignedCount + " appointments to doctor " + doctorId);
+   }
+   
    return scheduleMapper.toScheduleResponse(schedule);
 }
 // lấy hết lịch làm việc của 1 thằng doctor
@@ -88,23 +104,73 @@ public ScheduleResponse updateSchedule(String scheduleId, ScheduleRequest schedu
    if (scheduleRequest.getWorkDate().isBefore(LocalDate.now())) {
     throw new AppException(ErrorCode.DATE_NOT_VAILID);
 }
-   if(scheduleRequest.getEndTime() != null){
- schedule.setEndTime(scheduleRequest.getEndTime());
+   
+   // Lưu thông tin cũ để check appointments bị ảnh hưởng
+   String doctorId = schedule.getDoctor().getId();
+   LocalDate oldDate = schedule.getWorkDate();
+   LocalTime oldStartTime = schedule.getStartTime();
+   LocalTime oldEndTime = schedule.getEndTime();
+   
+   // Check nếu thay đổi time range → unassign appointments
+   boolean timeChanged = false;
+   LocalTime newStartTime = oldStartTime;
+   LocalTime newEndTime = oldEndTime;
+   
+   if (scheduleRequest.getStartTime() != null && !scheduleRequest.getStartTime().equals(oldStartTime)) {
+       newStartTime = scheduleRequest.getStartTime();
+       schedule.setStartTime(newStartTime);
+       timeChanged = true;
    }
-  if(scheduleRequest.getStartTime() != null){
-   schedule.setStartTime(scheduleRequest.getStartTime());
-  }
-   if(scheduleRequest.getWorkDate() != null){
+   if (scheduleRequest.getEndTime() != null && !scheduleRequest.getEndTime().equals(oldEndTime)) {
+       newEndTime = scheduleRequest.getEndTime();
+       schedule.setEndTime(newEndTime);
+       timeChanged = true;
+   }
+   if (scheduleRequest.getWorkDate() != null && !scheduleRequest.getWorkDate().equals(oldDate)) {
        schedule.setWorkDate(scheduleRequest.getWorkDate());
+       timeChanged = true;
    }
    
-  
+   // Nếu time range thay đổi → handle appointments với NEW time range
+   if (timeChanged) {
+       int unassignedCount = appointmentService.handleScheduleChange(
+           doctorId,
+           oldDate,
+           oldStartTime,
+           oldEndTime,
+           newStartTime,  // Truyền NEW start time
+           newEndTime     // Truyền NEW end time
+       );
+       
+       if (unassignedCount > 0) {
+           System.out.println("Unassigned " + unassignedCount + " appointments (outside new time range)");
+       } else {
+           System.out.println("All appointments still within new time range, kept doctor assignment");
+       }
+   }
+   
    scheduleRepository.save(schedule);
    return scheduleMapper.toScheduleResponse(schedule);
 }
 // tí quay lại check relation trong bảng
 public Void deleteSchedule(String scheduleId){
-   scheduleRepository.deleteById(scheduleId);
-   return null;
+    // Verify schedule exists before deleting to provide clear error when it does not
+    Schedule schedule = scheduleRepository.findById(scheduleId)
+        .orElseThrow(() -> new AppException(ErrorCode.SCHEDULE_NOT_FOUND));
+    
+    // Unassign tất cả appointments trong time range của schedule này
+    int unassignedCount = appointmentService.handleScheduleChange(
+        schedule.getDoctor().getId(),
+        schedule.getWorkDate(),
+        schedule.getStartTime(),
+        schedule.getEndTime()
+    );
+    
+    if (unassignedCount > 0) {
+        System.out.println("Unassigned " + unassignedCount + " appointments due to schedule deletion");
+    }
+    
+    scheduleRepository.deleteById(scheduleId);
+    return null;
 }
 }

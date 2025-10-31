@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import  { useEffect, useState } from "react";
 import { axiosInstance } from "../../utils/fetchFromAPI";
 import { toast } from "sonner";
 import Navigator from "../Navigator";

@@ -268,7 +268,7 @@ private String extractPublicIdFromUrl(String cloudinaryUrl) {
       
       // Kiểm tra newPassword và confirmPassword khớp nhau
       if (!request.getNewPassword().equals(request.getConfirmPassword())) {
-           throw new AppException(ErrorCode.UNAUTHENTICATED);
+           throw new AppException(ErrorCode.NEWPASSNOTEQUALS);
       }
       
       // Tìm user theo username/email

@@ -117,11 +117,12 @@ public interface AppointmentRepository extends JpaRepository<Appointment, String
     void deleteByDoctorId(String doctorId);
     
     // Custom method to create appointment with conflict validation
+    // Check if can create appointment without conflict
+    // TRUE overlap logic: startTime < existing.endTime AND endTime > existing.startTime
+    // Allow touching appointments (e.g., 8:00-9:00 and 9:00-9:30 are OK)
     @Query("SELECT CASE WHEN COUNT(a) > 0 THEN false ELSE true END FROM Appointment a " +
            "WHERE (a.doctor.id = :doctorId OR a.patient.id = :patientId) AND a.workDate = :workDate AND " +
-           "((a.startTime <= :startTime AND a.endTime > :startTime) OR " +
-           "(a.startTime < :endTime AND a.endTime >= :endTime) OR " +
-           "(a.startTime >= :startTime AND a.endTime <= :endTime))")
+           "(:startTime < a.endTime AND :endTime > a.startTime)")
     boolean canCreateAppointment(@Param("doctorId") String doctorId,
                                 @Param("patientId") String patientId,
                                 @Param("workDate") LocalDate workDate,
@@ -143,5 +144,64 @@ public interface AppointmentRepository extends JpaRepository<Appointment, String
     @Query("UPDATE Appointment a SET a.doctor.id = :doctorId WHERE a.id = :appointmentId")
     int assignDoctorToAppointment(@Param("appointmentId") String appointmentId, @Param("doctorId") String doctorId);
 
+    /**
+     * Tìm appointments có doctorId = null (bị unassign) trong khoảng thời gian
+     * @param workDate Ngày làm việc
+     * @param startTime Giờ bắt đầu
+     * @param endTime Giờ kết thúc
+     * @return Danh sách appointments không có doctor
+     */
+    @Query("SELECT a FROM Appointment a JOIN FETCH a.patient WHERE a.doctor IS NULL " +
+           "AND a.workDate = :workDate " +
+           "AND a.startTime >= :startTime AND a.endTime <= :endTime " +
+           "AND a.status != 'CANCELLED' " +
+           "ORDER BY a.startTime")
+    List<Appointment> findUnassignedAppointmentsByDateAndTime(
+        @Param("workDate") LocalDate workDate,
+        @Param("startTime") LocalTime startTime,
+        @Param("endTime") LocalTime endTime
+    );
+
+    /**
+     * Set doctorId = null cho các appointments trong time range của một doctor
+     * (Dùng khi edit/delete schedule)
+     * @param doctorId ID của doctor bị thay đổi lịch
+     * @param workDate Ngày
+     * @param startTime Giờ bắt đầu
+     * @param endTime Giờ kết thúc
+     * @return Số lượng appointments bị unassign
+     */
+    @Transactional
+    @Modifying
+    @Query("UPDATE Appointment a SET a.doctor = NULL WHERE a.doctor.id = :doctorId " +
+           "AND a.workDate = :workDate " +
+           "AND a.startTime >= :startTime AND a.endTime <= :endTime " +
+           "AND a.status != 'CANCELLED'")
+    int unassignDoctorFromAppointments(
+        @Param("doctorId") String doctorId,
+        @Param("workDate") LocalDate workDate,
+        @Param("startTime") LocalTime startTime,
+        @Param("endTime") LocalTime endTime
+    );
+
+    /**
+     * Tìm appointments bị ảnh hưởng (trong time range) trước khi unassign
+     * @param doctorId ID của doctor
+     * @param workDate Ngày
+     * @param startTime Giờ bắt đầu
+     * @param endTime Giờ kết thúc
+     * @return Danh sách appointments sẽ bị ảnh hưởng
+     */
+    @Query("SELECT a FROM Appointment a JOIN FETCH a.patient WHERE a.doctor.id = :doctorId " +
+           "AND a.workDate = :workDate " +
+           "AND a.startTime >= :startTime AND a.endTime <= :endTime " +
+           "AND a.status != 'CANCELLED' " +
+           "ORDER BY a.startTime")
+    List<Appointment> findAffectedAppointments(
+        @Param("doctorId") String doctorId,
+        @Param("workDate") LocalDate workDate,
+        @Param("startTime") LocalTime startTime,
+        @Param("endTime") LocalTime endTime
+    );
     
 }

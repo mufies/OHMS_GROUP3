@@ -1,6 +1,7 @@
 package com.example.ohms.controller;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
 
@@ -297,5 +298,20 @@ public class AppointmentController {
     //     log.info("Getting booked time slots for doctor {} on date {}", doctorId, date);
     //     return ResponseEntity.ok(List.of());
     // }
+    
+    // Get unassigned appointments (doctorId = null) in time range
+    // Changed path to avoid conflict with GET /{appointmentId}
+    @GetMapping("/search/unassigned")
+    public ResponseEntity<List<AppointmentResponse>> getUnassignedAppointments(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate workDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime startTime,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime endTime) {
+        log.info("Getting unassigned appointments for date: {} time: {}-{}", workDate, startTime, endTime);
+        
+        List<AppointmentResponse> appointments = appointmentService.getUnassignedAppointments(
+            workDate, startTime, endTime
+        );
+        return ResponseEntity.ok(appointments);
+    }
     // tạo khám cho thằng user vãng lai 
 }

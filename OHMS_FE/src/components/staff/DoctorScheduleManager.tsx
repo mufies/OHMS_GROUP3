@@ -220,8 +220,7 @@ export default function DoctorScheduleManager({ staffInfo }: DoctorScheduleManag
     }
 
     try {
-      await axiosInstance.post("/schedule", {
-        userId: selectedDoctor.id,
+      await axiosInstance.post(`/schedule/${selectedDoctor.id}`, {
         workDate: scheduleForm.workDate,
         startTime: scheduleForm.startTime + ":00",
         endTime: scheduleForm.endTime + ":00"

@@ -13,6 +13,7 @@ import lombok.experimental.FieldDefaults;
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE,makeFinal = true)
 public class ScheduleResponse {
+   String id;
    LocalDate workDate;
    LocalTime startTime;
    LocalTime endTime;
