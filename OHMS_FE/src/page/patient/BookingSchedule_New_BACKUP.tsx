@@ -59,7 +59,7 @@ interface Doctor {
   patients: number;
   description: string;
   education: string;
-  certifications: string[];
+  certifications: string;
   imageUrl?: string;
 }
 
@@ -155,6 +155,11 @@ function BookingSchedule() {
   const [consultationSlot, setConsultationSlot] = useState<TimeSlot | null>(null);
   const [patientAppointments, setPatientAppointments] = useState<Appointment[]>([]);
   const [dateAppointments, setDateAppointments] = useState<Appointment[]>([]);
+  // Helper function to convert specialty to Vietnamese
+  const getSpecialtyInVietnamese = (specialty: string): string => {
+    return MEDICAL_SPECIALTY_LABELS[specialty as MedicalSpecialtyType] || specialty;
+  };
+
   const sortServicesByType = (servicesArray: MedicalExamination[]): MedicalExamination[] => {
   const waitServices = servicesArray.filter(s => !s.type || s.type === 'WAIT');
   const stayServices = servicesArray.filter(s => s.type === 'STAY');
@@ -1134,7 +1139,7 @@ const calculateDiagnosticSlots = (
                           BS. {selectedDoctor.username}
                         </div>
                         <div className="text-xs text-green-700">
-                          {selectedDoctor.medicleSpecially}
+                          {getSpecialtyInVietnamese(selectedDoctor.medicleSpecially)}
                         </div>
                       </div>
                     </div>
@@ -1565,7 +1570,7 @@ const calculateDiagnosticSlots = (
                       BS. {selectedDoctor.username}
                     </div>
                     <div className="text-xs text-gray-600 mt-0.5">
-                      {selectedDoctor.medicleSpecially}
+                      {getSpecialtyInVietnamese(selectedDoctor.medicleSpecially)}
                     </div>
                     <div className="text-xs text-gray-500 mt-0.5">
                       {selectedDoctor.phone}
@@ -1826,50 +1831,214 @@ const calculateDiagnosticSlots = (
             </div>
 
             <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
-              <div className="space-y-3">
-                {doctors.map(doctor => (
-                  <div
-                    key={doctor.id}
-                    className={`p-4 rounded-lg border-2 transition-all ${
-                      selectedDoctor?.id === doctor.id
-                        ? "border-blue-600 bg-blue-50"
-                        : "border-gray-200 bg-white hover:border-gray-300"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div 
-                        className="flex items-center gap-4 flex-1 cursor-pointer"
-                        onClick={() => setSelectedDoctor(doctor)}
+              {viewDoctorProfile ? (
+                // Doctor Profile Detail View
+                (() => {
+                  const doctor = doctors.find(d => d.id === viewDoctorProfile);
+                  if (!doctor) return null;
+                  
+                  return (
+                    <div className="space-y-6">
+                      {/* Back Button */}
+                      <button
+                        onClick={() => setViewDoctorProfile(null)}
+                        className="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium"
                       >
-                        <div className="w-16 h-16 rounded-full bg-gray-200 overflow-hidden flex items-center justify-center">
-                          <span className="text-gray-400 text-2xl font-semibold">
-                            {doctor.username.charAt(0)}
-                          </span>
-                        </div>
-                        <div className="flex-1">
-                          <div className="font-semibold text-lg text-gray-900">BS. {doctor.username}</div>
-                          <div className="text-sm text-gray-600 mt-1">
-                            {doctor.medicleSpecially} • {doctor.experience}
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                        </svg>
+                        Quay lại danh sách
+                      </button>
+
+                      {/* Doctor Header */}
+                      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6">
+                        <div className="flex items-start gap-6">
+                          <div className="w-24 h-24 rounded-full bg-white border-4 border-white shadow-lg overflow-hidden flex items-center justify-center flex-shrink-0">
+                            {doctor.imageUrl ? (
+                              <img 
+                                src={doctor.imageUrl} 
+                                alt={doctor.username}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <span className="text-blue-600 text-4xl font-bold">
+                                {doctor.username.charAt(0)}
+                              </span>
+                            )}
                           </div>
-                          <div className="flex items-center gap-4 mt-2">
-                            <div className="flex items-center gap-1">
-                              <span className="text-yellow-500">★</span>
-                              <span className="text-sm font-medium text-gray-900">{doctor.rating}</span>
+                          <div className="flex-1">
+                            <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                              Bác sĩ {doctor.username}
+                            </h3>
+                            <div className="flex flex-wrap gap-3 mb-3">
+                              <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
+                                {getSpecialtyInVietnamese(doctor.medicleSpecially)}
+                              </span>
+                              <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-medium">
+                                {doctor.experience} năm kinh nghiệm
+                              </span>
                             </div>
-                            <div className="text-sm text-gray-600">{doctor.patients}+ bệnh nhân</div>
+                            <div className="flex items-center gap-6">
+                              <div className="flex items-center gap-2">
+
+
+                              </div>
+
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => {
+                              setSelectedDoctor(doctor);
+                              setViewDoctorProfile(null);
+                            }}
+                            className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+                          >
+                            Chọn bác sĩ
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Contact Information */}
+                      <div className="bg-white rounded-xl border border-gray-200 p-6">
+                        <h4 className="text-lg font-bold text-gray-900 mb-4">Thông tin liên hệ</h4>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center">
+                              <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                              </svg>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-500">Email</p>
+                              <p className="text-sm font-medium text-gray-900">{doctor.email}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-green-50 flex items-center justify-center">
+                              <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                              </svg>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-500">Điện thoại</p>
+                              <p className="text-sm font-medium text-gray-900">{doctor.phone}</p>
+                            </div>
                           </div>
                         </div>
                       </div>
-                      <button
-                        onClick={() => handleViewDoctorProfile(doctor.id)}
-                        className="ml-4 px-4 py-2 text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 transition-colors font-medium text-sm"
-                      >
-                        Xem chi tiết
-                      </button>
+
+                      {/* Education */}
+                      {doctor.education && (
+                        <div className="bg-white rounded-xl border border-gray-200 p-6">
+                          <div className="flex items-center gap-3 mb-4">
+                            <div className="w-10 h-10 rounded-full bg-purple-50 flex items-center justify-center">
+                              <svg className="w-5 h-5 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path d="M12 14l9-5-9-5-9 5 9 5z" />
+                                <path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14zm-4 6v-7.5l4-2.222" />
+                              </svg>
+                            </div>
+                            <h4 className="text-lg font-bold text-gray-900">Học vấn</h4>
+                          </div>
+                          <p className="text-gray-700 whitespace-pre-line leading-relaxed">{doctor.education}</p>
+                        </div>
+                      )}
+
+                      {/* Certifications */}
+                      {doctor.certifications && (
+                        <div className="bg-white rounded-xl border border-gray-200 p-6">
+                          <div className="flex items-center gap-3 mb-4">
+                            <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center">
+                              <svg className="w-5 h-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+                              </svg>
+                            </div>
+                            <h4 className="text-lg font-bold text-gray-900">Chứng chỉ & Giấy phép hành nghề</h4>
+                          </div>
+                          <p className="text-gray-700 whitespace-pre-line">
+                            {doctor.certifications}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Description */}
+                      {doctor.description && (
+                        <div className="bg-white rounded-xl border border-gray-200 p-6">
+                          <div className="flex items-center gap-3 mb-4">
+                            <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center">
+                              <svg className="w-5 h-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                              </svg>
+                            </div>
+                            <h4 className="text-lg font-bold text-gray-900">Giới thiệu</h4>
+                          </div>
+                          <p className="text-gray-700 whitespace-pre-line leading-relaxed">{doctor.description}</p>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
-              </div>
+                  );
+                })()
+              ) : (
+                // Doctor List View
+                <div className="space-y-3">
+                  {doctors.map(doctor => (
+                    <div
+                      key={doctor.id}
+                      className={`p-5 rounded-xl border-2 transition-all ${
+                        selectedDoctor?.id === doctor.id
+                          ? "border-blue-600 bg-blue-50 shadow-md"
+                          : "border-gray-200 bg-white hover:border-blue-300 hover:shadow-sm"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div 
+                          className="flex items-center gap-4 flex-1 cursor-pointer"
+                          onClick={() => setSelectedDoctor(doctor)}
+                        >
+                          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 overflow-hidden flex items-center justify-center shadow-lg flex-shrink-0">
+                            {doctor.imageUrl ? (
+                              <img 
+                                src={doctor.imageUrl} 
+                                alt={doctor.username}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <span className="text-white text-2xl font-bold">
+                                {doctor.username.charAt(0)}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h3 className="font-bold text-lg text-gray-900">BS. {doctor.username}</h3>
+                              {selectedDoctor?.id === doctor.id && (
+                                <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                </svg>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="text-sm text-gray-600">Chuyên khoa: {getSpecialtyInVietnamese(doctor.medicleSpecially)}</span>
+                              <span className="text-gray-300">•</span>
+                              <span className="text-sm text-gray-600">{doctor.experience} năm kinh nghiệm</span>
+                            </div>
+
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleViewDoctorProfile(doctor.id)}
+                          className="ml-4 px-5 py-2.5 text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 hover:border-blue-300 transition-all font-medium text-sm flex items-center gap-2"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          Chi tiết
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {!viewDoctorProfile && (

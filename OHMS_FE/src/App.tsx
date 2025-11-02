@@ -18,6 +18,7 @@ import Booking from "./page/Booking.tsx";
 import DoctorDashboard from "./page/doctor/DoctorDashboard.tsx";
 import DoctorSchedule from "./page/doctor/DoctorSchedule.tsx";
 import DoctorChat from "./page/doctor/DoctorChat.tsx";
+import DoctorProfilePage from "./page/doctor/DoctorProfilePage.tsx";
 import WebRTCApp from './page/WebRTCApp.tsx';
 import OnlineConsultSpecialty from "./page/patient/OnlineConsultSpecialty";
 import OnlineConsultTime from "./page/patient/OnlineConsultTime";
@@ -50,6 +51,7 @@ function App() {
                 <Route path="/doctor/" element={<DoctorDashboard />} />
                 <Route path="/doctor/schedule" element={<DoctorSchedule />} />
                 <Route path="/doctor/chat" element={<DoctorChat />} />
+                <Route path="/doctor/profile" element={<DoctorProfilePage />} />
                 <Route path='/video' element={<WebRTCApp/>} />
                 <Route path="/online-consult" element={<OnlineConsultSpecialty />} />
                 <Route path="/online-consult-time" element={<OnlineConsultTime />} />

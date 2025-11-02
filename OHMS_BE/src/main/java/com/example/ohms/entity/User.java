@@ -56,6 +56,24 @@ Boolean enabled = true;
    String identification; // mã số định danh, thực ra cái này hơi không cần để xử lí ấy, nó làm legit hơn thôi
    String bankNumber;
    String bankName;
+   
+   // Thông tin học vấn của bác sĩ
+   @Column(columnDefinition = "TEXT")
+   String education;
+   
+   // Kinh nghiệm làm việc (số năm)
+   Integer experience;
+   
+   // Chứng chỉ hành nghề
+   @Column(columnDefinition = "TEXT")
+   String certifications;
+   
+   // Mô tả về bác sĩ
+   @Column(columnDefinition = "TEXT")
+   String description;
+   
+   // Địa chỉ
+   String address;
 
  
 }

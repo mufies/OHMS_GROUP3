@@ -209,8 +209,30 @@ public UserResponse userUpdateUser(String userId, UserRequest userRequestDto, Mu
         user.setGender(userRequestDto.getGender());
     }
     
-
+    // Update education
+    if (userRequestDto.getEducation() != null && !userRequestDto.getEducation().isEmpty()) {
+        user.setEducation(userRequestDto.getEducation());
+    }
     
+    // Update experience
+    if (userRequestDto.getExperience() != null) {
+        user.setExperience(userRequestDto.getExperience());
+    }
+    
+    // Update certifications
+    if (userRequestDto.getCertifications() != null && !userRequestDto.getCertifications().isEmpty()) {
+        user.setCertifications(userRequestDto.getCertifications());
+    }
+    
+    // Update description
+    if (userRequestDto.getDescription() != null && !userRequestDto.getDescription().isEmpty()) {
+        user.setDescription(userRequestDto.getDescription());
+    }
+    
+    // Update address
+    if (userRequestDto.getAddress() != null && !userRequestDto.getAddress().isEmpty()) {
+        user.setAddress(userRequestDto.getAddress());
+    }
 
     
     return userMapper.toUserResponseDto(userRepository.save(user));

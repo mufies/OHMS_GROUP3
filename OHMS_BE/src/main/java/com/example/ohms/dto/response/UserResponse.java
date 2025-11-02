@@ -33,4 +33,19 @@ public class UserResponse{
    String bankNumber;
    String bankName;
    Set<MedicalSpecialty> medicleSpecially;
+   
+   // Thông tin học vấn của bác sĩ
+   String education;
+   
+   // Kinh nghiệm làm việc (số năm)
+   Integer experience;
+   
+   // Chứng chỉ hành nghề
+   String certifications;
+   
+   // Mô tả về bác sĩ
+   String description;
+   
+   // Địa chỉ
+   String address;
 }

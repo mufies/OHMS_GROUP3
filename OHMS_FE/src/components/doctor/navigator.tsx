@@ -4,6 +4,7 @@ import {
     faStethoscope,
     faComment,
     faCalendar,
+    faUser,
     faRightFromBracket, // Logout icon
 } from "@fortawesome/free-solid-svg-icons";
 import { LOGIN_USER } from "../../constant/enum";
@@ -17,6 +18,7 @@ function Navigator({ doctorSpecialty = "General Medicine" }: NavigatorProps) {
         { icon: faTableColumns, label: "Dashboard", path: "/doctor"},
         { icon: faComment, label: "Chat", path: "/doctor/chat" },
         { icon: faCalendar, label: "Schedule", path: "/doctor/schedule" },
+        { icon: faUser, label: "Profile", path: "/doctor/profile" },
     ];
 
     const handleNavigation = (path: string) => {
