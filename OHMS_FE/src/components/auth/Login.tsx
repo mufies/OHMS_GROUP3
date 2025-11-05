@@ -37,7 +37,9 @@ const handleSubmit = async (e: React.FormEvent) => {
 
     // 3️⃣ Kiểm tra quyền và điều hướng
     if (profile?.roles?.some((r: any) => r.name === "ADMIN")) {
-      navigate("/admin");
+      // Admin: không redirect đến /admin vì route chưa được bật
+      // Giữ nguyên ở trang hiện tại hoặc redirect về home
+      navigate("/");
     } else if (profile?.roles?.some((r: any) => r.name === "DOCTOR")) {
       // nếu doctor thì nhảy qua doctor
       navigate("/doctor");

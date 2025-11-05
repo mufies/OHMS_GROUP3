@@ -43,8 +43,9 @@ function Home() {
                     if (newRole === 'ROLE_doctor') { // Giả sử scope là "ROLE_doctor"
                         window.location.href = '/doctor';
                     } else if (newRole === 'ROLE_admin') {
-                        // Redirect admin to admin dashboard
-                        window.location.href = '/admin';
+                        // Admiên ở home (không redirecn: giữ nguyt đến /admin vì route chưa được bật)
+                        // Có thể thay đổi thành redirect khác nếu cần
+                        // Không redirect, giữ nguyên ở trang home
                     } else if (newRole === 'ROLE_patient') {
                         // Giữ nguyên Home hoặc redirect dashboard nếu có
                         window.location.href = '/dashboard'; // Tùy chỉnh nếu cần

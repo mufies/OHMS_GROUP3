@@ -132,18 +132,18 @@ const StaffForm: React.FC<StaffFormProps> = ({ user, onSubmit, onCancel }) => {
       setSubmitError(null);
       
       try {
-        const submitData: Partial<User> = {
-          username: formData.username,
-          email: formData.email,
-          phone: formData.phone || null,
+      const submitData: Partial<User> = {
+        username: formData.username,
+        email: formData.email,
+        phone: formData.phone || null,
           roles: [{ name: 'STAFF', description: 'Staff role', permissions: [] }], // Always set role as STAFF
-          medicleSpecially: formData.position, // Use medicleSpecially field to store position
-        };
+        medicleSpecially: formData.position, // Use medicleSpecially field to store position
+      };
 
-        // Only include password for new users
-        if (!user && formData.password) {
-          (submitData as any).password = formData.password;
-        }
+      // Only include password for new users
+      if (!user && formData.password) {
+        (submitData as any).password = formData.password;
+      }
 
         await onSubmit(submitData);
         setIsSubmitting(false);

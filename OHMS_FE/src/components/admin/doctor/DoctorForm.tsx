@@ -223,22 +223,22 @@ const DoctorForm: React.FC<DoctorFormProps> = ({ doctor, onSubmit, onCancel }) =
       
       try {
         const submitData: any = {
-          username: formData.username,
-          email: formData.email,
-          phone: formData.phone || null,
-          medicleSpecially: formData.medicleSpecially,
+        username: formData.username,
+        email: formData.email,
+        phone: formData.phone || null,
+        medicleSpecially: formData.medicleSpecially,
           roles: [{ name: 'DOCTOR', description: 'Doctor role', permissions: [] }],
-        };
+      };
 
         // Only include avatar if a new one is selected
         if (formData.avatar) {
           submitData.avatar = formData.avatar;
         }
 
-        // Only include password for new doctors
-        if (!doctor && formData.password) {
-          (submitData as any).password = formData.password;
-        }
+      // Only include password for new doctors
+      if (!doctor && formData.password) {
+        (submitData as any).password = formData.password;
+      }
 
         await onSubmit(submitData);
         setIsSubmitting(false);

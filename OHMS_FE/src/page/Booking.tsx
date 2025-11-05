@@ -1,10 +1,80 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faStethoscope } from '@fortawesome/free-solid-svg-icons';
+import {
+  faStethoscope,
+  faUserDoctor,
+  faCut,
+  faHeart,
+  faBaby,
+  faHandSparkles,
+  faPersonPregnant,
+  faCookie,
+  faBone,
+  faShieldVirus,
+  faSyringe,
+  faEarListen,
+  faRibbon,
+  faWheelchair,
+  faBandage,
+  faTruckMedical,
+  faScissors,
+  faShieldAlt,
+  faTeeth,
+  faVirus,
+  faDroplet,
+  faFlask,
+  faBrain,
+  faLungs,
+  faVial,
+  faTint,
+  faHeadSideCough,
+  faComments,
+  faDumbbell,
+  faHeartbeat,
+  faYinYang,
+  faLungsVirus
+} from '@fortawesome/free-solid-svg-icons';
 import Navigator from '../components/Navigator';
 import SearchDoctor from '../components/searchDoctor';
 import { useNavigate } from 'react-router-dom';
 import { MedicalSpecialty, MEDICAL_SPECIALTY_LABELS, MedicalSpecialtyType } from '../constant/medicalSpecialty';
 import { useState } from 'react';
+import { IconDefinition } from '@fortawesome/fontawesome-svg-core';
+
+// Mapping icon cho từng chuyên khoa
+const SPECIALTY_ICONS: Record<MedicalSpecialtyType, IconDefinition> = {
+  [MedicalSpecialty.INTERNAL_MEDICINE]: faUserDoctor,
+  [MedicalSpecialty.SURGERY]: faCut,
+  [MedicalSpecialty.CARDIOLOGY]: faHeart,
+  [MedicalSpecialty.PEDIATRICS]: faBaby,
+  [MedicalSpecialty.DERMATOLOGY]: faHandSparkles,
+  [MedicalSpecialty.OBSTETRICS_GYNECOLOGY]: faPersonPregnant,
+  [MedicalSpecialty.GASTROENTEROLOGY]: faCookie,
+  [MedicalSpecialty.ORTHOPEDICS]: faBone,
+  [MedicalSpecialty.ALLERGY_IMMUNOLOGY]: faShieldVirus,
+  [MedicalSpecialty.ANESTHESIOLOGY]: faSyringe,
+  [MedicalSpecialty.OTOLARYNGOLOGY]: faEarListen,
+  [MedicalSpecialty.ONCOLOGY]: faRibbon,
+  [MedicalSpecialty.GERIATRICS]: faWheelchair,
+  [MedicalSpecialty.TRAUMA_ORTHOPEDICS]: faBandage,
+  [MedicalSpecialty.EMERGENCY_MEDICINE]: faTruckMedical,
+  [MedicalSpecialty.GENERAL_SURGERY]: faScissors,
+  [MedicalSpecialty.PREVENTIVE_MEDICINE]: faShieldAlt,
+  [MedicalSpecialty.DENTISTRY]: faTeeth,
+  [MedicalSpecialty.INFECTIOUS_DISEASE]: faVirus,
+  [MedicalSpecialty.NEPHROLOGY]: faDroplet,
+  [MedicalSpecialty.ENDOCRINOLOGY]: faFlask,
+  [MedicalSpecialty.PSYCHIATRY]: faBrain,
+  [MedicalSpecialty.PULMONOLOGY]: faLungs,
+  [MedicalSpecialty.LABORATORY_MEDICINE]: faVial,
+  [MedicalSpecialty.HEMATOLOGY]: faTint,
+  [MedicalSpecialty.PSYCHOLOGY]: faHeadSideCough,
+  [MedicalSpecialty.NEUROLOGY]: faBrain,
+  [MedicalSpecialty.SPEECH_THERAPY]: faComments,
+  [MedicalSpecialty.PHYSICAL_THERAPY]: faDumbbell,
+  [MedicalSpecialty.REPRODUCTIVE_MEDICINE]: faHeartbeat,
+  [MedicalSpecialty.TRADITIONAL_MEDICINE]: faYinYang,
+  [MedicalSpecialty.TUBERCULOSIS]: faLungsVirus
+};
 
 const Booking = () => {
   const navigate = useNavigate();
@@ -53,18 +123,21 @@ const Booking = () => {
 
           {selectedBookingType === 'clinical' && (
             <div className="mt-12 grid gap-8 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-              {specialties.map((spec) => (
-                <div
-                  key={spec.key}
-                  className="flex flex-col items-center text-center transition-transform hover:scale-105 cursor-pointer"
-                  onClick={() => handleSpecialtyClick(spec.key)}
-                >
-                  <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-white/10 text-2xl text-black shadow ring-1 ring-white/20">
-                    <FontAwesomeIcon icon={faStethoscope} />
+              {specialties.map((spec) => {
+                const icon = SPECIALTY_ICONS[spec.key] || faStethoscope;
+                return (
+                  <div
+                    key={spec.key}
+                    className="group flex flex-col items-center text-center transition-all duration-200 hover:scale-105 cursor-pointer"
+                    onClick={() => handleSpecialtyClick(spec.key)}
+                  >
+                    <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-blue-50 text-blue-600 shadow-md hover:shadow-lg hover:bg-blue-100 transition-all duration-200">
+                      <FontAwesomeIcon icon={icon} className="text-2xl" />
+                    </div>
+                    <span className="text-sm text-gray-700 font-medium line-clamp-2 group-hover:text-blue-600 transition-colors duration-200">{spec.label}</span>
                   </div>
-                  <span className="text-sm text-black line-clamp-2">{spec.label}</span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 

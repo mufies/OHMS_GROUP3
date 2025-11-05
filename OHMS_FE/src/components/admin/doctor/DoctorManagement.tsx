@@ -144,7 +144,7 @@ const DoctorManagement: React.FC = () => {
                 if (typeof role === 'object' && role.name) {
                   formData.append('roles', role.name);
                 } else if (typeof role === 'string') {
-                  formData.append('roles', role);
+                formData.append('roles', role);
                 }
               });
             } else if (Array.isArray(value)) {
@@ -201,7 +201,7 @@ const DoctorManagement: React.FC = () => {
                   formData.append('roles', role.name);
                 } else if (typeof role === 'string') {
                   formData.append('roles', role);
-                }
+      }
               });
             } else if (Array.isArray(value)) {
               // Handle other arrays
