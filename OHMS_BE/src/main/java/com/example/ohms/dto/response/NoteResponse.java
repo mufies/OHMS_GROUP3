@@ -5,19 +5,14 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * Dữ liệu trả về cho React khi gọi API /notes
- */
-@Data
 @Builder
-@NoArgsConstructor
+@Data
 @AllArgsConstructor
+@NoArgsConstructor
 public class NoteResponse {
     private Long id;
-    private String title;
+    private String date;
+    private String note;
+    private String time;
     private boolean completed;
-
-    // thông tin user gọn nhẹ (chỉ id và name)
-    private String userId;
-    private String userName;
 }

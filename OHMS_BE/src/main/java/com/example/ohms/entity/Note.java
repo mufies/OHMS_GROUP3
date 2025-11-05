@@ -1,20 +1,23 @@
 package com.example.ohms.entity;
 
-import jakarta.persistence.*; //inport các cái annotation của JPA như @Entity, @Id
-import lombok.*; //dung lombok để từ động sinh getter setter, constructor
-
+import jakarta.persistence.*;
+import lombok.Data;
 
 @Entity
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
+@Data
 public class Note {
-    @Id // đánh dấu Id là khóa chính của bảng
-    @GeneratedValue(strategy = GenerationType.IDENTITY) // dể giá trị id có thể tự động tăng lên () auto- increment
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     @ManyToOne
-    private User user;
-    private String title;
-    private boolean completed = false;
+@JoinColumn(name = "user_id")
+private User user;
+
+    private String date;
+    private String note;
+    private String time;
+    private boolean completed; // "Scheduled" hoặc "Completed"
+
+
 }
