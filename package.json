@@ -1,7 +1,8 @@
 {
   "dependencies": {
     "@fortawesome/free-solid-svg-icons": "^7.1.0",
-    "@fortawesome/react-fontawesome": "^3.1.0"
+    "@fortawesome/react-fontawesome": "^3.1.0",
+    "sonner": "^2.0.7"
   },
   "devDependencies": {
     "@types/react": "^19.2.2",

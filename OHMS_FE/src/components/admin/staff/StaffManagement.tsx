@@ -144,7 +144,7 @@ const StaffManagement: React.FC = () => {
                 if (typeof role === 'object' && role.name) {
                   formData.append('roles', role.name);
                 } else if (typeof role === 'string') {
-                  formData.append('roles', role);
+                formData.append('roles', role);
                 }
               });
             } else if (Array.isArray(value)) {
@@ -197,7 +197,7 @@ const StaffManagement: React.FC = () => {
                 if (typeof role === 'object' && role.name) {
                   formData.append('roles', role.name);
                 } else if (typeof role === 'string') {
-                  formData.append('roles', role);
+                formData.append('roles', role);
                 }
               });
             } else if (Array.isArray(value)) {
@@ -214,10 +214,10 @@ const StaffManagement: React.FC = () => {
         });
 
         const result = await fetchCreateUser(formData);
-        console.log('Create successful:', result);
-        setShowForm(false);
-        setEditingUser(null);
-        fetchUsers(); // Refresh the list
+          console.log('Create successful:', result);
+          setShowForm(false);
+          setEditingUser(null);
+          fetchUsers(); // Refresh the list
       }
     } catch (err: any) {
       console.error('Error submitting form:', err);
