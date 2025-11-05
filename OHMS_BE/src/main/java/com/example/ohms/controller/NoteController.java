@@ -28,12 +28,12 @@ public class NoteController {
     }
 
     @DeleteMapping("/{id}")
-    public void delete(@PathVariable String id) {
+    public void delete(@PathVariable Long id) {
         service.delete(id);
     }
 
     @PutMapping("/{id}/toggle")
-    public NoteResponse toggle(@PathVariable String id) {
+    public NoteResponse toggle(@PathVariable Long id) {
         return service.toggle(id);
     }
 }

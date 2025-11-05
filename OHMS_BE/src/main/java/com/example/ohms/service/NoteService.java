@@ -3,9 +3,7 @@ package com.example.ohms.service;
 import com.example.ohms.dto.request.NoteRequest;
 import com.example.ohms.dto.response.NoteResponse;
 import com.example.ohms.entity.Note;
-import com.example.ohms.entity.User;
 import com.example.ohms.repository.NoteRepository;
-import com.example.ohms.repository.UserRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -14,14 +12,12 @@ import java.util.stream.Collectors;
 @Service
 public class NoteService {
     private final NoteRepository repo;
-    private final UserRepository userRepository;
 
-    public NoteService(NoteRepository repo, UserRepository userRepository) {
+    public NoteService(NoteRepository repo) {
         this.repo = repo;
-        this.userRepository = userRepository;
     }
 
-    // Lấy tất cả note
+    // ✅ Lấy tất cả note
     public List<NoteResponse> getAll() {
         return repo.findAll()
                 .stream()
@@ -29,38 +25,40 @@ public class NoteService {
                 .collect(Collectors.toList());
     }
 
-    // Tạo note mới
-    public NoteResponse add(NoteRequest noteRequest) {
-        User user = userRepository.findById(noteRequest.getUserId())
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
+    // ✅ Tạo mới note
+    public NoteResponse add(NoteRequest request) {
         Note note = new Note();
-        note.setTitle(noteRequest.getTitle()); // ✅ sửa lại dòng này
-        note.setUser(user);
-        note.setCompleted(noteRequest.isCompleted());
+        note.setDate(request.getDate());
+        note.setNote(request.getNote());
+        note.setTime(request.getTime());
+        note.setCompleted(request.isCompleted());
+
 
         Note saved = repo.save(note);
         return mapToResponse(saved);
     }
 
-    // Xoá note
-    public void delete(String id) {
+    // ✅ Xoá note
+    public void delete(Long id) {
         repo.deleteById(id);
     }
 
-    // Đảo trạng thái completed
-    public NoteResponse toggle(String id) {
+    // ✅ Đổi trạng thái
+    public NoteResponse toggle(Long id) {
         Note note = repo.findById(id).orElseThrow();
         note.setCompleted(!note.isCompleted());
         Note saved = repo.save(note);
         return mapToResponse(saved);
     }
 
-    // Helper: map entity -> response
+
+    // ✅ Helper
     private NoteResponse mapToResponse(Note note) {
         return NoteResponse.builder()
                 .id(note.getId())
-                .title(note.getTitle())
+                .date(note.getDate())
+                .note(note.getNote())
+                .time(note.getTime())
                 .completed(note.isCompleted())
                 .build();
     }
