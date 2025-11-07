@@ -68,10 +68,10 @@ function App() {
                 <Route path="/chat" element={<PatientChatPage />} />
                 <Route path='/receptionPage' element={<ReceptionAppointmentPage/>}/>
  
-                <Route path="/doctor-list" element={<DoctorList />} />
+                {/* <Route path="/doctor-list" element={<DoctorList />} /> */}
                 
                 {/* Admin Routes */}
-                <Route path="/admin/*" element={<AdminRouter />} />
+                {/* <Route path="/admin/*" element={<AdminRouter />} /> */}
                 
                 <Route path="*" element={<Home />} />
 

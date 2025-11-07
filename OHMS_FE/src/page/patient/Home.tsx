@@ -155,8 +155,10 @@ function Home() {
                             </div>
                         </div>
                         <div style={{
-                            height: 260,
-                            background: "#e2f2ff",
+                            height: 400,
+                            background: 'url(https://www.shutterstock.com/image-photo/portrait-happy-confident-successful-team-600nw-2677796231.jpg)',
+                            backgroundSize: 'cover',
+                            backgroundPosition: 'center',
                             borderRadius: 16
                         }} />
                     </div>

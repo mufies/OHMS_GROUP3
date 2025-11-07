@@ -49,7 +49,7 @@ function Navigator({ doctorSpecialty = "General Medicine" }: NavigatorProps) {
                     </div>
                 </div>
             </div>
-
+            
             {/* Navigation Items */}
             <nav className="flex-1 py-6">
                 <p className="text-gray-500 px-3 font-bold mb-2 text-sm">GENERAL</p>
@@ -94,7 +94,7 @@ function Navigator({ doctorSpecialty = "General Medicine" }: NavigatorProps) {
             {/* Footer */}
             <div className="p-4 border-t border-gray-200 bg-gray-50">
                 <p className="text-xs text-gray-500 text-center">
-                    OACS Doctor Portal v1.0
+                    OACHS Doctor Portal v1.0
                 </p>
                 <p className="text-xs text-gray-400 text-center mt-1">
                     © 2025 Healthcare System

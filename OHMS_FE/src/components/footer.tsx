@@ -11,17 +11,15 @@ export default function Footer() {
                         color: "#0f172a"
                     }}>
                         <div>
-                            <div style={{ fontWeight: 800, fontSize: 18 }}>Về OHMS</div>
+                            <div style={{ fontWeight: 800, fontSize: 18 }}>Về OACHS</div>
                             <p style={{ color: "#64748b", fontSize: 14, marginTop: 8 }}>Kết nối người dân với cơ sở và dịch vụ y tế hàng đầu.</p>
                         </div>
                         <div>
                             <div style={{ fontWeight: 700 }}>Hướng dẫn</div>
                             <ul style={{ listStyle: "none", padding: 0, margin: 8 }}>
                                 {[
-                                    "Cài đặt ứng dụng",
                                     "Đặt lịch khám",
                                     "Tư vấn qua video",
-                                    "Quy trình hoàn phí",
                                     "Câu hỏi thường gặp",
                                 ].map(i => (
                                     <li key={i} style={{ marginTop: 6 }}><a href="#" style={{ color: "#475569", textDecoration: "none" }}>{i}</a></li>
@@ -31,7 +29,7 @@ export default function Footer() {
                         <div>
                             <div style={{ fontWeight: 700 }}>Liên hệ hợp tác</div>
                             <ul style={{ listStyle: "none", padding: 0, margin: 8 }}>
-                                {["Cơ sở y tế", "Phòng mạch", "Doanh nghiệp", "Quảng cáo", "Tuyển dụng"].map(i => (
+                                {[ "Quảng cáo", "Tuyển dụng"].map(i => (
                                     <li key={i} style={{ marginTop: 6 }}><a href="#" style={{ color: "#475569", textDecoration: "none" }}>{i}</a></li>
                                 ))}
                             </ul>
@@ -45,7 +43,7 @@ export default function Footer() {
                             </ul>
                         </div>
                     </div>
-                    <div style={{ color: "#94a3b8", fontSize: 13, marginTop: 16 }}>© 2025 - OHMS. Lấy cảm hứng giao diện từ Medpro.</div>
+                    <div style={{ color: "#94a3b8", fontSize: 13, marginTop: 16 }}>© 2025 - OACHS. Online Appointment & Consultation Hospital System</div>
                 </div>
             </footer>
     </div>
