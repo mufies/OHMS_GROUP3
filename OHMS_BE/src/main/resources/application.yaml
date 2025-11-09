@@ -52,7 +52,7 @@ app:
 
 gemini:
   api:
-    key: AIzaSyB3NYOITWHAPBJMQ9vPyoT20WRoj8AObrE
+    key: 
     model: gemini-2.5-flash
 
 payment:
