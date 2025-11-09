@@ -34,7 +34,7 @@ import {
   faLungsVirus
 } from '@fortawesome/free-solid-svg-icons';
 import Navigator from '../components/Navigator';
-import SearchDoctor from '../components/searchDoctor';
+import AiChat from '../components/searchDoctor';
 import { useNavigate } from 'react-router-dom';
 import { MedicalSpecialty, MEDICAL_SPECIALTY_LABELS, MedicalSpecialtyType } from '../constant/medicalSpecialty';
 import { useState } from 'react';
@@ -102,14 +102,13 @@ const Booking = () => {
       // Y tế dự phòng: dẫn thẳng đến trang booking preventive
       navigate('/booking-preventive');
     }
-    // Nếu clinical: để user chọn chuyên khoa trên trang này
   };
 
   return (
     <>
       <div className="w-full min-h-[100vh] bg-white pt-12">
         <Navigator />
-        <SearchDoctor />
+        <AiChat />
         
         <div className="mx-auto max-w-6xl text-center pt-10">
           <h2 className="text-5xl font-bold text-black">

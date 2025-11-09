@@ -17,27 +17,67 @@ import java.util.List;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @Builder
 public class SpecialtyRecommendationResponse {
-    // Trả lời AI diagnosis
+    // Original fields - AI diagnosis
     private String diagnosis;
-    
-    // Chuyên khoa được gợi ý (enum)
     private String recommendedSpecialty;
-    
-    // Tên tiếng Việt của chuyên khoa
+    private String specialtyEnum;
     private String specialtyNameVi;
-    
-    // Danh sách dịch vụ khám phù hợp
     private List<MedicalExamination> suggestedExaminations;
-    
-    // URL đặt lịch
     private String bookingUrl;
-    
-    // Mức độ khẩn cấp
     private String urgencyLevel;
-    
-    // Có cần hỏi thêm dữ kiện không
     private boolean needMoreInfo;
-    
-    // Câu hỏi cần hỏi thêm (nếu needMoreInfo = true)
     private String followUpQuestion;
+    
+    // ========== NEW BOOKING FIELDS ==========
+    
+    // Booking readiness flag
+    private Boolean ready;
+    
+    // Booking type: CONSULTATION_ONLY, SERVICE_AND_CONSULTATION, PREVENTIVE_SERVICE
+    private String bookingType;
+    
+    // Doctor info (for CONSULTATION types)
+    private String doctorId;
+    private String doctorName;
+    
+    // Date and time
+    private String workDate; // yyyy-MM-dd format
+    private String startTime; // HH:mm:ss (for CONSULTATION_ONLY and PREVENTIVE_SERVICE)
+    private String endTime; // HH:mm:ss
+    
+    // Service slots (for SERVICE_AND_CONSULTATION)
+    private List<ServiceSlotDto> serviceSlots;
+    private TimeSlotDto consultationSlot;
+    
+    // Medical examination IDs
+    private List<String> medicalExaminationIds;
+    
+    // Pricing information
+    private Double totalPrice; // Total price before discount
+    private Double discountedPrice; // Price after 10% discount
+    private Double depositAmount; // 50% of discounted price
+    private Integer discount; // Discount percentage (10)
+    
+    // ========== NESTED DTOs ==========
+    
+    @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    @Builder
+    public static class ServiceSlotDto {
+        private String serviceId;
+        private String startTime;
+        private String endTime;
+    }
+    
+    @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    @Builder
+    public static class TimeSlotDto {
+        private String startTime;
+        private String endTime;
+    }
 }

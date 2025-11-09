@@ -18,7 +18,6 @@ function PaymentCallback() {
   const hasCalledAPI = useRef(false);
 
   useEffect(() => {
-    // NẾU ĐÃ CALL RỒI THÌ RETURN
     if (hasCalledAPI.current) return;
     
     const handlePaymentCallback = async () => {
@@ -297,18 +296,6 @@ function PaymentCallback() {
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-left">
                 <div className="text-sm font-semibold text-blue-900 mb-3">Chi tiết thanh toán:</div>
                 <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-700">Tổng giá trị:</span>
-                    <span className="font-semibold text-gray-900">
-                      {paymentDetails.totalAmount.toLocaleString('vi-VN')}đ
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-green-700">Giảm giá ({paymentDetails.discount}%):</span>
-                    <span className="font-semibold text-green-700">
-                      -{(paymentDetails.totalAmount * paymentDetails.discount / 100).toLocaleString('vi-VN')}đ
-                    </span>
-                  </div>
                   <div className="flex justify-between pt-2 border-t border-blue-200">
                     <span className="text-blue-700">Đã đặt cọc:</span>
                     <span className="font-bold text-blue-700">

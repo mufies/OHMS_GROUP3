@@ -12,6 +12,9 @@ public class DiagnosisRequest {
     private Map<String, String> patientInfo;
 
     private List<ChatTurn> history;
+    
+    // Thêm patientId để lấy medical records
+    private String patientId;
 
     public String getMessage() {
         return message;
@@ -35,6 +38,14 @@ public class DiagnosisRequest {
 
     public void setHistory(List<ChatTurn> history) {
         this.history = history;
+    }
+    
+    public String getPatientId() {
+        return patientId;
+    }
+
+    public void setPatientId(String patientId) {
+        this.patientId = patientId;
     }
 
     /**

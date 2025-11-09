@@ -76,4 +76,14 @@ public ApiResponse<List<ScheduleResponse>> getNextWeekScheduleForDoctor(@PathVar
    .results(scheduleService.getNextWeekScheduleForDoctor(doctorId))
    .build();
 }
+
+@GetMapping("date/{date}")
+public ApiResponse<List<ScheduleResponse>> getDayAllSchedule(@PathVariable ("date") String day)
+{
+      return ApiResponse.<List<ScheduleResponse>>builder()
+   .code(200)
+   .results(scheduleService.getListOfScheduleBaseOnDay(day))
+   .build();
+}
+
 }

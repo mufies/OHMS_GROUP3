@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import Navigator from "../Navigator";
 import RescheduleModal from "../../components/patient/appointment/reScheduleAppointment";
 
+
 // Interfaces
 interface MedicalExaminationInfo {
   id: string;
@@ -12,6 +13,7 @@ interface MedicalExaminationInfo {
   minDuration?: number;
 }
 
+
 interface ServiceAppointment {
   id: string;
   startTime: string;
@@ -19,6 +21,7 @@ interface ServiceAppointment {
   status: string;
   medicalExaminations: MedicalExaminationInfo[];
 }
+
 
 interface Appointment {
   id: string;
@@ -42,6 +45,7 @@ interface Appointment {
   cancelTime: string | null;
 }
 
+
 export default function PatientAppointments() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,6 +64,7 @@ export default function PatientAppointments() {
   const [showRescheduleModal, setShowRescheduleModal] = useState(false);
   const [rescheduleAppointment, setRescheduleAppointment] = useState<Appointment | null>(null);
 
+
   const getPatientId = () => {
     try {
       const token = localStorage.getItem("accessToken");
@@ -72,9 +77,11 @@ export default function PatientAppointments() {
     }
   };
 
+
   const fetchAppointments = async () => {
     const patientId = getPatientId();
     if (!patientId) return;
+
 
     try {
       const res = await axiosInstance.get(`/appointments/patient/${patientId}`);
@@ -95,6 +102,7 @@ export default function PatientAppointments() {
     }
   };
 
+
   useEffect(() => {
     const patientId = getPatientId();
     if (!patientId) {
@@ -103,8 +111,10 @@ export default function PatientAppointments() {
       return;
     }
 
+
     fetchAppointments();
   }, []);
+
 
   const getDaysUntilAppointment = (workDate: string): number => {
     const appointmentDate = new Date(workDate);
@@ -117,6 +127,7 @@ export default function PatientAppointments() {
     return diffDays;
   };
 
+
   const calculateRefund = (deposit: number, daysUntil: number): { amount: number; percentage: number } => {
     if (daysUntil >= 2) {
       return { amount: deposit, percentage: 100 };
@@ -127,6 +138,7 @@ export default function PatientAppointments() {
     }
   };
 
+
   const openCancelModal = (appointmentId: string, deposit: number | null, workDate: string) => {
     const daysUntil = getDaysUntilAppointment(workDate);
     
@@ -135,12 +147,15 @@ export default function PatientAppointments() {
       return;
     }
 
+
     setSelectedAppointment({ id: appointmentId, deposit, workDate });
     setShowCancelModal(true);
   };
 
+
   const confirmCancelAppointment = async () => {
     if (!selectedAppointment) return;
+
 
     setCancellingId(selectedAppointment.id);
     try {
@@ -162,14 +177,25 @@ export default function PatientAppointments() {
     }
   };
 
+
   const openRescheduleModal = (appointment: Appointment) => {
+    const daysUntil = getDaysUntilAppointment(appointment.workDate);
+    
+    // Kiểm tra nếu còn ít hơn 2 ngày
+    if (daysUntil < 2) {
+      toast.error("Không thể dời lịch trong vòng 2 ngày trước ngày khám!");
+      return;
+    }
+    
     setRescheduleAppointment(appointment);
     setShowRescheduleModal(true);
   };
 
+
   const handleRescheduleSuccess = async () => {
     await fetchAppointments();
   };
+
 
   const getStatusLabel = (status: string) => {
     const statusMap: Record<string, string> = {
@@ -181,6 +207,7 @@ export default function PatientAppointments() {
     return statusMap[status] || status;
   };
 
+
   const getStatusColor = (status: string) => {
     const colorMap: Record<string, string> = {
       'COMPLETED': 'bg-green-100 text-green-700',
@@ -191,6 +218,7 @@ export default function PatientAppointments() {
     return colorMap[status] || 'bg-gray-100 text-gray-700';
   };
 
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px]">
@@ -199,6 +227,7 @@ export default function PatientAppointments() {
       </div>
     );
   }
+
 
   if (error) {
     return (
@@ -210,6 +239,7 @@ export default function PatientAppointments() {
       </div>
     );
   }
+
 
   if (appointments.length === 0) {
     return (
@@ -225,11 +255,13 @@ export default function PatientAppointments() {
     );
   }
 
+
   return (
     <>
       <div className="max-w-6xl mx-auto p-6 space-y-6">
         <Navigator />
         <h2 className="text-2xl font-bold text-gray-900 mb-6">Lịch khám của tôi ({appointments.length})</h2>
+
 
         {appointments.map((a) => (
           <div key={a.id} className="bg-white rounded-xl shadow-md overflow-hidden border border-gray-200 hover:shadow-lg transition-shadow">
@@ -258,6 +290,7 @@ export default function PatientAppointments() {
               </div>
             </div>
 
+
             {/* Body */}
             <div className="p-6 space-y-5">
               {/* Thông tin lịch hẹn */}
@@ -274,6 +307,7 @@ export default function PatientAppointments() {
                   </div>
                 </div>
 
+
                 <div className="flex items-start gap-3">
                   <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
                     <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -285,6 +319,7 @@ export default function PatientAppointments() {
                     <p className="text-sm font-medium text-gray-900">{a.startTime} - {a.endTime}</p>
                   </div>
                 </div>
+
 
                 <div className="flex items-start gap-3">
                   <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -299,30 +334,49 @@ export default function PatientAppointments() {
                 </div>
               </div>
 
+
               {/* Action Buttons */}
               {a.status !== 'CANCELLED' && a.status !== 'COMPLETED' && (
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => openCancelModal(a.id, a.deposit, a.workDate)}
-                    disabled={cancellingId === a.id}
-                    className="flex-1 px-4 py-2.5 bg-red-100 hover:bg-red-200 text-red-700 font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                    {cancellingId === a.id ? 'Đang hủy...' : 'Hủy lịch'}
-                  </button>
-                  <button
-                    onClick={() => openRescheduleModal(a)}
-                    className="flex-1 px-4 py-2.5 bg-blue-100 hover:bg-blue-200 text-blue-700 font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    Dời lịch
-                  </button>
-                </div>
+                <>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => openCancelModal(a.id, a.deposit, a.workDate)}
+                      disabled={cancellingId === a.id}
+                      className="flex-1 px-4 py-2.5 bg-red-100 hover:bg-red-200 text-red-700 font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                      {cancellingId === a.id ? 'Đang hủy...' : 'Hủy lịch'}
+                    </button>
+                    <button
+                      onClick={() => openRescheduleModal(a)}
+                      disabled={getDaysUntilAppointment(a.workDate) < 2}
+                      className="flex-1 px-4 py-2.5 bg-blue-100 hover:bg-blue-200 text-blue-700 font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      {getDaysUntilAppointment(a.workDate) < 2 ? 'Không thể dời lịch' : 'Dời lịch'}
+                    </button>
+                  </div>
+                  
+                  {/* Thông báo không thể dời lịch */}
+                  {getDaysUntilAppointment(a.workDate) < 2 && getDaysUntilAppointment(a.workDate) >= 0 && (
+                    <div className="bg-orange-50 rounded-lg p-3 border border-orange-200">
+                      <div className="flex items-start gap-2">
+                        <svg className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        <p className="text-xs text-orange-800">
+                          <strong>Lưu ý:</strong> Không thể dời lịch trong vòng 2 ngày trước ngày khám. Vui lòng liên hệ phòng khám để được hỗ trợ.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
+
 
               {/* Show cancel date if cancelled */}
               {a.status === 'CANCELLED' && a.cancelTime && (
@@ -339,7 +393,8 @@ export default function PatientAppointments() {
                 </div>
               )}
 
-              {/* Payment, Services - giữ nguyên như code cũ */}
+
+              {/* Payment Info */}
               {(a.deposit !== null || a.discount !== null) && (
                 <div className="bg-green-50 rounded-lg p-4 border border-green-200">
                   <div className="flex items-center gap-2 mb-3">
@@ -375,6 +430,8 @@ export default function PatientAppointments() {
                 </div>
               )}
 
+
+              {/* Medical Examinations */}
               {a.medicalExaminations && a.medicalExaminations.length > 0 && (
                 <div className="bg-indigo-50 rounded-lg p-4 border border-indigo-200">
                   <div className="flex items-center gap-2 mb-3">
@@ -399,6 +456,8 @@ export default function PatientAppointments() {
                 </div>
               )}
 
+
+              {/* Service Appointments */}
               {a.serviceAppointments && a.serviceAppointments.length > 0 && (
                 <div className="bg-pink-50 rounded-lg p-4 border border-pink-200">
                   <div className="flex items-center gap-2 mb-3">
@@ -434,9 +493,10 @@ export default function PatientAppointments() {
         ))}
       </div>
 
-      {/* Cancel Modal */}
+
+      {/* Cancel Modal - BACKDROP TRONG SUỐT */}
       {showCancelModal && selectedAppointment && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-white/20 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl">
             <div className="px-6 py-4 border-b border-gray-200">
               <div className="flex items-center gap-3">
@@ -451,6 +511,7 @@ export default function PatientAppointments() {
                 </div>
               </div>
             </div>
+
 
             <div className="px-6 py-4 space-y-4">
               {(() => {
@@ -471,6 +532,7 @@ export default function PatientAppointments() {
                       </p>
                     </div>
 
+
                     <div className="bg-green-50 rounded-lg p-4 border border-green-200">
                       <div className="flex items-center gap-2 mb-2">
                         <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -488,6 +550,7 @@ export default function PatientAppointments() {
                       </div>
                     </div>
 
+
                     <div className="bg-yellow-50 rounded-lg p-3 border border-yellow-200">
                       <p className="text-xs text-yellow-800">
                         <strong>Lưu ý:</strong> Số tiền hoàn lại sẽ được chuyển về tài khoản của bạn trong 3-5 ngày làm việc.
@@ -497,6 +560,7 @@ export default function PatientAppointments() {
                 );
               })()}
             </div>
+
 
             <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex gap-3">
               <button
@@ -531,6 +595,7 @@ export default function PatientAppointments() {
           </div>
         </div>
       )}
+
 
       {/* Reschedule Modal */}
       {showRescheduleModal && rescheduleAppointment && (

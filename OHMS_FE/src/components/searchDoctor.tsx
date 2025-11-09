@@ -1,48 +1,131 @@
 import React, { FormEvent, useState, useRef, useEffect } from 'react';
 import { useChatAI } from '../provider/useChatAI';
+import axios from 'axios';
 
-export default function SearchDoctor() {
+interface Doctor {
+  id: string;
+  username: string;
+  email: string;
+  phone: string;
+  medicleSpecially: string;
+  experience: string;
+  rating: number;
+  patients: number;
+  description: string;
+  education: string;
+  certifications: string;
+  imageUrl?: string;
+}
+
+interface TimeSlot {
+  startTime: string;
+  endTime: string;
+  available: boolean;
+}
+
+interface DaySchedule {
+  date: string;
+  label: string;
+  weekLabel: string;
+  slots: TimeSlot[];
+  hasApiSchedule?: boolean;
+}
+
+interface WeeklySchedule {
+  workDate: string;
+  startTime: string;
+  endTime: string;
+}
+
+interface MedicalService {
+  id: string;
+  name: string;
+  price: number;
+  minDuration?: number;
+}
+
+export default function AiChat() {
   const [showChatModal, setShowChatModal] = useState(false);
   const [searchInput, setSearchInput] = useState('');
-  const [bookingLink, setBookingLink] = useState<string | null>(null); // State để lưu bookingUrl
-  const { messages, sendMessage, isLoading, clearChat, error, lastRecommendation, getRecommendation } = useChatAI();
-  const [showRecommendation, setShowRecommendation] = useState(false);
+  const { messages, sendMessage, isLoading, clearChat, error, lastRecommendation } = useChatAI();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  
+  // Booking state
+  const [bookingMode, setBookingMode] = useState<'CONSULTATION_ONLY' | 'SERVICE_AND_CONSULTATION' | null>(null);
+  const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
+  const [weekSchedule, setWeekSchedule] = useState<DaySchedule[]>([]);
+  const [selectedDay, setSelectedDay] = useState(0);
+  const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
+  const [specialtyEnum, setSpecialtyEnum] = useState<string | null>(null);
 
+  // AI Booking states
+  const [aiBookingData, setAiBookingData] = useState<any>(null);
+  const [showPaymentButton, setShowPaymentButton] = useState(false);
+  const [serviceDetails, setServiceDetails] = useState<Map<string, MedicalService>>(new Map());
+
+  // Auto scroll
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, isLoading, showRecommendation]);
+  }, [messages, isLoading]);
 
-  // Lọc bookingUrl từ tin nhắn cuối cùng của AI
+  // Parse specialty enum from AI response
   useEffect(() => {
-    const lastAIMessage = messages
-      .filter(msg => msg.sender === 'ai')
-      .slice(-1)[0]; // Lấy tin nhắn cuối cùng của AI
-    if (lastAIMessage) {
-      const match = lastAIMessage.text.match(/BOOKING_LINK:(.*)$/m);
-      if (match && match[1]) {
-        const url = match[1].trim();
-        if (/^https?:\/\/[^\s$.?#].[^\s]*$/.test(url)) { // Kiểm tra URL hợp lệ
-          setBookingLink(url);
-        } else {
-          setBookingLink(null);
-        }
-      } else {
-        setBookingLink(null);
+    if (lastRecommendation?.specialtyEnum) {
+      setSpecialtyEnum(lastRecommendation.specialtyEnum);
+    }
+  }, [lastRecommendation]);
+
+  // DEBUG: Listen for booking readiness from AI
+  useEffect(() => {
+    if (lastRecommendation && lastRecommendation.ready === true) {
+      console.log("✅ Payment button should show");
+      console.log("Booking data:", lastRecommendation);
+      setAiBookingData(lastRecommendation);
+      setShowPaymentButton(true);
+      
+      // Fetch service details
+      if (lastRecommendation.medicalExaminationIds && lastRecommendation.medicalExaminationIds.length > 0) {
+        fetchServiceDetails(lastRecommendation.medicalExaminationIds);
       }
     } else {
-      setBookingLink(null);
+      console.log("Ready:", lastRecommendation?.ready);
     }
-  }, [messages]);
+  }, [lastRecommendation]);
+
+  // Fetch service details by IDs
+  const fetchServiceDetails = async (serviceIds: string[]) => {
+    try {
+      const serviceMap = new Map<string, MedicalService>();
+      
+      for (const serviceId of serviceIds) {
+        try {
+          const response = await axios.get(`http://localhost:8080/medical-examination/${serviceId}`);
+          if (response.data) {
+            serviceMap.set(serviceId, {
+              id: response.data.id,
+              name: response.data.name,
+              price: response.data.price,
+              minDuration: response.data.minDuration
+            });
+          }
+        } catch (error) {
+          console.error(`Error fetching service ${serviceId}:`, error);
+        }
+      }
+      
+      setServiceDetails(serviceMap);
+    } catch (error) {
+      console.error('Error fetching service details:', error);
+    }
+  };
 
   const handleSearchInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setSearchInput(value);
+    setSearchInput(e.target.value);
   };
 
   const handleSearchButtonClick = () => {
@@ -50,10 +133,6 @@ export default function SearchDoctor() {
       setShowChatModal(true);
       setTimeout(async () => {
         await sendMessage(searchInput);
-        setTimeout(async () => {
-          await getRecommendation(searchInput);
-          setShowRecommendation(true);
-        }, 1000);
         setSearchInput('');
       }, 100);
     }
@@ -70,192 +149,424 @@ export default function SearchDoctor() {
     e.preventDefault();
     const input = e.currentTarget.querySelector('input') as HTMLInputElement;
     if (input && input.value.trim()) {
-      const messageText = input.value;
-      await sendMessage(messageText);
-      setTimeout(async () => {
-        await getRecommendation(messageText);
-        setShowRecommendation(true);
-      }, 1000);
+      await sendMessage(input.value);
       input.value = '';
     }
   };
 
-  const handleBooking = () => {
-    if (bookingLink) {
-      window.open(bookingLink, '_blank');
-    }
+  // Helper functions
+  const formatPrice = (price: number): string => {
+    return price.toLocaleString('vi-VN') + 'đ';
+  };
+
+  const formatTime = (timeStr: string): string => {
+    if (!timeStr) return '';
+    const [hours, minutes] = timeStr.split(':');
+    return `${hours}:${minutes}`;
   };
 
   const closeModal = () => {
-    setShowChatModal(false);
     setSearchInput('');
-    setBookingLink(null); // Reset bookingLink khi đóng modal
+  };
+
+  const cleanAIMessage = (text: string): string => {
+    return text
+      .replace(/---START---/g, '')
+      .replace(/---END---/g, '')
+      .replace(/SPECIALTY_ENUM:.*$/gm, '')
+      .replace(/BOOKING_LINK:.*$/gm, '')
+      .replace(/─{20,}/g, '')
+      .replace(/┌.*┐/g, '')
+      .replace(/└.*┘/g, '')
+      .replace(/│/g, '')
+      .split('\n')
+      .filter(line => {
+        const trimmed = line.trim();
+        return trimmed.length > 0 && 
+               !trimmed.startsWith('SPECIALTY_ENUM') && 
+               !trimmed.startsWith('BOOKING_LINK') &&
+               !trimmed.startsWith('📅') &&
+               !trimmed.startsWith('👨‍⚕️');
+      })
+      .join('\n')
+      .trim();
+  };
+
+  // Payment handler - FIXED
+  const handleAiPayment = async () => {
+    if (!aiBookingData) {
+      alert('Thông tin đặt lịch chưa đầy đủ!');
+      return;
+    }
+
+    try {
+      // Chuẩn hóa payload theo backend format
+      const bookingPayload: any = {
+        doctorId: aiBookingData.doctorId || null,
+        workDate: aiBookingData.workDate,
+        bookingType: aiBookingData.bookingType,
+        discount: aiBookingData.discount || 10,
+        deposit: aiBookingData.depositAmount, // ← Backend nhận field "deposit"
+        depositStatus: 'PENDING',
+      };
+
+      // SERVICE_AND_CONSULTATION: có dịch vụ phụ + khám bác sĩ
+      if (aiBookingData.bookingType === 'SERVICE_AND_CONSULTATION') {
+        if (!aiBookingData.serviceSlots || !aiBookingData.consultationSlot) {
+          alert('Thiếu thông tin dịch vụ hoặc khám bác sĩ!');
+          return;
+        }
+        
+        bookingPayload.serviceSlots = aiBookingData.serviceSlots.map((slot: any) => ({
+          serviceId: slot.serviceId,
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+        }));
+        
+        bookingPayload.consultationSlot = {
+          startTime: aiBookingData.consultationSlot.startTime,
+          endTime: aiBookingData.consultationSlot.endTime,
+        };
+        
+        // medicalExaminationIds: PHẢI có service "Đặt khám" + các service phụ
+        bookingPayload.medicalExaminationIds = aiBookingData.medicalExaminationIds || [];
+      } 
+      // CONSULTATION_ONLY: chỉ khám bác sĩ
+      else if (aiBookingData.bookingType === 'CONSULTATION_ONLY') {
+        if (!aiBookingData.startTime || !aiBookingData.endTime) {
+          alert('Thiếu thông tin thời gian khám!');
+          return;
+        }
+        
+        bookingPayload.startTime = aiBookingData.startTime;
+        bookingPayload.endTime = aiBookingData.endTime;
+        
+        // medicalExaminationIds: CHỈ có service "Đặt khám"
+        bookingPayload.medicalExaminationIds = aiBookingData.medicalExaminationIds || [];
+      } 
+      // PREVENTIVE_SERVICE: dịch vụ dự phòng, không cần bác sĩ
+      else if (aiBookingData.bookingType === 'PREVENTIVE_SERVICE') {
+        if (!aiBookingData.startTime || !aiBookingData.endTime) {
+          alert('Thiếu thông tin thời gian dịch vụ!');
+          return;
+        }
+        
+        bookingPayload.startTime = aiBookingData.startTime;
+        bookingPayload.endTime = aiBookingData.endTime;
+        bookingPayload.doctorId = null; // Không cần bác sĩ
+        
+        // medicalExaminationIds: Service dự phòng
+        bookingPayload.medicalExaminationIds = aiBookingData.medicalExaminationIds || [];
+      } else {
+        alert('Loại đặt lịch không hợp lệ!');
+        return;
+      }
+
+      // Lưu vào sessionStorage
+      sessionStorage.setItem('pendingBooking', JSON.stringify(bookingPayload));
+      console.log('📋 Booking payload:', bookingPayload);
+
+      // Gọi API thanh toán
+      const response = await axios.get('http://localhost:8080/api/v1/payment/vn-pay', {
+        params: {
+          amount: bookingPayload.deposit,
+          bankCode: 'NCB',
+        },
+      });
+
+      if (response.data?.results?.paymentUrl) {
+        window.location.href = response.data.results.paymentUrl;
+      } else {
+        alert('Không thể tạo link thanh toán. Vui lòng thử lại!');
+      }
+
+    } catch (error) {
+      console.error('❌ Payment error:', error);
+      alert('Lỗi khi khởi tạo thanh toán. Vui lòng thử lại!');
+    }
   };
 
   return (
     <>
-      <section className="relative overflow-hidden bg-[#1273db]">
-        <div className="mx-auto flex w-[99vw] items-center gap-8 px-4 py-24 sm:grid-cols-2 lg:px-8 justify-center align-middle">
-          <div className="text-center flex flex-col justify-items-center align-items-center">
-            <h1 className="mb-4 text-4xl font-bold leading-tight text-white">Đặt khám bác sĩ</h1>
-            <p className="mb-8 text-white/90">
-              Đặt khám với hơn <strong>1,000</strong> bác sĩ đã kết nối chính thức với OHMS để có số thứ tự và khung giờ khám trước
+      {/* Hero Section */}
+      <section className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-blue-700 to-blue-800">
+        <div className="mx-auto flex w-full max-w-5xl items-center px-6 py-28">
+          <div className="text-center w-full">
+            <h1 className="mb-4 text-5xl font-bold leading-tight text-white tracking-tight">
+              Đặt khám bác sĩ
+            </h1>
+            <p className="mb-10 text-lg text-white/90 max-w-2xl mx-auto">
+              Đặt khám với hơn <strong className="font-bold">1,000</strong> bác sĩ đã kết nối chính thức với OHMS để có số thứ tự và khung giờ khám trước
             </p>
-            <div className="relative mx-auto max-w-xl min-w-[500px]">
+            <div className="relative mx-auto max-w-2xl">
               <input
                 type="text"
-                placeholder="Triệu chứng, bác sĩ"
+                placeholder="Tìm kiếm theo triệu chứng hoặc tên bác sĩ..."
                 value={searchInput}
                 onChange={handleSearchInput}
                 onKeyPress={handleKeyPress}
-                className="w-full rounded-full border border-white/40 bg-white/90 px-6 py-3 pr-12 text-sm text-gray-700 placeholder-gray-500 shadow focus:border-teal-500 focus:ring-teal-500"
+                className="w-full rounded-2xl border-2 border-white/30 bg-white/95 px-6 py-4 pr-14 text-base text-gray-800 placeholder-gray-500 shadow-lg focus:border-white focus:outline-none focus:ring-4 focus:ring-white/30 transition-all"
               />
               <button
                 aria-label="Tìm kiếm"
                 onClick={handleSearchButtonClick}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-teal-600"
+                className="absolute right-3 top-1/2 -translate-y-1/2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl px-4 py-2 font-medium transition-colors"
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 1010.5 18.5a7.5 7.5 0 006.15-3.85z"
-                  />
-                </svg>
+                Tìm
               </button>
             </div>
           </div>
         </div>
       </section>
 
+      {/* Chat Modal */}
       {showChatModal && (
-        <div className="fixed inset-0 bg-blue-100/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-2xl w-full max-w-2xl h-[600px] max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-2xl">🩺</span>
-                <h3 className="text-lg font-bold">Chat với AI - Gợi ý khám bệnh</h3>
+        <div className="fixed inset-0 bg-white/30 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl h-[700px] max-h-[90vh] overflow-hidden flex flex-col">
+            
+            {/* Header */}
+            <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-5 flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-bold">Trợ lý Y tế AI</h3>
+                <p className="text-sm text-white/80 mt-1">Gợi ý khám bệnh thông minh</p>
               </div>
               <button
                 onClick={closeModal}
-                className="text-white hover:bg-white/20 rounded-full w-8 h-8 flex items-center justify-center transition"
+                className="text-white hover:bg-white/20 rounded-lg w-10 h-10 flex items-center justify-center transition text-2xl font-light"
               >
-                ✕
+                ×
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 bg-gray-50" ref={messagesContainerRef}>
-              {messages.map((msg, idx) => {
-                let displayText = msg.text;
-                if (msg.sender === 'ai') {
-                  displayText = displayText
-                    .replace(/---START---/g, '')
-                    .replace(/---END---/g, '')
-                    .replace(/SPECIALTY_ENUM:.*$/gm, '')
-                    .replace(/BOOKING_LINK:.*$/gm, '')
-                    .split('\n')
-                    .filter(line => line.trim().length > 0)
-                    .join('\n')
-                    .trim();
-                }
-                return (
-                  <div key={idx} className={`flex mb-4 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`flex gap-2 max-w-xs ${msg.sender === 'user' ? 'flex-row-reverse' : ''}`}>
-                      <div className="text-2xl">{msg.sender === 'user' ? '👤' : '🤖'}</div>
-                      <div className={`p-3 rounded-lg ${msg.sender === 'user' ? 'bg-blue-600 text-white' : 'bg-white border border-gray-300'}`}>
-                        <p className="text-sm whitespace-pre-wrap break-words">{displayText}</p>
-                      </div>
-                    </div>
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto p-6 bg-gray-50 space-y-5" ref={messagesContainerRef}>
+              {messages.map((msg, idx) => (
+                <div key={idx} className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}>
+                  <span className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2 px-1">
+                    {msg.sender === 'user' ? 'Bạn' : 'Trợ lý AI'}
+                  </span>
+                  <div className={`max-w-[85%] px-5 py-3.5 rounded-2xl shadow-sm ${
+                    msg.sender === 'user' 
+                      ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white' 
+                      : 'bg-white border border-gray-200 text-gray-800'
+                  }`}>
+                    <p className="text-[15px] leading-relaxed whitespace-pre-wrap break-words">
+                      {msg.sender === 'ai' ? cleanAIMessage(msg.text) : msg.text}
+                    </p>
                   </div>
-                );
-              })}
+                </div>
+              ))}
 
               {isLoading && (
-                <div className="flex justify-start mb-4">
-                  <div className="flex gap-2">
-                    <div className="text-2xl">🤖</div>
-                    <div className="bg-white border border-gray-300 p-3 rounded-lg">
-                      <div className="flex gap-1">
-                        <span className="inline-block w-2 h-2 bg-gray-400 rounded-full animate-bounce"></span>
-                        <span className="inline-block w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></span>
-                      </div>
+                <div className="flex flex-col items-start">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2 px-1">AI</span>
+                  <div className="bg-white border border-gray-200 px-5 py-4 rounded-2xl shadow-sm">
+                    <div className="flex gap-2">
+                      <span className="w-2.5 h-2.5 bg-gray-400 rounded-full animate-bounce"></span>
+                      <span className="w-2.5 h-2.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.15s' }}></span>
+                      <span className="w-2.5 h-2.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }}></span>
                     </div>
                   </div>
                 </div>
               )}
 
-              {error && <div className="text-red-500 text-sm mb-4">Lỗi: {error}</div>}
+              {error && (
+                <div className="bg-red-50 border-2 border-red-200 text-red-700 px-5 py-3 rounded-xl text-sm font-medium">
+                  Lỗi: {error}
+                </div>
+              )}
 
-              {showRecommendation && lastRecommendation && !lastRecommendation.needMoreInfo && (
-                <div className="flex justify-start mb-4">
-                  <div className="bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-400 rounded-lg p-4 max-w-sm">
-                    <h4 className="font-bold text-blue-900 mb-3">🏥 Gợi ý khám bệnh</h4>
-                    {lastRecommendation.diagnosis && (
-                      <div className="mb-3">
-                        <strong className="text-sm text-blue-800">Chẩn đoán sơ bộ:</strong>
-                        <p className="text-sm text-gray-700">{lastRecommendation.diagnosis}</p>
+              {/* DEBUG: Show booking state */}
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-xs">
+                <div className="font-bold text-yellow-800 mb-2">DEBUG INFO:</div>
+                <div className="text-yellow-700 space-y-1">
+                  <div>showPaymentButton: {String(showPaymentButton)}</div>
+                  <div>aiBookingData exists: {aiBookingData ? 'YES' : 'NO'}</div>
+                  <div>bookingType: {aiBookingData?.bookingType || 'N/A'}</div>
+                  <div>ready: {String(aiBookingData?.ready)}</div>
+                  <div>doctorId: {aiBookingData?.doctorId || 'N/A'}</div>
+                  <div>workDate: {aiBookingData?.workDate || 'N/A'}</div>
+                  <div>depositAmount: {aiBookingData?.depositAmount || 'N/A'}</div>
+                  <div>medicalExaminationIds: {JSON.stringify(aiBookingData?.medicalExaminationIds)}</div>
+                </div>
+              </div>
+
+              {/* Payment Button - Shows when AI confirms booking ready */}
+              {showPaymentButton && aiBookingData && (
+                <div className="flex flex-col items-center mt-4">
+                  <div className="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-500 rounded-2xl p-6 max-w-lg w-full shadow-lg">
+                    <div className="text-center mb-4">
+                      <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
                       </div>
-                    )}
-                    <div className="mb-3">
-                      <strong className="text-sm text-blue-800">Chuyên khoa gợi ý:</strong>
-                      <div className="inline-block bg-blue-500 text-white px-3 py-1 rounded-full text-xs mt-1">
-                        {lastRecommendation.specialtyNameVi}
+                      <h3 className="text-xl font-bold text-green-800 mb-2">
+                        Thông tin đặt lịch đã sẵn sàng
+                      </h3>
+                      <p className="text-sm text-green-700">
+                        Xác nhận và thanh toán để hoàn tất đặt lịch
+                      </p>
+                    </div>
+
+                    <div className="bg-white rounded-xl p-4 mb-4 space-y-3 text-sm">
+                      <div className="pb-2 border-b border-gray-200">
+                        <div className="text-gray-600 text-xs mb-1">Loại đặt lịch</div>
+                        <div className="font-semibold text-gray-900">
+                          {aiBookingData.bookingType === 'CONSULTATION_ONLY' && 'Khám bác sĩ'}
+                          {aiBookingData.bookingType === 'SERVICE_AND_CONSULTATION' && 'Khám bác sĩ + Dịch vụ'}
+                          {aiBookingData.bookingType === 'PREVENTIVE_SERVICE' && 'Dịch vụ dự phòng'}
+                        </div>
+                      </div>
+
+                      {aiBookingData.doctorId && aiBookingData.bookingType !== 'PREVENTIVE_SERVICE' && (
+                        <div>
+                          <div className="text-gray-600 text-xs mb-1">Bác sĩ</div>
+                          <div className="font-semibold text-gray-900">
+                            {aiBookingData.doctorName || 'Đang cập nhật'}
+                          </div>
+                        </div>
+                      )}
+
+                      <div>
+                        <div className="text-gray-600 text-xs mb-1">Ngày {aiBookingData.bookingType === 'PREVENTIVE_SERVICE' ? 'thực hiện' : 'khám'}</div>
+                        <div className="font-semibold text-gray-900">
+                          {new Date(aiBookingData.workDate).toLocaleDateString('vi-VN', {
+                            weekday: 'long',
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          })}
+                        </div>
+                      </div>
+
+                      <div className="pt-2 border-t border-gray-100">
+                        <div className="text-gray-600 text-xs mb-2">LỊCH TRÌNH</div>
+                        <div className="space-y-2">
+                          {/* SERVICE_AND_CONSULTATION: Hiển thị dịch vụ phụ + khám */}
+                          {aiBookingData.bookingType === 'SERVICE_AND_CONSULTATION' && (
+                            <>
+                              {aiBookingData.serviceSlots?.map((slot: any, idx: number) => {
+                                // Tìm service name từ serviceDetails map
+                                const service = serviceDetails.get(slot.serviceId);
+                                const serviceName = service?.name || `Dịch vụ ${idx + 1}`;
+                                
+                                return (
+                                  <div key={idx} className="flex items-start gap-2 text-sm">
+                                    <div className="text-blue-600 font-medium min-w-[80px]">
+                                      {formatTime(slot.startTime)} - {formatTime(slot.endTime)}:
+                                    </div>
+                                    <div className="text-gray-700">
+                                      {serviceName}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                              
+                              {aiBookingData.consultationSlot && (
+                                <div className="flex items-start gap-2 text-sm">
+                                  <div className="text-green-600 font-medium min-w-[80px]">
+                                    {formatTime(aiBookingData.consultationSlot.startTime)} - {formatTime(aiBookingData.consultationSlot.endTime)}:
+                                  </div>
+                                  <div className="text-gray-700 font-semibold">
+                                    {(() => {
+                                      // Lấy tên service khám (thường là phần tử đầu tiên trong medicalExaminationIds)
+                                      const consultationServiceId = aiBookingData.medicalExaminationIds?.[0];
+                                      const consultationService = serviceDetails.get(consultationServiceId);
+                                      return consultationService?.name || 'Khám bác sĩ';
+                                    })()}
+                                  </div>
+                                </div>
+                              )}
+                            </>
+                          )}
+
+                          {/* CONSULTATION_ONLY hoặc PREVENTIVE_SERVICE: Hiển thị 1 slot */}
+                          {(aiBookingData.bookingType === 'CONSULTATION_ONLY' || 
+                            aiBookingData.bookingType === 'PREVENTIVE_SERVICE') && 
+                            aiBookingData.startTime && (
+                            <div className="flex items-start gap-2 text-sm">
+                              <div className="text-blue-600 font-medium min-w-[80px]">
+                                {formatTime(aiBookingData.startTime)} - {formatTime(aiBookingData.endTime)}:
+                              </div>
+                              <div className="text-gray-700 font-semibold">
+                                {(() => {
+                                  // Lấy tên service từ medicalExaminationIds
+                                  const serviceId = aiBookingData.medicalExaminationIds?.[0];
+                                  const service = serviceDetails.get(serviceId);
+                                  
+                                  if (service?.name) {
+                                    return service.name;
+                                  }
+                                  
+                                  return aiBookingData.bookingType === 'PREVENTIVE_SERVICE' 
+                                    ? 'Thực hiện dịch vụ' 
+                                    : 'Khám bác sĩ';
+                                })()}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="pt-3 border-t border-gray-200 space-y-2">
+                        <div className="text-gray-600 text-xs mb-2">CHI PHÍ</div>
+                        
+                        {aiBookingData.totalPrice && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-700">Tổng tiền:</span>
+                            <span className="font-medium">{formatPrice(aiBookingData.totalPrice)}</span>
+                          </div>
+                        )}
+                        
+                        {aiBookingData.totalPrice && aiBookingData.discountedPrice && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-green-600">Giảm giá online ({aiBookingData.discount || 10}%):</span>
+                            <span className="text-green-600 font-medium">
+                              -{formatPrice(aiBookingData.totalPrice - aiBookingData.discountedPrice)}
+                            </span>
+                          </div>
+                        )}
+                        
+                        {aiBookingData.discountedPrice && (
+                          <div className="flex justify-between text-sm pt-2 border-t border-gray-100">
+                            <span className="text-gray-700 font-semibold">Sau giảm giá:</span>
+                            <span className="font-bold">{formatPrice(aiBookingData.discountedPrice)}</span>
+                          </div>
+                        )}
+                        
+                        {aiBookingData.depositAmount && (
+                          <>
+                            <div className="flex justify-between text-sm bg-orange-50 -mx-2 px-2 py-2 rounded">
+                              <span className="text-orange-700 font-semibold">Tiền đặt cọc (50%):</span>
+                              <span className="text-orange-600 font-bold">
+                                {formatPrice(aiBookingData.depositAmount)}
+                              </span>
+                            </div>
+                            
+                            <div className="text-xs text-gray-500 pt-1">
+                              Số tiền còn lại thanh toán tại bệnh viện: {formatPrice(aiBookingData.depositAmount)}
+                            </div>
+                          </>
+                        )}
                       </div>
                     </div>
-                    {lastRecommendation.urgencyLevel && (
-                      <div className="mb-3">
-                        <strong className="text-sm text-blue-800">Mức độ khẩn cấp:</strong>
-                        <p className="text-sm text-gray-700">{lastRecommendation.urgencyLevel}</p>
-                      </div>
-                    )}
-                    {lastRecommendation.suggestedExaminations && lastRecommendation.suggestedExaminations.length > 0 && (
-                      <div className="mb-3">
-                        <strong className="text-sm text-blue-800">Dịch vụ khám đề xuất:</strong>
-                        <ul className="text-sm text-gray-700 mt-1 space-y-1">
-                          {lastRecommendation.suggestedExaminations.slice(0, 3).map((exam, idx) => (
-                            <li key={idx} className="flex justify-between">
-                              <span>{exam.name}</span>
-                              <span className="font-semibold">{exam.price.toLocaleString()} VND</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
+
                     <button
-                      onClick={handleBooking}
-                      disabled={!bookingLink}
-                      className={`w-full bg-gradient-to-r from-green-500 to-green-600 text-white font-semibold py-2 px-4 rounded-lg mt-3 transition ${
-                        !bookingLink ? 'opacity-50 cursor-not-allowed' : 'hover:from-green-600 hover:to-green-700'
-                      }`}
+                      onClick={handleAiPayment}
+                      className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-[1.02] active:scale-[0.98]"
                     >
-                      <span className="flex items-center justify-center gap-2">📅 Đặt lịch khám</span>
+                      <div className="flex items-center justify-center gap-2">
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                        </svg>
+                        <span>ĐẶT LỊCH KHÁM - Thanh toán {formatPrice(aiBookingData.depositAmount || 0)}</span>
+                      </div>
                     </button>
-                  </div>
-                </div>
-              )}
 
-              {showRecommendation && lastRecommendation && lastRecommendation.needMoreInfo && (
-                <div className="flex justify-start mb-4">
-                  <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 border-2 border-yellow-400 rounded-lg p-4 max-w-sm">
-                    <h4 className="font-bold text-yellow-900 mb-3">📋 Thông tin cần thiết</h4>
-                    <p className="text-sm text-gray-700">
-                      {lastRecommendation.followUpQuestion || 'Vui lòng cung cấp thêm chi tiết để đưa ra chẩn đoán chính xác hơn.'}
+                    <p className="text-xs text-gray-600 text-center mt-3 leading-relaxed">
+                      Vui lòng nhấn nút ĐẶT LỊCH KHÁM để thanh toán đặt cọc và hoàn tất quá trình đặt lịch.
                     </p>
-                    {bookingLink && (
-                      <button
-                        onClick={handleBooking}
-                        className="w-full bg-gradient-to-r from-green-500 to-green-600 text-white font-semibold py-2 px-4 rounded-lg mt-3 hover:from-green-600 hover:to-green-700 transition"
-                      >
-                        <span className="flex items-center justify-center gap-2">📅 Đặt lịch khám</span>
-                      </button>
-                    )}
                   </div>
                 </div>
               )}
@@ -263,32 +574,33 @@ export default function SearchDoctor() {
               <div ref={messagesEndRef} />
             </div>
 
-            <div className="border-t border-gray-300 p-4 bg-white">
-              <form onSubmit={handleSubmitChat} className="flex gap-2">
+            {/* Input */}
+            <div className="border-t border-gray-200 p-5 bg-white">
+              <form onSubmit={handleSubmitChat} className="flex gap-3 mb-3">
                 <input
                   type="text"
                   placeholder="Nhập triệu chứng hoặc câu hỏi..."
                   disabled={isLoading}
-                  className="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500"
+                  className="flex-1 border-2 border-gray-300 rounded-xl px-5 py-3 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all text-[15px]"
                 />
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition"
+                  className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-8 py-3 rounded-xl hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-semibold shadow-md hover:shadow-lg"
                 >
-                  📤
+                  Gửi
                 </button>
               </form>
               <button
                 type="button"
                 onClick={() => {
                   clearChat();
-                  setShowRecommendation(false);
-                  setBookingLink(null); // Reset bookingLink khi xóa chat
+                  setShowPaymentButton(false);
+                  setAiBookingData(null);
                 }}
-                className="text-sm text-gray-500 hover:text-gray-700 mt-2 w-full py-1"
+                className="text-sm text-gray-500 hover:text-red-600 font-medium w-full py-2 hover:bg-red-50 rounded-lg transition-colors"
               >
-                🗑️ Xóa chat
+                Xóa lịch sử chat
               </button>
             </div>
           </div>

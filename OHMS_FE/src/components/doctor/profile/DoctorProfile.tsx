@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { MEDICAL_SPECIALTY_LABELS, MedicalSpecialtyType } from '../../../constant/medicalSpecialty';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faUser, 
@@ -286,12 +287,12 @@ export default function DoctorProfile() {
       {/* Header */}
       <div className="bg-white rounded-xl shadow-lg overflow-hidden">
         <div className="bg-gradient-to-r from-[#0085b9] to-[#00a8e8] h-32"></div>
-        <div className="px-8 pb-8">
+        <div className="px-8 pb-8 pt-2">
           <div className="flex items-end -mt-16 mb-6">
             <div className="relative w-32 h-32 rounded-full bg-white border-4 border-white shadow-lg flex items-center justify-center overflow-hidden group">
               {previewUrl || doctorInfo?.imageUrl ? (
                 <img 
-                  src={previewUrl || doctorInfo.imageUrl} 
+                  src={previewUrl || doctorInfo?.imageUrl} 
                   alt="Profile" 
                   className="w-full h-full object-cover"
                 />
@@ -328,7 +329,9 @@ export default function DoctorProfile() {
               </h1>
               <p className="text-gray-600 mt-1">
                 <FontAwesomeIcon icon={faStethoscope} className="mr-2" />
-                {doctorInfo?.medicleSpecially?.join(', ') || 'Chưa cập nhật chuyên khoa'}
+                {doctorInfo?.medicleSpecially && doctorInfo.medicleSpecially.length > 0
+                  ? doctorInfo.medicleSpecially.map(s => MEDICAL_SPECIALTY_LABELS[s as MedicalSpecialtyType] || s).join(', ')
+                  : 'Chưa cập nhật chuyên khoa'}
               </p>
             </div>
           </div>

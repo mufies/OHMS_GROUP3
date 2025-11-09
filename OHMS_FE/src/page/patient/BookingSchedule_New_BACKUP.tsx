@@ -155,16 +155,26 @@ function BookingSchedule() {
   const [consultationSlot, setConsultationSlot] = useState<TimeSlot | null>(null);
   const [patientAppointments, setPatientAppointments] = useState<Appointment[]>([]);
   const [dateAppointments, setDateAppointments] = useState<Appointment[]>([]);
-  // Helper function to convert specialty to Vietnamese
-  const getSpecialtyInVietnamese = (specialty: string): string => {
-    return MEDICAL_SPECIALTY_LABELS[specialty as MedicalSpecialtyType] || specialty;
+  // Helpers to normalize and convert specialty codes to Vietnamese labels
+  const normalizeSpecialties = (spec?: string | string[] | null): string[] => {
+    if (!spec) return [];
+    if (Array.isArray(spec)) return spec.map(s => s.trim()).filter(Boolean);
+    // split by common separators (comma, semicolon, pipe, slash)
+    return spec.split(/[,;|\/]+/).map(s => s.trim()).filter(Boolean);
+  };
+
+  const getSpecialtyInVietnamese = (spec?: string | string[] | null): string => {
+    const list = normalizeSpecialties(spec);
+    if (list.length === 0) return '';
+    const mapped = list.map(s => MEDICAL_SPECIALTY_LABELS[s as MedicalSpecialtyType] || s);
+    return mapped.join(', ');
   };
 
   const sortServicesByType = (servicesArray: MedicalExamination[]): MedicalExamination[] => {
   const waitServices = servicesArray.filter(s => !s.type || s.type === 'WAIT');
   const stayServices = servicesArray.filter(s => s.type === 'STAY');
   
-  return [...waitServices, ...stayServices];  // WAIT first, STAY last
+  return [...waitServices, ...stayServices];  
 };
 
 
@@ -398,8 +408,11 @@ const calculateDiagnosticSlots = (
 ): { service: MedicalExamination; slot: TimeSlot; resultTime: string }[] => {
   const slots: { service: MedicalExamination; slot: TimeSlot; resultTime: string }[] = [];
 
+  // Lọc CHỈ các service KHÔNG có chữ "khám" (đây là appointment con)
+  const diagnosticServices = servicesArray.filter(s => !s.name.toLowerCase().includes('khám'));
+
   // Sort theo ưu tiên
-  const sortedServices = [...servicesArray].sort((a, b) => {
+  const sortedServices = [...diagnosticServices].sort((a, b) => {
     const aType = a.type || 'WAIT';
     const bType = b.type || 'WAIT';
     const aDuration = a.minDuration || 0;
@@ -613,9 +626,11 @@ const calculateDiagnosticSlots = (
         );
         
         if (response.data?.results) {
-          const filteredDoctors = response.data.results.filter(
-            (doc: Doctor) => doc.medicleSpecially?.includes(specialty)
-          );
+          const filteredDoctors = response.data.results.filter((doc: Doctor) => {
+            if (!specialty) return true;
+            const codes = normalizeSpecialties(doc.medicleSpecially);
+            return codes.includes(specialty);
+          });
           setDoctors(filteredDoctors);
         }
       } catch (error) {
@@ -948,19 +963,33 @@ const calculateDiagnosticSlots = (
     };
 
     if (bookingType === 'SERVICE_AND_CONSULTATION' && selectedServices.length > 0) {
+      // Lọc service "Khám bệnh"
+      const consultationServiceId = selectedServices.find(sid => {
+        const service = services.find(s => s.id === sid);
+        return service?.name.toLowerCase().includes('khám');
+      });
+      
+      // Validation: Phải có ít nhất 1 service khám
+      if (!consultationServiceId) {
+        alert('Vui lòng chọn dịch vụ khám bệnh!');
+        return;
+      }
+      
+      // APPOINTMENT CON: các dịch vụ cận lâm sàng (không có "khám")
       bookingData.serviceSlots = diagnosticSlots.map(ds => ({
         serviceId: ds.service.id,
         startTime: ds.slot.startTime,
         endTime: ds.slot.endTime
       }));
+      
+      // APPOINTMENT CHA: khám bệnh (có chữ "khám")
       bookingData.consultationSlot = {
         startTime: consultationSlot!.startTime,
         endTime: consultationSlot!.endTime
       };
-      bookingData.medicalExaminationIds = selectedServices.filter(sid => {
-        const service = services.find(s => s.id === sid);
-        return service?.name === 'Khám bệnh';
-      });
+      
+      // medicalExaminationIds cho appointment CHA = chỉ service "Khám bệnh"
+      bookingData.medicalExaminationIds = [consultationServiceId];
     } else if (bookingType === 'CONSULTATION_ONLY') {
       bookingData.startTime = selectedSlot.startTime;
       bookingData.endTime = selectedSlot.endTime;
@@ -972,6 +1001,7 @@ const calculateDiagnosticSlots = (
     }
 
     sessionStorage.setItem('pendingBooking', JSON.stringify(bookingData));
+    localStorage.setItem('pendingBooking', JSON.stringify(bookingData));
 
     try {
       // Use deposit amount for payment (50% of discounted price)
@@ -1057,35 +1087,39 @@ const calculateDiagnosticSlots = (
               )}
               <div className="grid grid-cols-2 gap-6">
                 {/* Service Selection Card */}
-                {bookingType === 'SERVICE_AND_CONSULTATION' && (
-                  <div 
-                    onClick={() => setShowServiceModal(true)}
-                    className="bg-white rounded-xl border-2 border-gray-200 p-6 cursor-pointer hover:border-blue-500 transition-all"
-                  >
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
-                          <svg className="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                          </svg>
+                <div 
+                  onClick={() => setShowServiceModal(true)}
+                  className="bg-white rounded-xl border-2 border-gray-200 p-6 cursor-pointer hover:border-blue-500 transition-all"
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
+                        <svg className="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                        </svg>
+                      </div>
+                      <div>
+                        <div className="font-semibold text-lg text-gray-900">
+                          {bookingType === 'SERVICE_AND_CONSULTATION' ? 'Dịch vụ cận lâm sàng' : 'Loại khám bệnh'}
                         </div>
-                        <div>
-                          <div className="font-semibold text-lg text-gray-900">Dịch vụ cận lâm sàng</div>
-                          <div className="text-sm text-gray-500">Xét nghiệm, siêu âm...</div>
+                        <div className="text-sm text-gray-500">
+                          {bookingType === 'SERVICE_AND_CONSULTATION' ? 'Xét nghiệm, siêu âm...' : 'Chọn dịch vụ khám'}
                         </div>
                       </div>
-                      <svg className="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
                     </div>
-                    {selectedServices.length > 0 ? (
-                      <div className="bg-blue-50 rounded-lg p-3">
-                        <div className="text-sm font-medium text-blue-900">
-                          Đã chọn {selectedServices.length} dịch vụ
-                        </div>
-                        <div className="text-xs text-blue-700 mt-1">
-                          Tổng: {formatPrice(getTotalPrice())}
-                        </div>
+                    <svg className="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                  {selectedServices.length > 0 ? (
+                    <div className="bg-blue-50 rounded-lg p-3">
+                      <div className="text-sm font-medium text-blue-900">
+                        Đã chọn {selectedServices.length} dịch vụ
+                      </div>
+                      <div className="text-xs text-blue-700 mt-1">
+                        Tổng: {formatPrice(getTotalPrice())}
+                      </div>
+                      {bookingType === 'SERVICE_AND_CONSULTATION' && (
                         <div className="text-xs text-blue-600 mt-1">
                           ⏱️ Thời gian dự kiến: {(() => {
                             const diagnosticServices = selectedServices.filter(sid => {
@@ -1095,19 +1129,16 @@ const calculateDiagnosticSlots = (
                             return diagnosticServices.length * 30 + (diagnosticServices.length - 1) * 5;
                           })()} phút làm dịch vụ + 10 phút khám bác sĩ
                         </div>
-                      </div>
-                    ) : (
-                      <div className="text-sm text-gray-400">Chưa chọn dịch vụ nào</div>
-                    )}
-                  </div>
-                )}
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-gray-400">Chưa chọn dịch vụ nào</div>
+                  )}
+                </div>
 
-                {/* Doctor Selection Card */}
                 <div 
                   onClick={() => setShowDoctorModal(true)}
-                  className={`bg-white rounded-xl border-2 border-gray-200 p-6 cursor-pointer hover:border-blue-500 transition-all ${
-                    bookingType === 'CONSULTATION_ONLY' ? 'col-span-2' : ''
-                  }`}
+                  className="bg-white rounded-xl border-2 border-gray-200 p-6 cursor-pointer hover:border-blue-500 transition-all"
                 >
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
@@ -1150,7 +1181,6 @@ const calculateDiagnosticSlots = (
               </div>
             </div>
 
-            {/* Time Selection */}
             {selectedDoctor && weekSchedule.length > 0 && (
               <div>
                 <div className="text-2xl font-bold mb-4">
@@ -1215,7 +1245,6 @@ const calculateDiagnosticSlots = (
                     })}
                   </div>
 
-                  {/* Time slots - CONSULTATION_ONLY mode */}
                   {bookingType !== 'SERVICE_AND_CONSULTATION' && (
                     <div>
                       <div className="font-semibold text-lg mb-3 mt-6">
@@ -1677,72 +1706,163 @@ const calculateDiagnosticSlots = (
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   <div className="flex-1">
-                    <div className="text-sm font-semibold text-blue-900 mb-1">Ưu đãi đặt khám online:</div>
-                    <ul className="text-xs text-blue-800 space-y-1">
-                      <li>✓ Giảm 10% tổng giá trị dịch vụ</li>
-                      <li>✓ Chỉ cần đặt cọc 50% để giữ lịch hẹn</li>
-                      <li>✓ Thanh toán số tiền còn lại khi đến khám</li>
-                    </ul>
+                    <div className="text-sm font-semibold text-blue-900 mb-1">
+                      {bookingType === 'SERVICE_AND_CONSULTATION' 
+                        ? 'Ưu đãi đặt khám online:' 
+                        : 'Chọn loại khám bệnh:'
+                      }
+                    </div>
+                    {bookingType === 'SERVICE_AND_CONSULTATION' ? (
+                      <ul className="text-xs text-blue-800 space-y-1">
+                        <li>✓ Giảm 10% tổng giá trị dịch vụ</li>
+                        <li>✓ Chỉ cần đặt cọc 50% để giữ lịch hẹn</li>
+                        <li>✓ Thanh toán số tiền còn lại khi đến khám</li>
+                      </ul>
+                    ) : (
+                      <p className="text-xs text-blue-800">
+                        Chọn loại khám bệnh phù hợp với nhu cầu của bạn
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
               
-              <div className="grid grid-cols-2 gap-4">
-                {services.map(service => (
-                  <div
-                    key={service.id}
-                    onClick={() => toggleService(service.id)}
-                    className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                      selectedServices.includes(service.id)
-                        ? "border-blue-600 bg-blue-50"
-                        : "border-gray-200 bg-white hover:border-gray-300"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="font-semibold text-base text-gray-900">{service.name}</div>
-                        <div className="text-sm text-blue-600 font-medium mt-1">{formatPrice(service.price)}</div>
-                        
-                        {/* Duration Badge */}
-                        {service.minDuration && (
-                          <div className="mt-2 flex items-center gap-2">
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              service.minDuration < 30 
-                                ? 'bg-green-100 text-green-800' 
-                                : 'bg-orange-100 text-orange-800'
-                            }`}>
-                              <svg className="w-3 h-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                              </svg>
-                              {service.minDuration} phút
-                            </span>
-                            <span className={`text-xs ${
-                              service.minDuration < 30 
-                                ? 'text-green-600' 
-                                : 'text-orange-600'
-                            }`}>
-                              {service.minDuration < 30 
-                                ? '(Có thể rời khỏi chờ kết quả)' 
-                                : '(Phải ở tại chỗ)'}
-                            </span>
+              {/* Phần 1: Khám bệnh (chỉ chọn 1) */}
+              <div className="mb-6">
+                <div className="flex items-center gap-2 mb-3">
+                  <h3 className="text-lg font-bold text-gray-900">Loại khám</h3>
+                  <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium">Chọn 1</span>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  {services.filter(s => s.name.toLowerCase().includes('khám')).map(service => {
+                    const isSelected = selectedServices.includes(service.id);
+                    return (
+                      <div
+                        key={service.id}
+                        onClick={() => {
+                          if (bookingType === 'CONSULTATION_ONLY') {
+                            // Chế độ CONSULTATION_ONLY: chỉ chọn 1 service khám
+                            setSelectedServices([service.id]);
+                          } else {
+                            // Chế độ SERVICE_AND_CONSULTATION: bỏ chọn tất cả service khám khác, giữ lại các service cận lâm sàng
+                            const otherServices = selectedServices.filter(id => {
+                              const s = services.find(x => x.id === id);
+                              return s && !s.name.toLowerCase().includes('khám');
+                            });
+                            setSelectedServices([...otherServices, service.id]);
+                          }
+                        }}
+                        className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                          isSelected
+                            ? "border-green-600 bg-green-50 shadow-md"
+                            : "border-gray-200 bg-white hover:border-gray-300"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="font-semibold text-base text-gray-900">{service.name}</div>
+                            <div className="text-sm text-green-600 font-medium mt-1">{formatPrice(service.price)}</div>
+                            
+                            {service.minDuration && (
+                              <div className="mt-2">
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                  <svg className="w-3 h-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                  {service.minDuration} phút
+                                </span>
+                              </div>
+                            )}
                           </div>
-                        )}
+                          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                            isSelected
+                              ? "bg-green-600 border-green-600"
+                              : "border-gray-300"
+                          }`}>
+                            {isSelected && (
+                              <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                      <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${
-                        selectedServices.includes(service.id)
-                          ? "bg-blue-600 border-blue-600"
-                          : "border-gray-300"
-                      }`}>
-                        {selectedServices.includes(service.id) && (
-                          <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                          </svg>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                    );
+                  })}
+                </div>
               </div>
+
+              {/* Phần 2: Dịch vụ cận lâm sàng (chọn nhiều) */}
+              {bookingType === 'SERVICE_AND_CONSULTATION' && (
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <h3 className="text-lg font-bold text-gray-900">Dịch vụ cận lâm sàng</h3>
+                    <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full font-medium">Chọn nhiều</span>
+                  </div>
+                  <div className="text-xs text-gray-600 mb-3 bg-purple-50 border border-purple-200 rounded-lg p-3">
+                    💡 <strong>Lưu ý:</strong> Các dịch vụ sẽ được thực hiện TRƯỚC, sau đó bạn sẽ khám bác sĩ với kết quả đầy đủ
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                  {services.filter(s => !s.name.toLowerCase().includes('khám')).map(service => {
+                    const isSelected = selectedServices.includes(service.id);
+                    return (
+                      <div
+                        key={service.id}
+                        onClick={() => toggleService(service.id)}
+                        className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                          isSelected
+                            ? "border-purple-600 bg-purple-50 shadow-md"
+                            : "border-gray-200 bg-white hover:border-gray-300"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="font-semibold text-base text-gray-900">{service.name}</div>
+                            <div className="text-sm text-purple-600 font-medium mt-1">{formatPrice(service.price)}</div>
+                            
+                            {/* Duration Badge */}
+                            {service.minDuration && (
+                              <div className="mt-2 flex items-center gap-2">
+                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                  service.minDuration < 30 
+                                    ? 'bg-green-100 text-green-800' 
+                                    : 'bg-orange-100 text-orange-800'
+                                }`}>
+                                  <svg className="w-3 h-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                  {service.minDuration} phút
+                                </span>
+                                <span className={`text-xs ${
+                                  service.minDuration < 30 
+                                    ? 'text-green-600' 
+                                    : 'text-orange-600'
+                                }`}>
+                                  {service.minDuration < 30 
+                                    ? '(Nhanh)' 
+                                    : '(Cần thời gian)'}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                          <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${
+                            isSelected
+                              ? "bg-purple-600 border-purple-600"
+                              : "border-gray-300"
+                          }`}>
+                            {isSelected && (
+                              <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              )}
             </div>
 
             <div className="flex items-center justify-between p-6 border-t border-gray-200 bg-gray-50">
@@ -1780,25 +1900,7 @@ const calculateDiagnosticSlots = (
                   </div>
                 )}
                 
-                {/* Price Breakdown */}
-                <div className="space-y-1">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Tổng giá dịch vụ:</span>
-                    <span className="font-medium text-gray-900">{formatPrice(getTotalPrice())}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-green-600">Giảm giá (10% đặt online):</span>
-                    <span className="font-medium text-green-600">-{formatPrice(getTotalPrice() - applyDiscount(getTotalPrice()))}</span>
-                  </div>
-                  <div className="flex justify-between text-sm pt-1 border-t border-gray-200">
-                    <span className="text-gray-600">Sau giảm giá:</span>
-                    <span className="font-semibold text-blue-600">{formatPrice(applyDiscount(getTotalPrice()))}</span>
-                  </div>
-                  <div className="flex justify-between text-sm pb-1">
-                    <span className="text-orange-600">Cần đặt cọc (50%):</span>
-                    <span className="font-bold text-orange-600">{formatPrice(calculateDeposit(applyDiscount(getTotalPrice())))}</span>
-                  </div>
-                </div>
+
               </div>
               <button
                 onClick={handleServiceModalClose}

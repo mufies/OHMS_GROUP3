@@ -28,7 +28,7 @@ export const ChatAIProvider: React.FC<ChatAIProviderProps> = ({ children }) => {
   // Extract userId from JWT token
   const extractUserIdFromJWT = (): string | null => {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('accessToken');
       if (!token) return null;
 
       const parts = token.split('.');
@@ -87,40 +87,18 @@ export const ChatAIProvider: React.FC<ChatAIProviderProps> = ({ children }) => {
   const buildPatientInfo = (): Record<string, string> => {
     const patientInfo: Record<string, string> = {};
     
+    // Chỉ lấy thông tin cơ bản, backend sẽ tự query lịch sử nếu cần
     if (patientAppointments.length > 0) {
       const latestAppointment = patientAppointments[0];
-      patientInfo['name'] = latestAppointment.patientName || 'N/A';
-      patientInfo['email'] = latestAppointment.patientEmail || 'N/A';
-      
-      // Extract medical examinations from appointments
-      const allMedicalExams: string[] = [];
-      patientAppointments.forEach(apt => {
-        if (apt.medicalExaminations && apt.medicalExaminations.length > 0) {
-          apt.medicalExaminations.forEach(exam => {
-            if (!allMedicalExams.includes(exam.name)) {
-              allMedicalExams.push(exam.name);
-            }
-          });
-        }
-      });
-      
-      if (allMedicalExams.length > 0) {
-        patientInfo['previousExaminations'] = allMedicalExams.join(', ');
-      }
-      
-      // Add appointment history context
-      const appointmentSummary = patientAppointments
-        .slice(0, 3)
-        .map(apt => `${apt.workDate} ${apt.startTime}: Khám với ${apt.doctorName}`)
-        .join('; ');
-      patientInfo['appointmentHistory'] = appointmentSummary;
+      patientInfo['name'] = latestAppointment.patientName || '';
+      patientInfo['email'] = latestAppointment.patientEmail || '';
     }
     
     return patientInfo;
   };
 
-  const sendMessage = async (messageText: string): Promise<void> => {
-    if (!messageText.trim()) return;
+  const sendMessage = async (messageText: string): Promise<SpecialtyRecommendation | null> => {
+    if (!messageText.trim()) return null;
 
     // Push message user vào UI trước
     setMessages(prev => [...prev, { text: messageText, sender: 'user' }]);
@@ -128,68 +106,25 @@ export const ChatAIProvider: React.FC<ChatAIProviderProps> = ({ children }) => {
     setError(null);
 
     try {
-      // Lấy 10 lượt hội thoại gần nhất (bao gồm cả message vừa push)
-      const currentHistory: ChatTurn[] = [
-        ...messages.slice(-9).map(m => ({ sender: m.sender, text: m.text })),
-        { sender: 'user', text: messageText }
-      ];
-
-      // Build patient info from appointments
-      const patientInfo = buildPatientInfo();
-
-      // Get JWT token for Authorization header
-      const token = getJWTToken();
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-      };
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-
-      // Gọi API backend local (/api/diagnose) với history và patientInfo
-      const response = await fetch('http://localhost:8080/api/diagnose', {
-        method: 'POST',
-        headers: headers,
-        body: JSON.stringify({
-          message: messageText,
-          patientInfo: patientInfo,
-          history: currentHistory
+      // Chỉ lấy 5 message gần nhất và lọc bỏ message không cần thiết
+      const recentMessages = messages.slice(-5);
+      const filteredHistory: ChatTurn[] = recentMessages
+        .filter(m => {
+          const text = m.text.toLowerCase().trim();
+          // Bỏ qua các message chào hỏi đơn giản
+          const skipPhrases = ['xin chào', 'hello', 'hi', 'cảm ơn', 'thank', 'ok', 'được', 'vâng'];
+          return !skipPhrases.some(phrase => text === phrase || text.startsWith(phrase + ' ') || text.endsWith(' ' + phrase));
         })
-      });
+        .map(m => ({ sender: m.sender, text: m.text }));
       
-      if (!response.ok) throw new Error(`Lỗi API: ${response.statusText}`);
-      
-      const data = await response.json();
-      const aiReply = (data as { reply?: string }).reply || 'Không có phản hồi từ AI.';
-      
-      setMessages(prev => [...prev, { text: aiReply, sender: 'ai' }]);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Lỗi không xác định');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  /**
-   * Gọi endpoint /recommend để lấy gợi ý chuyên khoa + dịch vụ khám
-   */
-  const getRecommendation = async (messageText: string): Promise<SpecialtyRecommendation | null> => {
-    if (!messageText.trim()) return null;
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      // Lấy 10 lượt hội thoại gần nhất (bao gồm message hiện tại)
+      // Thêm message hiện tại
       const currentHistory: ChatTurn[] = [
-        ...messages.slice(-9).map(m => ({ sender: m.sender, text: m.text })),
+        ...filteredHistory,
         { sender: 'user', text: messageText }
       ];
 
-      // Build patient info from appointments
       const patientInfo = buildPatientInfo();
 
-      // Get JWT token for Authorization header
       const token = getJWTToken();
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
@@ -198,29 +133,65 @@ export const ChatAIProvider: React.FC<ChatAIProviderProps> = ({ children }) => {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
+      // Chỉ gửi dữ liệu cần thiết, backend sẽ tự query thông tin chi tiết
+      const requestBody: Record<string, unknown> = {
+        message: messageText,
+        history: currentHistory
+      };
+      
+      // Chỉ gửi patientId nếu có, backend sẽ tự lấy thông tin
+      if (patientId) {
+        requestBody.patientId = patientId;
+      }
+      
+      // Chỉ gửi patientInfo nếu có thông tin cơ bản
+      if (patientInfo.name || patientInfo.email) {
+        requestBody.patientInfo = patientInfo;
+      }
+
+      // Gọi endpoint /recommend để có đầy đủ thông tin
       const response = await fetch('http://localhost:8080/api/diagnose/recommend', {
         method: 'POST',
         headers: headers,
-        body: JSON.stringify({
-          message: messageText,
-          patientInfo: patientInfo,
-          history: currentHistory
-        })
+        body: JSON.stringify(requestBody)
       });
       
       if (!response.ok) throw new Error(`Lỗi API: ${response.statusText}`);
       
       const recommendation: SpecialtyRecommendation = await response.json();
       console.log('Recommendation received:', recommendation);
-      console.log('Booking URL:', recommendation.bookingUrl);
+      
+      // Lấy AI reply từ recommendation
+      let aiReply = '';
+      if (recommendation.needMoreInfo) {
+        aiReply = recommendation.followUpQuestion || 'Vui lòng cung cấp thêm thông tin.';
+      } else if (recommendation.ready) {
+        aiReply = recommendation.diagnosis || 'Thông tin đặt lịch đã đầy đủ. Vui lòng xác nhận để thanh toán.';
+      } else {
+        aiReply = recommendation.diagnosis || 'Không có phản hồi từ AI.';
+      }
+      
+      // Thêm AI message vào
+      setMessages(prev => [...prev, { text: aiReply, sender: 'ai' }]);
+      
+      // Set recommendation để hiển thị card hoặc payment button
       setLastRecommendation(recommendation);
+      
       return recommendation;
+      
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Lỗi không xác định');
+      const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
+      setError(errorMessage);
       return null;
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Giữ getRecommendation để tương thích với code cũ
+  const getRecommendation = async (_messageText: string): Promise<SpecialtyRecommendation | null> => {
+    // Return recommendation đã có từ sendMessage
+    return lastRecommendation;
   };
 
   const clearChat = (): void => {

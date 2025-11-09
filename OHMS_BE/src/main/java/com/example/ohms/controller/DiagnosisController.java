@@ -21,7 +21,7 @@ public class DiagnosisController {
 
     @GetMapping("/health")
     public ResponseEntity<String> health() {
-        return ResponseEntity.ok("HospitalBot is running");
+        return ResponseEntity.ok("HospitalBot is runfning");
     }
 
     @PostMapping

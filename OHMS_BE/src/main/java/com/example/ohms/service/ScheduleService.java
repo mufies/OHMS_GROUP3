@@ -173,4 +173,30 @@ public Void deleteSchedule(String scheduleId){
     scheduleRepository.deleteById(scheduleId);
     return null;
 }
+
+public List<ScheduleResponse> getListOfScheduleBaseOnDay(String day)
+{
+    try {
+        // Parse the date string (accepting formats: yyyy-MM-dd or yyyy-M-d)
+        LocalDate date;
+        if (day.matches("\\d{4}-\\d{1,2}-\\d{1,2}")) {
+            // If format is yyyy-M-d, normalize to yyyy-MM-dd
+            String[] parts = day.split("-");
+            String normalized = String.format("%s-%02d-%02d", 
+                parts[0], 
+                Integer.parseInt(parts[1]), 
+                Integer.parseInt(parts[2]));
+            date = LocalDate.parse(normalized);
+        } else {
+            date = LocalDate.parse(day);
+        }
+        
+        // Find all schedules on this specific date
+        return scheduleRepository.findByWorkDate(date).stream()
+            .map(scheduleMapper::toScheduleResponse)
+            .toList();
+    } catch (Exception e) {
+        throw new AppException(ErrorCode.DATE_NOT_VAILID);
+    }
+}
 }

@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { axiosInstance } from "../../utils/fetchFromAPI";
 import { toast } from "sonner";
 import { MEDICAL_SPECIALTY_LABELS } from "../../constant/medicalSpecialty";
+
 
 interface Doctor {
   id: string;
@@ -11,11 +12,13 @@ interface Doctor {
   medicleSpecially: string[] | null;
 }
 
+
 interface Schedule {
   workDate: string;
   startTime: string;
   endTime: string;
 }
+
 
 interface DoctorScheduleMap {
   [doctorId: string]: {
@@ -23,6 +26,7 @@ interface DoctorScheduleMap {
     schedules: Schedule[];
   };
 }
+
 
 interface StaffInfo {
   id: string;
@@ -32,6 +36,7 @@ interface StaffInfo {
   medicleSpecially: string[];
   imageUrl: string | null;
 }
+
 
 interface Appointment {
   id: string;
@@ -44,9 +49,13 @@ interface Appointment {
   status: string;
 }
 
+
 interface DoctorScheduleManagerProps {
   staffInfo: StaffInfo | null;
 }
+
+
+// ============ HELPER FUNCTIONS ============
 
 // Helper: Format date to display
 const formatDate = (dateStr: string): string => {
@@ -54,10 +63,12 @@ const formatDate = (dateStr: string): string => {
   return `${day}/${month}/${year}`;
 };
 
+
 // Helper: Format time
 const formatTime = (timeStr: string): string => {
   return timeStr.substring(0, 5); // HH:mm
 };
+
 
 // Helper: Get day of week in Vietnamese
 const getDayOfWeek = (dateStr: string): string => {
@@ -66,6 +77,7 @@ const getDayOfWeek = (dateStr: string): string => {
   const date = new Date(year, month - 1, day);
   return days[date.getDay()];
 };
+
 
 // Helper: Get next 7 days
 const getNext7Days = (): string[] => {
@@ -84,6 +96,42 @@ const getNext7Days = (): string[] => {
   return dates;
 };
 
+
+// Helper: Check if time ranges overlap
+const areTimeRangesOverlapping = (
+  apptStart: string,
+  apptEnd: string,
+  schedStart: string,
+  schedEnd: string
+): boolean => {
+  return apptStart < schedEnd && apptEnd > schedStart;
+};
+
+
+// Helper: Check if appointment falls within any schedule time slot
+const isAppointmentWithinSchedule = (
+  appointment: Appointment,
+  doctorSchedules: Schedule[]
+): boolean => {
+  return doctorSchedules.some((schedule) => {
+    // Check if appointment is on the same date
+    if (schedule.workDate !== appointment.workDate) {
+      return false;
+    }
+    
+    // Check if appointment time overlaps with schedule time
+    return areTimeRangesOverlapping(
+      appointment.startTime,
+      appointment.endTime,
+      schedule.startTime,
+      schedule.endTime
+    );
+  });
+};
+
+
+// ============ MAIN COMPONENT ============
+
 export default function DoctorScheduleManager({ staffInfo }: DoctorScheduleManagerProps) {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
@@ -92,6 +140,8 @@ export default function DoctorScheduleManager({ staffInfo }: DoctorScheduleManag
   const [upcomingAppointments, setUpcomingAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+
 
   // Form state
   const [scheduleForm, setScheduleForm] = useState({
@@ -100,11 +150,28 @@ export default function DoctorScheduleManager({ staffInfo }: DoctorScheduleManag
     endTime: "",
   });
 
+
+  // Memoized filtered appointments - chỉ hiện appointments trong ngày có schedule hoặc ngày được chọn
+  const filteredUpcomingAppointments = useMemo(() => {
+    // Nếu có ngày được chọn, chỉ hiện appointments của ngày đó
+    if (selectedDate) {
+      return upcomingAppointments.filter((apt) => apt.workDate === selectedDate);
+    }
+    
+    // Nếu không có ngày được chọn, hiện tất cả appointments trong các ngày có schedule
+    const scheduledDates = new Set(doctorSchedules.map(schedule => schedule.workDate));
+    return upcomingAppointments.filter((apt) => {
+      return scheduledDates.has(apt.workDate);
+    });
+  }, [upcomingAppointments, doctorSchedules, selectedDate]);
+
+
   useEffect(() => {
     if (staffInfo) {
       fetchDoctors();
     }
   }, [staffInfo]);
+
 
   const fetchDoctors = async () => {
     try {
@@ -137,6 +204,7 @@ export default function DoctorScheduleManager({ staffInfo }: DoctorScheduleManag
     }
   };
 
+
   const fetchDoctorSchedule = async (doctorId: string) => {
     setLoading(true);
     try {
@@ -156,6 +224,7 @@ export default function DoctorScheduleManager({ staffInfo }: DoctorScheduleManag
       setLoading(false);
     }
   };
+
 
   const fetchAllDoctorSchedules = async () => {
     try {
@@ -185,15 +254,20 @@ export default function DoctorScheduleManager({ staffInfo }: DoctorScheduleManag
     }
   };
 
+
   const fetchUpcomingAppointments = async (doctorId: string) => {
     try {
       const res = await axiosInstance.get(`/appointments/doctor/${doctorId}/upcoming`);
-      setUpcomingAppointments(res.data || []);
+      const allAppointments = res.data || [];
+      
+      // Appointments will be auto-filtered by useMemo hook based on doctorSchedules
+      setUpcomingAppointments(allAppointments);
     } catch (error) {
       console.error("Error fetching appointments:", error);
       setUpcomingAppointments([]);
     }
   };
+
 
   const handleDoctorSelect = (doctor: Doctor) => {
     setSelectedDoctor(doctor);
@@ -201,23 +275,28 @@ export default function DoctorScheduleManager({ staffInfo }: DoctorScheduleManag
     fetchUpcomingAppointments(doctor.id);
   };
 
+
   const handleOpenCreateModal = () => {
     setShowCreateModal(true);
     fetchAllDoctorSchedules();
   };
 
+
   const handleCreateSchedule = async () => {
     if (!selectedDoctor) return;
+
 
     if (!scheduleForm.workDate || !scheduleForm.startTime || !scheduleForm.endTime) {
       toast.error("Vui lòng điền đầy đủ thông tin!");
       return;
     }
 
+
     if (scheduleForm.startTime >= scheduleForm.endTime) {
       toast.error("Giờ kết thúc phải sau giờ bắt đầu!");
       return;
     }
+
 
     try {
       await axiosInstance.post(`/schedule/${selectedDoctor.id}`, {
@@ -225,6 +304,7 @@ export default function DoctorScheduleManager({ staffInfo }: DoctorScheduleManag
         startTime: scheduleForm.startTime + ":00",
         endTime: scheduleForm.endTime + ":00"
       });
+
 
       toast.success("Tạo lịch làm việc thành công!");
       setShowCreateModal(false);
@@ -236,6 +316,7 @@ export default function DoctorScheduleManager({ staffInfo }: DoctorScheduleManag
     }
   };
 
+
   // Group schedules by week
   const groupSchedulesByWeek = () => {
     const today = new Date();
@@ -244,6 +325,7 @@ export default function DoctorScheduleManager({ staffInfo }: DoctorScheduleManag
     const thisWeek: Schedule[] = [];
     const nextWeek: Schedule[] = [];
     const later: Schedule[] = [];
+
 
     doctorSchedules.forEach((schedule) => {
       const [year, month, day] = schedule.workDate.split('-').map(Number);
@@ -262,8 +344,10 @@ export default function DoctorScheduleManager({ staffInfo }: DoctorScheduleManag
       }
     });
 
+
     return { thisWeek, nextWeek, later };
   };
+
 
   // Group schedules by date for modal view
   const groupSchedulesByDate = () => {
@@ -298,7 +382,8 @@ export default function DoctorScheduleManager({ staffInfo }: DoctorScheduleManag
     return schedulesByDate;
   };
 
-  // Group appointments by date
+
+  // Group appointments by date - with filtering
   const groupAppointmentsByDate = () => {
     const next7Days = getNext7Days();
     const appointmentsByDate: { [date: string]: Appointment[] } = {};
@@ -307,7 +392,7 @@ export default function DoctorScheduleManager({ staffInfo }: DoctorScheduleManag
       appointmentsByDate[date] = [];
     });
     
-    upcomingAppointments.forEach(apt => {
+    filteredUpcomingAppointments.forEach(apt => {
       if (next7Days.includes(apt.workDate)) {
         appointmentsByDate[apt.workDate].push(apt);
       }
@@ -316,7 +401,9 @@ export default function DoctorScheduleManager({ staffInfo }: DoctorScheduleManag
     return appointmentsByDate;
   };
 
+
   const { thisWeek, nextWeek, later } = selectedDoctor ? groupSchedulesByWeek() : { thisWeek: [], nextWeek: [], later: [] };
+
 
   return (
     <div className="space-y-6">
@@ -349,18 +436,8 @@ export default function DoctorScheduleManager({ staffInfo }: DoctorScheduleManag
             </div>
           )}
         </div>
-        {selectedDoctor && (
-          <button
-            onClick={handleOpenCreateModal}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2 transition-colors"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Thêm lịch làm việc
-          </button>
-        )}
       </div>
+
 
       {/* Doctors Grid */}
       <div className="bg-white rounded-lg border border-gray-200 p-4">
@@ -440,6 +517,7 @@ export default function DoctorScheduleManager({ staffInfo }: DoctorScheduleManag
         </div>
       </div>
 
+
       {/* Doctor Schedule Calendar */}
       {selectedDoctor && (
         <div className="bg-white rounded-lg border border-gray-200 p-6">
@@ -448,9 +526,9 @@ export default function DoctorScheduleManager({ staffInfo }: DoctorScheduleManag
               📅 Lịch làm việc - BS. {selectedDoctor.username}
             </h3>
             <span className="text-sm text-gray-600">
-              Tổng: {doctorSchedules.length} ngày
             </span>
           </div>
+
 
           {loading ? (
             <div className="flex justify-center py-12">
@@ -474,29 +552,53 @@ export default function DoctorScheduleManager({ staffInfo }: DoctorScheduleManag
                     <h4 className="font-semibold text-gray-900">Tuần này</h4>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {thisWeek.map((schedule, idx) => (
-                      <div key={idx} className="bg-green-50 border-2 border-green-200 rounded-lg p-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-bold text-green-700">
-                            {getDayOfWeek(schedule.workDate)}
-                          </span>
-                          <span className="text-xs text-green-600">
-                            {formatDate(schedule.workDate)}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2 text-sm text-gray-700">
-                          <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          <span className="font-medium">
-                            {formatTime(schedule.startTime)} - {formatTime(schedule.endTime)}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
+                    {thisWeek.map((schedule, idx) => {
+                      const appointmentsForDay = upcomingAppointments.filter(apt => apt.workDate === schedule.workDate);
+                      const isSelected = selectedDate === schedule.workDate;
+                      
+                      return (
+                        <button
+                          key={idx}
+                          onClick={() => setSelectedDate(isSelected ? null : schedule.workDate)}
+                          className={`text-left transition-all ${
+                            isSelected
+                              ? "bg-green-100 border-2 border-green-400 shadow-lg scale-105"
+                              : "bg-green-50 border-2 border-green-200 hover:border-green-300 hover:shadow-md"
+                          } rounded-lg p-4`}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <span className={`text-sm font-bold ${isSelected ? 'text-green-800' : 'text-green-700'}`}>
+                              {getDayOfWeek(schedule.workDate)}
+                            </span>
+                            <span className={`text-xs ${isSelected ? 'text-green-700' : 'text-green-600'}`}>
+                              {formatDate(schedule.workDate)}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-gray-700 mb-2">
+                            <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span className="font-medium">
+                              {formatTime(schedule.startTime)} - {formatTime(schedule.endTime)}
+                            </span>
+                          </div>
+                          {appointmentsForDay.length > 0 && (
+                            <div className="mt-2 pt-2 border-t border-green-300">
+                              <div className="flex items-center gap-1.5 text-xs text-green-700 font-semibold">
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                                </svg>
+                                <span>{appointmentsForDay.length} lịch hẹn</span>
+                              </div>
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}
+
 
               {/* Next Week */}
               {nextWeek.length > 0 && (
@@ -506,29 +608,53 @@ export default function DoctorScheduleManager({ staffInfo }: DoctorScheduleManag
                     <h4 className="font-semibold text-gray-900">Tuần sau</h4>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {nextWeek.map((schedule, idx) => (
-                      <div key={idx} className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-bold text-blue-700">
-                            {getDayOfWeek(schedule.workDate)}
-                          </span>
-                          <span className="text-xs text-blue-600">
-                            {formatDate(schedule.workDate)}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2 text-sm text-gray-700">
-                          <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          <span className="font-medium">
-                            {formatTime(schedule.startTime)} - {formatTime(schedule.endTime)}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
+                    {nextWeek.map((schedule, idx) => {
+                      const appointmentsForDay = upcomingAppointments.filter(apt => apt.workDate === schedule.workDate);
+                      const isSelected = selectedDate === schedule.workDate;
+                      
+                      return (
+                        <button
+                          key={idx}
+                          onClick={() => setSelectedDate(isSelected ? null : schedule.workDate)}
+                          className={`text-left transition-all ${
+                            isSelected
+                              ? "bg-blue-100 border-2 border-blue-400 shadow-lg scale-105"
+                              : "bg-blue-50 border-2 border-blue-200 hover:border-blue-300 hover:shadow-md"
+                          } rounded-lg p-4`}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <span className={`text-sm font-bold ${isSelected ? 'text-blue-800' : 'text-blue-700'}`}>
+                              {getDayOfWeek(schedule.workDate)}
+                            </span>
+                            <span className={`text-xs ${isSelected ? 'text-blue-700' : 'text-blue-600'}`}>
+                              {formatDate(schedule.workDate)}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-gray-700 mb-2">
+                            <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span className="font-medium">
+                              {formatTime(schedule.startTime)} - {formatTime(schedule.endTime)}
+                            </span>
+                          </div>
+                          {appointmentsForDay.length > 0 && (
+                            <div className="mt-2 pt-2 border-t border-blue-300">
+                              <div className="flex items-center gap-1.5 text-xs text-blue-700 font-semibold">
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                                </svg>
+                                <span>{appointmentsForDay.length} lịch hẹn</span>
+                              </div>
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}
+
 
               {/* Later */}
               {later.length > 0 && (
@@ -538,26 +664,49 @@ export default function DoctorScheduleManager({ staffInfo }: DoctorScheduleManag
                     <h4 className="font-semibold text-gray-900">Các tuần tiếp theo</h4>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {later.map((schedule, idx) => (
-                      <div key={idx} className="bg-gray-50 border-2 border-gray-200 rounded-lg p-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-bold text-gray-700">
-                            {getDayOfWeek(schedule.workDate)}
-                          </span>
-                          <span className="text-xs text-gray-600">
-                            {formatDate(schedule.workDate)}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2 text-sm text-gray-700">
-                          <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          <span className="font-medium">
-                            {formatTime(schedule.startTime)} - {formatTime(schedule.endTime)}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
+                    {later.map((schedule, idx) => {
+                      const appointmentsForDay = upcomingAppointments.filter(apt => apt.workDate === schedule.workDate);
+                      const isSelected = selectedDate === schedule.workDate;
+                      
+                      return (
+                        <button
+                          key={idx}
+                          onClick={() => setSelectedDate(isSelected ? null : schedule.workDate)}
+                          className={`text-left transition-all ${
+                            isSelected
+                              ? "bg-gray-100 border-2 border-gray-400 shadow-lg scale-105"
+                              : "bg-gray-50 border-2 border-gray-200 hover:border-gray-300 hover:shadow-md"
+                          } rounded-lg p-4`}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <span className={`text-sm font-bold ${isSelected ? 'text-gray-800' : 'text-gray-700'}`}>
+                              {getDayOfWeek(schedule.workDate)}
+                            </span>
+                            <span className={`text-xs ${isSelected ? 'text-gray-700' : 'text-gray-600'}`}>
+                              {formatDate(schedule.workDate)}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-gray-700 mb-2">
+                            <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span className="font-medium">
+                              {formatTime(schedule.startTime)} - {formatTime(schedule.endTime)}
+                            </span>
+                          </div>
+                          {appointmentsForDay.length > 0 && (
+                            <div className="mt-2 pt-2 border-t border-gray-300">
+                              <div className="flex items-center gap-1.5 text-xs text-gray-700 font-semibold">
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                                </svg>
+                                <span>{appointmentsForDay.length} lịch hẹn</span>
+                              </div>
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -566,37 +715,80 @@ export default function DoctorScheduleManager({ staffInfo }: DoctorScheduleManag
         </div>
       )}
 
-      {/* Upcoming Appointments */}
-      {selectedDoctor && upcomingAppointments.length > 0 && (
+
+      {/* Upcoming Appointments - Filter theo ngày được chọn */}
+      {selectedDoctor && (upcomingAppointments.length > 0 || filteredUpcomingAppointments.length > 0) && (
         <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <h3 className="text-xl font-bold text-gray-900 mb-4">
-            🩺 Lịch hẹn sắp tới ({upcomingAppointments.length})
-          </h3>
-          <div className="space-y-3">
-            {upcomingAppointments.map((apt) => (
-              <div key={apt.id} className="flex items-center justify-between p-4 bg-orange-50 rounded-lg border border-orange-200">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3">
-                    <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                    <span className="font-medium text-gray-900">{apt.patientName}</span>
-                  </div>
-                  <div className="flex items-center gap-4 mt-2 text-sm text-gray-600">
-                    <span>📅 {formatDate(apt.workDate)}</span>
-                    <span>🕐 {formatTime(apt.startTime)} - {formatTime(apt.endTime)}</span>
-                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                      apt.status === 'Schedule' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
-                    }`}>
-                      {apt.status}
-                    </span>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xl font-bold text-gray-900">
+              {selectedDate ? (
+                <>
+                  🩺 Lịch hẹn ngày {formatDate(selectedDate)} ({filteredUpcomingAppointments.length})
+                </>
+              ) : (
+                <>
+                  🩺 Lịch hẹn trong ngày có schedule ({filteredUpcomingAppointments.length})
+                </>
+              )}
+            </h3>
+            {selectedDate && (
+              <button
+                onClick={() => setSelectedDate(null)}
+                className="px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors flex items-center gap-1.5"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Xóa filter
+              </button>
+            )}
+          </div>
+          
+          {/* Show info if some appointments are not shown */}
+          {!selectedDate && upcomingAppointments.length > filteredUpcomingAppointments.length && (
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-800">
+                ℹ️ Chỉ hiển thị {filteredUpcomingAppointments.length}/{upcomingAppointments.length} lịch hẹn trong các ngày đã có schedule. Click vào schedule để xem chi tiết.
+              </p>
+            </div>
+          )}
+
+          {filteredUpcomingAppointments.length === 0 ? (
+            <div className="text-center py-8">
+              <svg className="w-12 h-12 text-gray-300 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+              </svg>
+              <p className="text-gray-500 font-medium">Không có lịch hẹn trong các ngày đã có schedule</p>
+              <p className="text-xs text-gray-400 mt-1">Các lịch hẹn sẽ hiển thị khi bác sĩ có schedule trong ngày đó</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {filteredUpcomingAppointments.map((apt) => (
+                <div key={apt.id} className="flex items-center justify-between p-4 bg-orange-50 rounded-lg border border-orange-200">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3">
+                      <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                      <span className="font-medium text-gray-900">{apt.patientName}</span>
+                    </div>
+                    <div className="flex items-center gap-4 mt-2 text-sm text-gray-600">
+                      <span>📅 {formatDate(apt.workDate)}</span>
+                      <span>🕐 {formatTime(apt.startTime)} - {formatTime(apt.endTime)}</span>
+                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                        apt.status === 'Schedule' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
+                      }`}>
+                        {apt.status}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
+
 
       {/* Create Schedule Modal - Enhanced with dim background and schedule overview */}
       {showCreateModal && (
@@ -625,6 +817,7 @@ export default function DoctorScheduleManager({ staffInfo }: DoctorScheduleManag
               </div>
             </div>
 
+
             {/* Modal Body */}
             <div className="overflow-y-auto max-h-[calc(90vh-180px)]">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">
@@ -652,6 +845,7 @@ export default function DoctorScheduleManager({ staffInfo }: DoctorScheduleManag
                         />
                       </div>
 
+
                       <div className="grid grid-cols-2 gap-3">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -664,6 +858,7 @@ export default function DoctorScheduleManager({ staffInfo }: DoctorScheduleManag
                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                           />
                         </div>
+
 
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -680,12 +875,14 @@ export default function DoctorScheduleManager({ staffInfo }: DoctorScheduleManag
                     </div>
                   </div>
 
+
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                     <p className="text-sm text-blue-800">
                       💡 <strong>Lưu ý:</strong> Lịch làm việc sẽ được tạo cho bác sĩ trong khoảng thời gian được chọn. Kiểm tra lịch các bác sĩ khác bên phải để tránh trùng lặp.
                     </p>
                   </div>
                 </div>
+
 
                 {/* Right Column - Schedules Overview */}
                 <div className="space-y-4">
@@ -696,6 +893,7 @@ export default function DoctorScheduleManager({ staffInfo }: DoctorScheduleManag
                       </svg>
                       Lịch làm việc 7 ngày tới
                     </h4>
+
 
                     <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
                       {getNext7Days().map((date) => {
@@ -718,7 +916,7 @@ export default function DoctorScheduleManager({ staffInfo }: DoctorScheduleManag
                               )}
                             </div>
 
-                            {/* Doctor Schedules */}
+
                             {daySchedules.length > 0 && (
                               <div className="space-y-1 mb-2">
                                 {daySchedules.map((docSchedule, idx) => (
@@ -737,7 +935,7 @@ export default function DoctorScheduleManager({ staffInfo }: DoctorScheduleManag
                               </div>
                             )}
 
-                            {/* Appointments */}
+
                             {dayAppointments.length > 0 && (
                               <div className="border-t border-gray-100 pt-2 mt-2">
                                 <div className="text-xs text-orange-600 font-medium mb-1">
@@ -764,6 +962,7 @@ export default function DoctorScheduleManager({ staffInfo }: DoctorScheduleManag
               </div>
             </div>
 
+
             {/* Modal Footer */}
             <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex gap-3">
               <button
@@ -785,6 +984,7 @@ export default function DoctorScheduleManager({ staffInfo }: DoctorScheduleManag
           </div>
         </div>
       )}
+
     </div>
   );
 }

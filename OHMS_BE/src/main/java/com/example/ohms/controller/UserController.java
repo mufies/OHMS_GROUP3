@@ -97,22 +97,22 @@ public ApiResponse<UserResponse> register(
         .build();
     }
     @PostMapping("/sendResetCode")
-public ApiResponse<Void> sendResetCode(@RequestBody EmailRequest request) throws MessagingException {
-    log.info("{}", request.getEmail());
-    return ApiResponse.<Void>builder()
-        .code(200)
-        .message("Send mail successful")
-        .results(userService.sendCodeToEmail(request.getEmail()))
-        .build();
-}
-@PostMapping("/resetPassword")
-public ApiResponse<Void> checkTokenAndResetPass(
+    public ApiResponse<Void> sendResetCode(@RequestBody EmailRequest request) throws MessagingException {
+        log.info("{}", request.getEmail());
+        return ApiResponse.<Void>builder()
+            .code(200)
+            .message("Send mail successful")
+            .results(userService.sendCodeToEmail(request.getEmail()))
+            .build();
+    }
+    @PostMapping("/resetPassword")
+    public ApiResponse<Void> checkTokenAndResetPass(
     @RequestBody ResetPasswordRequest request
-) {
+    ) {
     return ApiResponse.<Void>builder()
         .results(userService.checkResetToken(request))
         .build();
-}
+    }
 
     @PostMapping("/changePassword/{id}")
     public ApiResponse<Void> changePassword(
