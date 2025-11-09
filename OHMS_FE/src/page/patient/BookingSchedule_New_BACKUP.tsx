@@ -483,11 +483,18 @@ const calculateDiagnosticSlots = (
     const minMin = minConsultationMinutes % 60;
     const minConsultationTime = `${String(minHour).padStart(2, '0')}:${String(minMin).padStart(2, '0')}:00`;
 
+    // Tìm service khám để lấy duration
+    const consultationService = selectedServices
+      .map(sid => services.find(s => s.id === sid))
+      .find(s => s && s.name.toLowerCase().includes('khám'));
+    
+    const consultationDuration = consultationService?.minDuration || 10;
+
     return daySlots
       .filter(slot => slot.startTime >= minConsultationTime && slot.available)
       .map(slot => {
         const [sh, sm] = slot.startTime.split(':').map(Number);
-        const endMinutes = sh * 60 + sm + 10;
+        const endMinutes = sh * 60 + sm + consultationDuration;
         const eh = Math.floor(endMinutes / 60);
         const em = endMinutes % 60;
         return {
@@ -1079,7 +1086,12 @@ const calculateDiagnosticSlots = (
                     </svg>
                     <span className={`font-medium ${bookingType === 'CONSULTATION_ONLY' ? 'text-green-800' : 'text-purple-800'}`}>
                       {bookingType === 'CONSULTATION_ONLY' 
-                        ? '✅ Chế độ: Đặt khám trực tiếp (10 phút/lượt khám)' 
+                        ? `✅ Chế độ: Đặt khám trực tiếp (${(() => {
+                            const consultationService = selectedServices
+                              .map(sid => services.find(s => s.id === sid))
+                              .find(s => s && s.name.toLowerCase().includes('khám'));
+                            return consultationService?.minDuration || 10;
+                          })()} phút/lượt khám)` 
                         : '✅ Chế độ: Dịch vụ + Khám (30 phút/dịch vụ, các dịch vụ cách nhau 5 phút, khám sau khi có kết quả 5 phút)'}
                     </span>
                   </div>
@@ -1127,7 +1139,12 @@ const calculateDiagnosticSlots = (
                               return service?.name !== 'Khám bệnh';
                             });
                             return diagnosticServices.length * 30 + (diagnosticServices.length - 1) * 5;
-                          })()} phút làm dịch vụ + 10 phút khám bác sĩ
+                          })()} phút làm dịch vụ + {(() => {
+                            const consultationService = selectedServices
+                              .map(sid => services.find(s => s.id === sid))
+                              .find(s => s && s.name.toLowerCase().includes('khám'));
+                            return consultationService?.minDuration || 10;
+                          })()} phút khám bác sĩ
                         </div>
                       )}
                     </div>
@@ -2228,7 +2245,10 @@ const calculateDiagnosticSlots = (
                       <svg className="w-4 h-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                       </svg>
-                      <span>Thời gian khám: ~10 phút</span>
+                      <span>Thời gian khám: ~{(() => {
+                        const consultationService = services.find(s => s.name.toLowerCase().includes('khám'));
+                        return consultationService?.minDuration || 10;
+                      })()} phút</span>
                     </div>
                     <div className="flex items-center justify-center gap-2">
                       <svg className="w-4 h-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
