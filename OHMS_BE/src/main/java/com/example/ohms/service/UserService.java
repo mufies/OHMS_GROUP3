@@ -340,7 +340,7 @@ public UserResponse getDetailUser(Authentication authentication) {
     // nếu không phải Jwt thì ném lỗi
     throw new AppException(ErrorCode.USER_NOT_FOUND);
 }
-      @PreAuthorize("hasRole('admin')")
+    //   @PreAuthorize("hasRole('admin')")
       public List<UserResponse> getListhehe(){
          return userRepository.findAll().stream().map(userMapper :: toUserResponseDto).toList();
       }
@@ -369,12 +369,7 @@ public UserResponse getDetailUser(Authentication authentication) {
         return UserPrincipal.create(user);
     }
 
-    // ============ OFFLINE USER METHODS ============
-    
-    /**
-     * Tạo tài khoản offline (walk-in patient)
-     * Dùng cho bệnh nhân đến khám trực tiếp không có tài khoản
-     */
+
     public OfflineUserResponse createOfflineUser(
             OfflineUserRequest request) {
         log.info("Creating offline user with username: {}", request.getUsername());

@@ -26,6 +26,7 @@ import PatientMedicalRecords from './components/patient/PatientMedicalRecords.ts
 import ReceptionAppointmentPage from './components/reception/AppointmentControll.tsx';
 import StaffDashboard from "./page/staff/StaffDashboard.tsx";
 import ProtectedRoute from "./components/auth/ProtectedRoute.tsx";
+import AdminRouter from "./components/admin/AdminRouter.tsx";
 
 function App() {
     return (
@@ -99,6 +100,9 @@ function App() {
                         <StaffDashboard/>
                     </ProtectedRoute>
                 }/>
+                
+                {/* Admin Routes - Protected */}
+                <Route path='/admin/*' element={<AdminRouter />} />
                 
                 {/* Video Call - Protected (Doctor or Patient) */}
                 <Route path='/video' element={

@@ -23,19 +23,19 @@ function Home() {
         console.log('Redirecting based on role:', userRole);
         
         switch (userRole) {
-            case 'ROLE_doctor':
+            case 'ROLE_DOCTOR':
                 window.location.href = '/doctor';
                 break;
-            case 'ROLE_admin':
+            case 'ROLE_ADMIN':
                 window.location.href = '/admin';
                 break;
-            case 'ROLE_patient':
+            case 'ROLE_PATIENT':
                 window.location.href = '/dashboard';
                 break;
-            case 'ROLE_receptionist':
+            case 'ROLE_RECEPTIONIST':
                 window.location.href = '/receptionPage';
                 break;
-            case 'ROLE_staff':
+            case 'ROLE_STAFF':
                 window.location.href = '/staff';
                 break;
             default:

@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import StatisticsCard from './StatisticsCard';
+import { axiosInstance } from '../../../utils/fetchFromAPI';
 
 interface DashboardStats {
   totalUsers: number;
@@ -12,12 +14,8 @@ interface DashboardStats {
   activeDoctors: number;
 }
 
-interface ApiResponse {
-  code: number;
-  results: any[];
-}
-
 const AdminDashboard: React.FC = () => {
+  const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStats>({
     totalUsers: 0,
     totalDoctors: 0,
@@ -34,40 +32,36 @@ const AdminDashboard: React.FC = () => {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
+
+      // Check if token exists
       const token = localStorage.getItem('accessToken');
+      console.log('Token exists:', !!token);
+      console.log('Token value:', token ? token.substring(0, 50) + '...' : 'None');
       
       if (!token) {
-        throw new Error('No access token found');
+        setError('No access token found. Please login again.');
+        setLoading(false);
+        navigate('/login');
+        return;
       }
 
       // Fetch all users to calculate stats
-      const usersResponse = await fetch('http://localhost:8080/users/getListUser', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      const usersResponse = await axiosInstance.get('/users/getListUser');
 
-      if (!usersResponse.ok) {
-        throw new Error(`HTTP error! status: ${usersResponse.status}`);
-      }
-
-      const usersData: ApiResponse = await usersResponse.json();
-      
-      if (usersData.code === 200) {
-        const users = usersData.results;
+      if (usersResponse.data?.code === 200 && usersResponse.data?.results) {
+        const users = usersResponse.data.results;
+        console.log('Fetched users:', users.length);
         
         // Calculate statistics
         const totalUsers = users.length;
-        const totalDoctors = users.filter(user => 
-          user.roles.some((role: any) => role.name === 'DOCTOR')
+        const totalDoctors = users.filter((user: any) => 
+          user.role === 'ROLE_DOCTOR' || user.roles?.some((r: any) => r.name === 'DOCTOR' || r === 'ROLE_DOCTOR')
         ).length;
-        const totalPatients = users.filter(user => 
-          user.roles.some((role: any) => role.name === 'PATIENT')
+        const totalPatients = users.filter((user: any) =>
+          user.role === 'ROLE_PATIENT' || user.roles?.some((r: any) => r.name === 'PATIENT' || r === 'ROLE_PATIENT')
         ).length;
-        const totalStaff = users.filter(user => 
-          user.roles.some((role: any) => role.name === 'STAFF')
+        const totalStaff = users.filter((user: any) =>
+          user.role === 'ROLE_STAFF' || user.roles?.some((r: any) => r.name === 'STAFF' || r === 'ROLE_STAFF')
         ).length;
         const activeDoctors = totalDoctors; // Assuming all doctors are active for now
 
@@ -81,12 +75,37 @@ const AdminDashboard: React.FC = () => {
           monthlyRevenue: 0, // Will be updated when revenue API is available
           activeDoctors,
         });
+        setError(null);
       } else {
-        throw new Error('Failed to fetch dashboard data');
+        throw new Error('Failed to fetch dashboard data: Invalid response format');
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+    } catch (err: any) {
+      const errorMessage = err?.response?.status === 401 
+        ? 'Unauthorized: Your session may have expired. Please login again.'
+        : err?.response?.data?.message || (err instanceof Error ? err.message : 'An error occurred while fetching dashboard data');
+      
+      setError(errorMessage);
       console.error('Error fetching dashboard data:', err);
+      console.error('Error status:', err?.response?.status);
+      console.error('Error data:', err?.response?.data);
+      console.error('Full error:', err);
+      
+      // Redirect to login if 401
+      if (err?.response?.status === 401) {
+        setTimeout(() => navigate('/login'), 2000);
+      }
+      
+      // Set default stats when error occurs
+      setStats({
+        totalUsers: 0,
+        totalDoctors: 0,
+        totalPatients: 0,
+        totalStaff: 0,
+        totalAppointments: 0,
+        todayAppointments: 0,
+        monthlyRevenue: 0,
+        activeDoctors: 0,
+      });
     } finally {
       setLoading(false);
     }

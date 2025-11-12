@@ -33,6 +33,7 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/users")
@@ -137,12 +138,12 @@ public ApiResponse<UserResponse> register(
             .build();
     }
 
-
-
      @GetMapping("/getinfo")
     public UserResponse getCurrentUser(Authentication authentication) {
         return userService.getDetailUser(authentication);
     }
+
+    // @PreAuthorize("isAuthenticated()")
     @GetMapping("/getListUser")
     public ApiResponse<List<UserResponse>> getListUser(){
         return ApiResponse.<List<UserResponse>>builder()
