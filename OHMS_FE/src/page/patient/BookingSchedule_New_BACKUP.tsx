@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import axios from "axios";
+import { axiosInstance } from "../../utils/fetchFromAPI";
+import { getUserIdFromToken } from "../../hook/useAuth";
 import Navigator from "../../components/Navigator";
 import { MEDICAL_SPECIALTY_LABELS, MedicalSpecialtyType } from "../../constant/medicalSpecialty";
 
@@ -183,18 +184,13 @@ function BookingSchedule() {
     const fetchPatientAppointments = async () => {
       try {
         const token = localStorage.getItem('accessToken');
-        const userId = localStorage.getItem('userId');
+        if (!token) return;
         
-        if (!userId || !token) return;
+        const userId = getUserIdFromToken();
+        if (!userId) return;
 
-        const response = await axios.get(
-          `http://localhost:8080/appointments/patient/${userId}`,
-          {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-          }
+        const response = await axiosInstance.get(
+          `/appointments/patient/${userId}`
         );
 
         console.log('Patient appointments:', response.data);
@@ -216,17 +212,8 @@ function BookingSchedule() {
       const selectedDate = weekSchedule[selectedDay].date;
       
       try {
-        const token = localStorage.getItem('accessToken');
-        if (!token) return;
-
-        const response = await axios.get(
-          `http://localhost:8080/appointments/date/${selectedDate}`,
-          {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-          }
+        const response = await axiosInstance.get(
+          `/appointments/date/${selectedDate}`
         );
 
         const appointments: Appointment[] = Array.isArray(response.data) ? response.data : [];
@@ -518,18 +505,13 @@ const calculateDiagnosticSlots = (
     const checkMedicalRequests = async () => {
       try {
         const token = localStorage.getItem('accessToken');
-        const userId = localStorage.getItem('userId');
+        if (!token) return;
         
-        if (!userId || !token) return;
+        const userId = getUserIdFromToken();
+        if (!userId) return;
 
-        const response = await axios.get(
-          `http://localhost:8080/medical-requests/patient/${userId}`,
-          {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-          }
+        const response = await axiosInstance.get(
+          `/medical-requests/patient/${userId}`
         );
 
         if (response.data && Array.isArray(response.data) && response.data.length > 0) {
@@ -560,17 +542,9 @@ const calculateDiagnosticSlots = (
   // Handle using existing medical request
   const handleUseExistingRequest = async (request: MedicalServicesRequest) => {
     try {
-      const token = localStorage.getItem('accessToken');
-      
-      await axios.put(
-        `http://localhost:8080/medical-requests/${request.id}/status`,
-        { status: false },
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        }
+      await axiosInstance.put(
+        `/medical-requests/${request.id}/status`,
+        { status: false }
       );
 
       const serviceIds = request.medicalExaminations.map(exam => exam.id);
@@ -596,8 +570,8 @@ const calculateDiagnosticSlots = (
       if (!specialty) return;
       
       try {
-        const response = await axios.post(
-          'http://localhost:8080/medical-examination/by-specialty',
+        const response = await axiosInstance.post(
+          '/medical-examination/by-specialty',
           {
             specility: specialty 
           }
@@ -621,15 +595,8 @@ const calculateDiagnosticSlots = (
       if (!specialty) return;
       
       try {
-        const token = localStorage.getItem('accessToken');
-        const response = await axios.get(
-          `http://localhost:8080/users/getListDoctor`,
-          {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            }
-          }
+        const response = await axiosInstance.get(
+          `/users/getListDoctor`
         );
         
         if (response.data?.results) {
@@ -657,22 +624,15 @@ const calculateDiagnosticSlots = (
       
       try {
         const token = localStorage.getItem('accessToken');
-        if (!token) return;
-        
-        const scheduleResponse = await axios.get(
-          `http://localhost:8080/schedule/${selectedDoctor.id}`,
-          {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            }
-          }
+        const scheduleResponse = await axiosInstance.get(
+          `/schedule/${selectedDoctor.id}`
         );
         
         if (scheduleResponse.data?.code === 200 && scheduleResponse.data?.results) {
           console.log('Weekly schedule fetched successfully:', scheduleResponse.data.results);
           
           const weeklySchedules: WeeklySchedule[] = scheduleResponse.data.results;
+          const token = localStorage.getItem('accessToken') || '';
           const schedule = await generateWeekScheduleFromAPI(weeklySchedules, selectedDoctor.id, token);
           setWeekSchedule(schedule);
         }
@@ -744,8 +704,7 @@ const calculateDiagnosticSlots = (
       const map: Record<string, Appointment[]> = {};
       for (const date of dates) {
         try {
-          const response = await axios.get(`http://localhost:8080/appointments/doctor/${doctorId}/date/${date}`, 
-            { headers: { 'Authorization': `Bearer ${token}` } });
+          const response = await axiosInstance.get(`/appointments/doctor/${doctorId}/date/${date}`);
           const appts = Array.isArray(response.data) ? response.data : response.data?.results || [];
           map[date] = appts;
         } catch (err) {
@@ -1011,16 +970,20 @@ const calculateDiagnosticSlots = (
     localStorage.setItem('pendingBooking', JSON.stringify(bookingData));
 
     try {
+      // Generate unique order description (max 25 characters)
+      const orderDesc = `DH${Date.now().toString().slice(-10)}`;
+      
       // Use deposit amount for payment (50% of discounted price)
-      const response = await axios.get('http://localhost:8080/api/v1/payment/vn-pay', {
-        params: {
-          amount: depositAmount, // Pay deposit instead of full price
-          bankCode: 'NCB'
-        }
+      const response = await axiosInstance.post('/api/v1/payos/create', {
+        productName: 'Dat coc kham benh',
+        description: orderDesc,
+        price: depositAmount, // Pay deposit instead of full price
+        returnUrl: `${window.location.origin}/payment-callback`,
+        cancelUrl: `${window.location.origin}/payment-cancel`
       });
 
-      if (response.data?.results?.paymentUrl) {
-        window.location.href = response.data.results.paymentUrl;
+      if (response.data?.results?.checkoutUrl) {
+        window.location.href = response.data.results.checkoutUrl;
       } else {
         alert('Không thể tạo link thanh toán. Vui lòng thử lại!');
       }
@@ -1278,6 +1241,14 @@ const calculateDiagnosticSlots = (
                         const isDayPast = dayDate < today;
                         const hasSlots = selectedDayData?.slots && selectedDayData.slots.length > 0;
                         
+                        // Get duration from selected service
+                        const consultationDuration = (() => {
+                          const consultationService = selectedServices
+                            .map(sid => services.find(s => s.id === sid))
+                            .find(s => s && s.name.toLowerCase().includes('khám'));
+                          return consultationService?.minDuration || 10;
+                        })();
+                        
                         if (isDayPast || !hasSlots) {
                           return (
                             <div className="text-center py-8">
@@ -1294,13 +1265,24 @@ const calculateDiagnosticSlots = (
                               <div className="grid grid-cols-4 gap-3">
                                 {selectedDayData?.slots.map(slot => {
                                   const isPast = isSlotInPast(dateStr, slot.startTime);
-                                  const hasConflict = isSlotConflictingWithPatient(slot.startTime, slot.endTime);
+                                  
+                                  // Calculate actual end time based on service duration
+                                  const [sh, sm] = slot.startTime.split(':').map(Number);
+                                  const endMinutes = sh * 60 + sm + consultationDuration;
+                                  const eh = Math.floor(endMinutes / 60);
+                                  const em = endMinutes % 60;
+                                  const actualEndTime = `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}:00`;
+                                  
+                                  const hasConflict = isSlotConflictingWithPatient(slot.startTime, actualEndTime);
                                   const isDisabled = !slot.available || isPast || hasConflict;
                                   
                                   return (
                                     <button
                                       key={slot.startTime}
-                                      onClick={() => !isDisabled && setSelectedSlot(slot)}
+                                      onClick={() => !isDisabled && setSelectedSlot({
+                                        ...slot,
+                                        endTime: actualEndTime
+                                      })}
                                       disabled={isDisabled}
                                       className={`py-4 px-6 rounded-lg font-semibold text-base transition-all relative ${
                                         selectedSlot?.startTime === slot.startTime
@@ -1319,7 +1301,7 @@ const calculateDiagnosticSlots = (
                                           : ''
                                       }
                                     >
-                                      {formatTime(slot.startTime)} - {formatTime(slot.endTime)}
+                                      {formatTime(slot.startTime)} - {formatTime(actualEndTime)}
                                       {hasConflict && (
                                         <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></div>
                                       )}
@@ -2200,8 +2182,8 @@ const calculateDiagnosticSlots = (
                 <div
                   onClick={async () => {
                     try {
-                      const response = await axios.post(
-                        'http://localhost:8080/medical-examination/by-specialty',
+                      const response = await axiosInstance.post(
+                        '/medical-examination/by-specialty',
                         {
                           specility: specialty
                         }
@@ -2263,8 +2245,8 @@ const calculateDiagnosticSlots = (
                 <div
                   onClick={async () => {
                     try {
-                      const response = await axios.post(
-                        'http://localhost:8080/medical-examination/by-specialty',
+                      const response = await axiosInstance.post(
+                        '/medical-examination/by-specialty',
                         {
                           specility: specialty
                         }

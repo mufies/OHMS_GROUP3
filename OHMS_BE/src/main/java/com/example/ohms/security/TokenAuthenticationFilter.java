@@ -43,10 +43,23 @@ public class TokenAuthenticationFilter extends OncePerRequestFilter {
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
         } catch (Exception ex) {
-            log.error("Could not set user authentication in security context", ex);
+            // Chỉ log warning cho các endpoint cần authentication
+            String requestURI = request.getRequestURI();
+            if (!isPublicEndpoint(requestURI)) {
+                log.error("Could not set user authentication in security context", ex);
+            }
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private boolean isPublicEndpoint(String uri) {
+        return uri.startsWith("/auth/") || 
+               uri.startsWith("/api/v1/payos/") ||  // PayOS payment endpoints
+               uri.startsWith("/api/vietqr/") ||
+               uri.startsWith("/oauth2/") ||
+               uri.startsWith("/swagger-ui") ||
+               uri.startsWith("/v3/api-docs");
     }
 
     private String getJwtFromRequest(HttpServletRequest request) {

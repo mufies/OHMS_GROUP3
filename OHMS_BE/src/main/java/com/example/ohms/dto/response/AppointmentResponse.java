@@ -54,6 +54,9 @@ public class AppointmentResponse {
     // Trạng thái thanh toán đặt cọc
     String depositStatus; // PENDING, PAID, DEPOSIT
     Date cancelTime;
+    
+    // Flag để đánh dấu appointment bị remove do doctor thay đổi lịch
+    Boolean isRemoveByChangeSchedule;
 
     
     // Nested classes cho thông tin chi tiết

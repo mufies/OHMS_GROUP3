@@ -1,24 +1,11 @@
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
-// import LoginPage from './Page/LoginPage/LoginPage';
-// import RegisterPage from './Page/RegisterPage/RegisterPage';
-// import HomePage from './Page/HomePage/HomePage';
-// import ProfilePage from './Page/MyProfilePage/ProfilePage';
-// import ProtectRoute from './components/Authen/ProtectRoute';
-// import {AuthProvider} from "./components/Authen/AuthContext.tsx";
-// import UnPackPage from "./Page/UnPackPage/UnPackPage.tsx";
-// import TradePage from "./Page/TradePage/TradePage.tsx";
-// import SearchUser from "./Page/TradePage/SearchUser.tsx";
-// import MainPage from "./page/main.tsx";
-// import LoginPage from "./compoment/Login.tsx";
-// import RegisterPage from "./page/Register.tsx";
-// import DashboardPage from "./page/Dashboard.tsx";
-// import PlaylistPage from "./page/Playlist.tsx";
 import Home from "./page/patient/Home.tsx";
 import Booking from "./page/Booking.tsx";
 import DoctorDashboard from "./page/doctor/DoctorDashboard.tsx";
 import DoctorSchedule from "./page/doctor/DoctorSchedule.tsx";
 import DoctorChat from "./page/doctor/DoctorChat.tsx";
 import DoctorProfilePage from "./page/doctor/DoctorProfilePage.tsx";
+import PendingSchedulePage from "./page/doctor/PendingSchedulePage.tsx";
 import WebRTCApp from './page/WebRTCApp.tsx';
 import OnlineConsultSpecialty from "./page/patient/OnlineConsultSpecialty";
 import OnlineConsultTime from "./page/patient/OnlineConsultTime";
@@ -33,26 +20,22 @@ import PatientChatPage from './page/patient/PatientChatPage.tsx';
 import AppWithChat from './provider/AppWithChat.tsx';
 import PatientProfile from "./components/patient/PatientProfile.tsx";
 import PatientAppointments from "./components/patient/PatientAppointments.tsx";
-
 import PatientAccount from "./components/patient/PatientAccount.tsx";
 import PatientDashboard from "./page/patient/PatientDashboard.tsx";
 import PatientMedicalRecords from './components/patient/PatientMedicalRecords.tsx';
 import ReceptionAppointmentPage from './components/reception/AppointmentControll.tsx';
 import StaffDashboard from "./page/staff/StaffDashboard.tsx";
-// import DoctorCall from "./page/doctor/DoctorCall.tsx";
+import ProtectedRoute from "./components/auth/ProtectedRoute.tsx";
+
 function App() {
     return (
         <Router>
             {/*<AuthProvider>*/}
             <AppWithChat>
             <Routes>
+                {/* Public Routes */}
                 <Route path="/" element={<Home />} />
                 <Route path="/booking" element={<Booking />} />
-                <Route path="/doctor/" element={<DoctorDashboard />} />
-                <Route path="/doctor/schedule" element={<DoctorSchedule />} />
-                <Route path="/doctor/chat" element={<DoctorChat />} />
-                <Route path="/doctor/profile" element={<DoctorProfilePage />} />
-                <Route path='/video' element={<WebRTCApp/>} />
                 <Route path="/online-consult" element={<OnlineConsultSpecialty />} />
                 <Route path="/online-consult-time" element={<OnlineConsultTime />} />
                 <Route path="/online-doctor" element={<Doctor/>}/>
@@ -60,23 +43,72 @@ function App() {
                 <Route path="/booking-schedule-new" element={<BookingScheduleNew/>}/>
                 <Route path="/booking-preventive" element={<BookingPreventive/>}/>
                 <Route path="/payment-callback" element={<PaymentCallback/>}/>
-                <Route path="/chat" element={<PatientChatPage />} />    
-                <Route path="/patient" element={<PatientDashboard />}>
+                
+                {/* Doctor Routes - Protected */}
+                <Route path="/doctor/" element={
+                    <ProtectedRoute allowedRoles={['ROLE_DOCTOR']}>
+                        <DoctorDashboard />
+                    </ProtectedRoute>
+                } />
+                <Route path="/doctor/schedule" element={
+                    <ProtectedRoute allowedRoles={['ROLE_DOCTOR']}>
+                        <DoctorSchedule />
+                    </ProtectedRoute>
+                } />
+                <Route path="/doctor/pending-requests" element={
+                    <ProtectedRoute allowedRoles={['ROLE_DOCTOR']}>
+                        <PendingSchedulePage />
+                    </ProtectedRoute>
+                } />
+                <Route path="/doctor/chat" element={
+                    <ProtectedRoute allowedRoles={['ROLE_DOCTOR']}>
+                        <DoctorChat />
+                    </ProtectedRoute>
+                } />
+                <Route path="/doctor/profile" element={
+                    <ProtectedRoute allowedRoles={['ROLE_DOCTOR']}>
+                        <DoctorProfilePage />
+                    </ProtectedRoute>
+                } />
+                
+                {/* Patient Routes - Protected */}
+                <Route path="/chat" element={
+                    <ProtectedRoute allowedRoles={['ROLE_PATIENT']}>
+                        <PatientChatPage />
+                    </ProtectedRoute>
+                } />
+                <Route path="/patient" element={
+                    <ProtectedRoute allowedRoles={['ROLE_PATIENT']}>
+                        <PatientDashboard />
+                    </ProtectedRoute>
+                }>
                     <Route path="appointments" element={<PatientAppointments />} />
                     <Route path="medical-record" element={<PatientMedicalRecords />} />
                     <Route path="profile" element={<PatientProfile />} />
                     <Route path="account" element={<PatientAccount />} />
                 </Route>
-                <Route path='/receptionPage' element={<ReceptionAppointmentPage/>}/>
-                <Route path='/staff' element={<StaffDashboard/>}/>
- 
-                {/* <Route path="/doctor-list" element={<DoctorList />} /> */}
                 
-                {/* Admin Routes */}
-                {/* <Route path="/admin/*" element={<AdminRouter />} /> */}
+                {/* Staff/Reception Routes - Protected */}
+                <Route path='/receptionPage' element={
+                    <ProtectedRoute allowedRoles={['ROLE_STAFF', 'ROLE_RECEPTION']}>
+                        <ReceptionAppointmentPage/>
+                    </ProtectedRoute>
+                }/>
+                <Route path='/staff' element={
+                    <ProtectedRoute allowedRoles={['ROLE_STAFF', 'ROLE_ADMIN']}>
+                        <StaffDashboard/>
+                    </ProtectedRoute>
+                }/>
                 
+                {/* Video Call - Protected (Doctor or Patient) */}
+                <Route path='/video' element={
+                    <ProtectedRoute allowedRoles={['ROLE_DOCTOR', 'ROLE_PATIENT']}>
+                        <WebRTCApp/>
+                    </ProtectedRoute>
+                } />
+                
+                {/* Fallback */}
                 <Route path="*" element={<Home />} />
-
             </Routes>
             </AppWithChat>
             {/*</AuthProvider>*/}

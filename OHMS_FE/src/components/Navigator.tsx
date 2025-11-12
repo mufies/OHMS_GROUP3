@@ -36,7 +36,6 @@ function Navigator() {
 
     useEffect(() => {
         const token = localStorage.getItem(LOGIN_USER);
-        console.log(token);
         
         if (token && validateJwt(token)) {
             fetchGetProfile()
@@ -44,8 +43,7 @@ function Navigator() {
                     setUser(data);
                     setIsAuthenticated(true);
                 })
-                .catch((error) => {
-                    console.error('Failed to fetch user profile:', error);
+                .catch(() => {
                     setIsAuthenticated(false);
                     localStorage.removeItem(LOGIN_USER);
                 });
@@ -77,7 +75,7 @@ function Navigator() {
         
   // Xóa query param khỏi URL (nếu có)
   const currentUrl = new URL(window.location.href);
-  currentUrl.searchParams.delete('token');
+  currentUrl.searchParams.delete('accessToken');
   window.history.replaceState({}, document.title, currentUrl.toString());
   axiosInstance.post(`auth/logout`);
   // Redirect về home sạch

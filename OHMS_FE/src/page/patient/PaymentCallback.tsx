@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import axios from "axios";
+import { axiosInstance } from "../../utils/fetchFromAPI";
 
 function PaymentCallback() {
   const [searchParams] = useSearchParams();
@@ -24,8 +24,12 @@ function PaymentCallback() {
       // MARK là đã call
       hasCalledAPI.current = true;
       
-      const vnp_ResponseCode = searchParams.get('vnp_ResponseCode');
-      const vnp_TransactionStatus = searchParams.get('vnp_TransactionStatus');
+      // PayOS parameters
+      const code = searchParams.get('code');
+      const id = searchParams.get('id');
+      const cancel = searchParams.get('cancel');
+      const status = searchParams.get('status');
+      const orderCode = searchParams.get('orderCode');
       
       const bookingDataStr = sessionStorage.getItem('pendingBooking');
       
@@ -52,7 +56,8 @@ function PaymentCallback() {
         });
       }
       
-      if (vnp_ResponseCode === '00' && vnp_TransactionStatus === '00') {
+      // PayOS success: code=00 and status=PAID or cancel=false
+      if (code === '00' && cancel !== 'true' && (status === 'PAID' || !cancel)) {
         try {
           const token = localStorage.getItem('accessToken');
           if (!token) {
@@ -91,15 +96,9 @@ function PaymentCallback() {
                 depositStatus: bookingData.depositStatus || 'PENDING'
               };
 
-              await axios.post(
-                'http://localhost:8080/appointments',
-                appointmentData,
-                {
-                  headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                  }
-                }
+              await axiosInstance.post(
+                '/appointments',
+                appointmentData
               );
             }
 
@@ -123,15 +122,9 @@ function PaymentCallback() {
 
             console.log('Creating consultation-only appointment:', parentAppointmentData);
 
-            await axios.post(
-              'http://localhost:8080/appointments',
-              parentAppointmentData,
-              {
-                headers: {
-                  'Authorization': `Bearer ${token}`,
-                  'Content-Type': 'application/json',
-                }
-              }
+            await axiosInstance.post(
+              '/appointments',
+              parentAppointmentData
             );
 
             setStatus('success');
@@ -157,15 +150,9 @@ function PaymentCallback() {
 
             console.log('Creating parent appointment with consultation time:', parentAppointmentData);
 
-            const parentResponse = await axios.post(
-              'http://localhost:8080/appointments',
-              parentAppointmentData,
-              {
-                headers: {
-                  'Authorization': `Bearer ${token}`,
-                  'Content-Type': 'application/json',
-                }
-              }
+            const parentResponse = await axiosInstance.post(
+              '/appointments',
+              parentAppointmentData
             );
 
             if (parentResponse.status !== 201) {
@@ -199,15 +186,9 @@ function PaymentCallback() {
 
               console.log(`Creating child appointment ${i + 1}/${serviceSlots.length}:`, childAppointmentData);
 
-              await axios.post(
-                'http://localhost:8080/appointments',
-                childAppointmentData,
-                {
-                  headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                  }
-                }
+              await axiosInstance.post(
+                '/appointments',
+                childAppointmentData
               );
             }
 
@@ -231,15 +212,9 @@ function PaymentCallback() {
 
             console.log('Creating appointment (legacy format):', parentAppointmentData);
 
-            await axios.post(
-              'http://localhost:8080/appointments',
-              parentAppointmentData,
-              {
-                headers: {
-                  'Authorization': `Bearer ${token}`,
-                  'Content-Type': 'application/json',
-                }
-              }
+            await axiosInstance.post(
+              '/appointments',
+              parentAppointmentData
             );
 
             setStatus('success');
@@ -328,7 +303,7 @@ function PaymentCallback() {
             <h2 className="text-2xl font-bold text-gray-900 mb-3">Thất bại!</h2>
             <p className="text-gray-600 mb-6">{message}</p>
             <button
-              onClick={() => navigate('/booking-schedule')}
+              onClick={() => navigate('/')}
               className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
             >
               Quay lại

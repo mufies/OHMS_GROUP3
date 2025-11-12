@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import { axiosInstance } from "../../utils/fetchFromAPI";
 import StaffNavigator from "../../components/staff/StaffNavigator";
 import DoctorScheduleManager from "../../components/staff/DoctorScheduleManager";
 import AppointmentManager from "../../components/staff/AppointmentManager";
 import CancelRequestManager from "../../components/staff/CancelRequestManager";
 import WeekScheduleManager from "../../components/staff/WeekScheduleManager";
 
-type TabType = "weekSchedule" | "schedule" | "appointments" | "cancellations";
+type TabType = "weekSchedule" | "schedule" | "cancellations";
 
 interface Role {
   name: string;
@@ -83,14 +83,8 @@ export default function StaffDashboard() {
         }
 
         // Call API to check user role
-        const response = await axios.get<UserResponse>(
-          `http://localhost:8080/users/findUser/${userId}`,
-          {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-          }
+        const response = await axiosInstance.get<UserResponse>(
+          `/users/findUser/${userId}`
         );
 
         // Check if user has STAFF role
@@ -141,15 +135,6 @@ export default function StaffDashboard() {
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-        </svg>
-      )
-    },
-    { 
-      id: "appointments" as TabType, 
-      label: "Yêu cầu dời lịch",
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
         </svg>
       )
     },
@@ -219,7 +204,7 @@ export default function StaffDashboard() {
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             {activeTab === "weekSchedule" && <WeekScheduleManager staffInfo={staffInfo} />}
             {activeTab === "schedule" && <DoctorScheduleManager staffInfo={staffInfo} />}
-            {activeTab === "appointments" && <AppointmentManager staffInfo={staffInfo} />}
+            {/* {activeTab === "appointments" && <AppointmentManager staffInfo={staffInfo} />} */}
             {activeTab === "cancellations" && <CancelRequestManager />}
           </div>
         </div>

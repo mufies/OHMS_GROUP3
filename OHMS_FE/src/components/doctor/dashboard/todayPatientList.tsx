@@ -1,6 +1,6 @@
 import "./TodayPatientList.css";
 import { useState, useEffect, useRef } from "react";
-import axios from "axios";
+import { axiosInstance } from "../../../utils/fetchFromAPI";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faComments, faEye } from '@fortawesome/free-solid-svg-icons';
 import MedicalRecordModal from '../dashboard/patientMedicalRecord';
@@ -93,14 +93,8 @@ export default function TodayPatientList() {
 
                 console.log('Fetching appointments for doctor:', userId);
 
-                const response = await axios.get(
-                    `http://localhost:8080/appointments/doctor/${userId}/today`,
-                    {
-                        headers: {
-                            'Authorization': `Bearer ${token}`,
-                            'Content-Type': 'application/json',
-                        },
-                    }
+                const response = await axiosInstance.get(
+                    `/appointments/doctor/${userId}/today`
                 );
 
                 console.log('API Response:', response.data);
@@ -183,20 +177,10 @@ export default function TodayPatientList() {
 
     const changeStatus = async (appointmentId: string, newStatus: PatientStatus) => {
         try {
-            const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
+            const token = localStorage.getItem('accessToken');
             
-            await axios.put(
-                `http://localhost:8080/appointments/${appointmentId}/status`,
-                null,
-                {
-                    params: {
-                        status: newStatus
-                    },
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json',
-                    }
-                }
+            await axiosInstance.put(
+                `/appointments/${appointmentId}/status?status=${newStatus}`
             );
 
             setData(prev =>
@@ -214,14 +198,8 @@ export default function TodayPatientList() {
         try {
             const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
             
-            const response = await axios.get(
-                `http://localhost:8080/medical-records/patient/${patientId}`,
-                {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json',
-                    }
-                }
+            const response = await axiosInstance.get(
+                `/medical-records/patient/${patientId}`
             );
 
             // Response có cấu trúc: { code, message, results: [...] }

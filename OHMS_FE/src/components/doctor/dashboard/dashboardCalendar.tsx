@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
+import { axiosInstance } from "../../../utils/fetchFromAPI";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faChevronLeft, faChevronRight } from "@fortawesome/free-solid-svg-icons";
 
@@ -18,14 +18,14 @@ export default function DashboardCalendar() {
   const [newNote, setNewNote] = useState("");
   const [notes, setNotes] = useState<Note[]>([]);
 
-  const BASE_URL = "http://localhost:8080/notes";
+  const BASE_URL = "/notes";
 
   // ==============================
   // 🔹 FETCH NOTES
   // ==============================
   const fetchNotes = async () => {
     try {
-      const res = await axios.get<Note[]>(BASE_URL);
+      const res = await axiosInstance.get<Note[]>(BASE_URL);
       setNotes(res.data);
     } catch (error) {
       console.error("❌ Error fetching notes:", error);
@@ -46,7 +46,7 @@ export default function DashboardCalendar() {
     };
 
     try {
-      const res = await axios.post<Note>(BASE_URL, payload);
+      const res = await axiosInstance.post<Note>(BASE_URL, payload);
       setNotes((prev) => [...prev, res.data]);
       setNewNote("");
       setShowModal(false);
@@ -62,7 +62,7 @@ export default function DashboardCalendar() {
     const updatedStatus = note.status === "Completed" ? "Scheduled" : "Completed";
 
     try {
-      const res = await axios.put<Note>(`${BASE_URL}/${note.id}`, {
+      const res = await axiosInstance.put<Note>(`${BASE_URL}/${note.id}`, {
         ...note,
         status: updatedStatus,
       });

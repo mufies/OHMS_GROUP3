@@ -400,7 +400,8 @@ public class AppointmentService {
             .deposit(appointment.getDeposit())
             .depositStatus(appointment.getDepositStatus() != null ? 
                 appointment.getDepositStatus().name() : null)
-            .cancelTime(appointment.getCancelTime());
+            .cancelTime(appointment.getCancelTime())
+            .isRemoveByChangeSchedule(appointment.getIsRemoveByChangeSchedule());
         
         // Map patient info
         if (appointment.getPatient() != null) {
@@ -596,39 +597,70 @@ public class AppointmentService {
         return toAppointmentResponse(updatedAppointment);
     }
 
-    /**
-     * Tìm appointments có doctorId = null trong khoảng thời gian cụ thể
-     * Dùng để auto-assign khi tạo schedule mới
-     * @param workDate Ngày
-     * @param startTime Giờ bắt đầu
-     * @param endTime Giờ kết thúc
-     * @return Danh sách appointments chưa có doctor
-     */
-    public List<AppointmentResponse> getUnassignedAppointments(LocalDate workDate, LocalTime startTime, LocalTime endTime) {
-        log.info("Getting unassigned appointments for date: {} time: {}-{}", workDate, startTime, endTime);
+
+    public List<AppointmentResponse> getUnassignedAppointments(LocalDate workDate, LocalTime startTime, LocalTime endTime, String medicalSpecialty) {
+        log.info("Getting unassigned appointments for date: {} time: {}-{} specialty: {}", 
+                 workDate, startTime, endTime, medicalSpecialty);
         
         List<Appointment> appointments = appointmentRepository.findUnassignedAppointmentsByDateAndTime(
             workDate, startTime, endTime
         );
         
+        // Filter theo specialty nếu có
+        if (medicalSpecialty != null && !medicalSpecialty.isEmpty()) {
+            appointments = appointments.stream()
+                .filter(apt -> apt.getMedicalExamnination() != null && 
+                              !apt.getMedicalExamnination().isEmpty() &&
+                              apt.getMedicalExamnination().stream()
+                                  .anyMatch(exam -> exam.getMedicalSpecialty() != null && 
+                                                   exam.getMedicalSpecialty().name().equals(medicalSpecialty)))
+                .collect(Collectors.toList());
+        }
+        
         return appointments.stream()
             .map(this::toAppointmentResponse)
             .collect(Collectors.toList());
     }
+    
+    // Lấy tất cả appointments theo medical specialty
+    public List<AppointmentResponse> getAppointmentsByMedicalSpecialty(String medicalSpecialty) {
+        log.info("Getting all appointments for medical specialty: {}", medicalSpecialty);
+        
+        List<Appointment> allAppointments = appointmentRepository.findAll();
+        
+        List<Appointment> filteredAppointments = allAppointments.stream()
+            .filter(apt -> apt.getMedicalExamnination() != null && 
+                          !apt.getMedicalExamnination().isEmpty() &&
+                          apt.getMedicalExamnination().stream()
+                              .anyMatch(exam -> exam.getMedicalSpecialty() != null && 
+                                               exam.getMedicalSpecialty().name().equals(medicalSpecialty)))
+            .collect(Collectors.toList());
+        
+        return filteredAppointments.stream()
+            .map(this::toAppointmentResponse)
+            .collect(Collectors.toList());
+    }
+    
+    // Lấy appointments theo medical specialty và ngày
+    public List<AppointmentResponse> getAppointmentsByMedicalSpecialtyAndDate(String medicalSpecialty, LocalDate workDate) {
+        log.info("Getting appointments for medical specialty: {} on date: {}", medicalSpecialty, workDate);
+        
+        List<Appointment> appointmentsOnDate = appointmentRepository.findByWorkDate(workDate);
+        
+        List<Appointment> filteredAppointments = appointmentsOnDate.stream()
+            .filter(apt -> apt.getMedicalExamnination() != null && 
+                          !apt.getMedicalExamnination().isEmpty() &&
+                          apt.getMedicalExamnination().stream()
+                              .anyMatch(exam -> exam.getMedicalSpecialty() != null && 
+                                               exam.getMedicalSpecialty().name().equals(medicalSpecialty)))
+            .collect(Collectors.toList());
+        
+        return filteredAppointments.stream()
+            .map(this::toAppointmentResponse)
+            .collect(Collectors.toList());
+    }
 
-    /**
-     * Xử lý khi schedule bị thay đổi (edit hoặc delete)
-     * - Chỉ unassign appointments NGOÀI time range MỚI
-     * - Appointments vẫn TRONG time range MỚI thì giữ nguyên
-     * - Gửi email thông báo cho patients bị unassign
-     * @param doctorId ID của doctor
-     * @param workDate Ngày
-     * @param oldStartTime Giờ bắt đầu cũ
-     * @param oldEndTime Giờ kết thúc cũ
-     * @param newStartTime Giờ bắt đầu mới (null nếu delete schedule)
-     * @param newEndTime Giờ kết thúc mới (null nếu delete schedule)
-     * @return Số lượng appointments bị ảnh hưởng
-     */
+
     public int handleScheduleChange(String doctorId, LocalDate workDate, 
                                    LocalTime oldStartTime, LocalTime oldEndTime,
                                    LocalTime newStartTime, LocalTime newEndTime) {
@@ -680,7 +712,10 @@ public class AppointmentService {
         
         for (Appointment apt : appointmentsToUnassign) {
             try {
-                // Unassign
+                // Set flag trước khi unassign
+                apt.setIsRemoveByChangeSchedule(true);
+                
+                // Unassign doctor
                 apt.setDoctor(null);
                 appointmentRepository.save(apt);
                 unassignedCount++;
@@ -713,25 +748,12 @@ public class AppointmentService {
         return unassignedCount;
     }
     
-    /**
-     * Overload method cho delete schedule (không có new time)
-     */
+
     public int handleScheduleChange(String doctorId, LocalDate workDate, 
                                    LocalTime oldStartTime, LocalTime oldEndTime) {
         return handleScheduleChange(doctorId, workDate, oldStartTime, oldEndTime, null, null);
     }
 
-    /**
-     * Auto-assign appointments với doctorId = null khi tạo schedule mới
-     * - Tìm appointments trong time range + cùng specialty
-     * - Assign doctor vào
-     * - Gửi email thông báo
-     * @param doctorId ID của doctor mới
-     * @param workDate Ngày
-     * @param startTime Giờ bắt đầu
-     * @param endTime Giờ kết thúc
-     * @return Số lượng appointments được assign
-     */
     public int autoAssignAppointmentsOnScheduleCreate(String doctorId, LocalDate workDate, 
                                                       LocalTime startTime, LocalTime endTime) {
         log.info("Auto-assigning appointments for new schedule: doctor={} date={} time={}-{}", 
@@ -755,19 +777,55 @@ public class AppointmentService {
             return 0;
         }
         
-        int assignedCount = 0;
+        // 3. Lấy danh sách appointments hiện tại của doctor trong ngày để check conflict
+        List<Appointment> doctorAppointments = appointmentRepository.findByDoctorAndDateWithPatientDetails(doctorId, workDate);
         
-        // 3. Filter theo specialty và assign
+        int assignedCount = 0;
+        int skippedCount = 0;
+        
+        // 4. Filter theo specialty, check conflict và assign
         for (Appointment apt : unassignedAppointments) {
-            // Check nếu appointment cần specialty phù hợp
-            // (Giả sử appointment lưu specialty trong medicalExamination hoặc có trường riêng)
-            // Tạm thời assign tất cả appointments trong time range
+            // Check xem appointment có medical examinations không
+            if (apt.getMedicalExamnination() == null || apt.getMedicalExamnination().isEmpty()) {
+                log.warn("Appointment {} has no medical examinations, skipping auto-assign", apt.getId());
+                skippedCount++;
+                continue;
+            }
             
+            // Check xem có medical examination nào match với specialty của doctor không
+            boolean hasMatchingSpecialty = apt.getMedicalExamnination().stream()
+                .anyMatch(exam -> exam.getMedicalSpecialty() != null && 
+                                  doctor.getMedicleSpecially().contains(exam.getMedicalSpecialty()));
+            
+            if (!hasMatchingSpecialty) {
+                log.info("Appointment {} specialty does not match doctor {} specialties, skipping", 
+                         apt.getId(), doctorId);
+                skippedCount++;
+                continue;
+            }
+            
+            // Check time conflict với appointments hiện tại của doctor
+            boolean hasConflict = doctorAppointments.stream()
+                .anyMatch(existingApt -> 
+                    !existingApt.getStatus().equals("CANCELLED") &&
+                    apt.getStartTime().isBefore(existingApt.getEndTime()) && 
+                    apt.getEndTime().isAfter(existingApt.getStartTime())
+                );
+            
+            if (hasConflict) {
+                log.info("Appointment {} time conflicts with existing appointments, skipping", apt.getId());
+                skippedCount++;
+                continue;
+            }
+
             try {
                 assignDoctorToAppointment(apt.getId(), doctorId);
                 assignedCount++;
                 
-                // 4. Gửi email thông báo
+                // Thêm vào danh sách appointments của doctor để check conflict cho các appointment tiếp theo
+                doctorAppointments.add(apt);
+                
+                // 5. Gửi email thông báo
                 String emailContent = buildDoctorAssignedEmail(
                     apt.getPatient().getUsername(),
                     doctor.getUsername(),
@@ -790,7 +848,8 @@ public class AppointmentService {
             }
         }
         
-        log.info("Auto-assigned {} appointments to doctor {}", assignedCount, doctorId);
+        log.info("Auto-assign completed: assigned={}, skipped={}, total={}", 
+                 assignedCount, skippedCount, unassignedAppointments.size());
         return assignedCount;
     }
 
@@ -879,8 +938,7 @@ public class AppointmentService {
                     
                     <div style="background-color: #f0f7ff; padding: 15px; border-radius: 5px; margin: 25px 0;">
                         <p style="color: #1976d2; font-size: 14px; margin: 0;">
-                            ⏰ <strong>Lưu ý:</strong> Nếu bạn không thực hiện lựa chọn trong vòng 24 giờ, 
-                            hệ thống sẽ tự động tìm bác sĩ thay thế phù hợp.
+                            ⏰ <strong>Lưu ý:</strong> Hệ thống sẽ sắp xếp lịch mới trong vòng 12h. Nếu không có thông báo. Xin vui lòng chọn lịch mới hoặc hủy và hoàn tiền
                         </p>
                     </div>
                     

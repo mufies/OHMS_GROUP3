@@ -30,4 +30,5 @@ public class Schedule {
    LocalDate workDate;
    LocalTime startTime;
    LocalTime endTime;
+   String status;
 }

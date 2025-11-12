@@ -1,5 +1,6 @@
 import React, { useState, ReactNode, useEffect } from 'react';
 import { ChatAIContext, ChatAIContextValue, Message, SpecialtyRecommendation, ChatTurn } from './ChatAi.type';
+import { axiosInstance } from '../utils/fetchFromAPI';
 
 // Provider Component
 interface ChatAIProviderProps {
@@ -59,25 +60,12 @@ export const ChatAIProvider: React.FC<ChatAIProviderProps> = ({ children }) => {
   // Fetch patient appointments and medical examinations
   const fetchPatientAppointments = async (patientIdValue: string): Promise<void> => {
     try {
-      const token = getJWTToken();
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-      };
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
+      const response = await axiosInstance.get(`/appointments/patient/${patientIdValue}`);
+      if (response.data) {
+        const data: PatientAppointment[] = Array.isArray(response.data) ? response.data : response.data.results || [];
+        setPatientAppointments(data);
+        console.log('Patient appointments loaded:', data);
       }
-
-      const response = await fetch(`http://localhost:8080/appointments/patient/${patientIdValue}`, {
-        method: 'GET',
-        headers: headers
-      });
-      if (!response.ok) {
-        console.error('Error fetching appointments:', response.statusText);
-        return;
-      }
-      const data: PatientAppointment[] = await response.json();
-      setPatientAppointments(data);
-      console.log('Patient appointments loaded:', data);
       
     } catch (err) {
       console.error('Error fetching patient appointments:', err);
@@ -150,15 +138,11 @@ export const ChatAIProvider: React.FC<ChatAIProviderProps> = ({ children }) => {
       }
 
       // Gọi endpoint /recommend để có đầy đủ thông tin
-      const response = await fetch('http://localhost:8080/api/diagnose/recommend', {
-        method: 'POST',
-        headers: headers,
-        body: JSON.stringify(requestBody)
-      });
+      const response = await axiosInstance.post('/api/diagnose/recommend', requestBody);
       
-      if (!response.ok) throw new Error(`Lỗi API: ${response.statusText}`);
+      if (!response.data) throw new Error('Lỗi API: Không nhận được phản hồi');
       
-      const recommendation: SpecialtyRecommendation = await response.json();
+      const recommendation: SpecialtyRecommendation = response.data;
       console.log('Recommendation received:', recommendation);
       
       // Lấy AI reply từ recommendation

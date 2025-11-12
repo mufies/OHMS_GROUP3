@@ -37,9 +37,9 @@ if (scheduleRequest.getWorkDate().isBefore(LocalDate.now())) {
     throw new AppException(ErrorCode.DATE_NOT_VAILID);
 }
 // timf theo thằng bác sĩ, có ngày đó rồi thì không cho tạo vào ngày đó nữa
-   if(scheduleRepository.existsByDoctor_IdAndWorkDate(doctorId, scheduleRequest.getWorkDate())){
-      throw new AppException(ErrorCode.DATE_NOT_VAILID);
-   }
+//    if(scheduleRepository.existsByDoctor_IdAndWorkDate(doctorId, scheduleRequest.getWorkDate())){
+//       throw new AppException(ErrorCode.DATE_NOT_VAILID);
+//    }
    User user = userRepository.findById(doctorId).orElseThrow(()-> new AppException(ErrorCode.USER_NOT_FOUND));
    Schedule schedule =  scheduleMapper.toSchedule(scheduleRequest);
    schedule.setDoctor(user);
@@ -147,7 +147,24 @@ public ScheduleResponse updateSchedule(String scheduleId, ScheduleRequest schedu
        } else {
            System.out.println("All appointments still within new time range, kept doctor assignment");
        }
+       
+       // Auto-assign appointments chưa có doctor trong NEW time range
+       // Sử dụng workDate mới nếu có thay đổi, nếu không dùng workDate cũ
+       LocalDate targetDate = scheduleRequest.getWorkDate() != null ? 
+           scheduleRequest.getWorkDate() : oldDate;
+       
+       int assignedCount = appointmentService.autoAssignAppointmentsOnScheduleCreate(
+           doctorId,
+           targetDate,
+           newStartTime,
+           newEndTime
+       );
+       
+       if (assignedCount > 0) {
+           System.out.println("Auto-assigned " + assignedCount + " appointments to new time range");
+       }
    }
+   
    
    scheduleRepository.save(schedule);
    return scheduleMapper.toScheduleResponse(schedule);

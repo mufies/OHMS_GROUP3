@@ -43,10 +43,11 @@ public class SecurityConfig {
     HttpCookieOAuth2AuthorizationRequestRepository httpCookieOAuth2AuthorizationRequestRepository;
 
     String[] PUBLIC = {
+        "/api/v1/payos/**",  // PayOS payment endpoints - must be public for webhooks
         "/auth/**", "/permission/**", "/role/**", "/users/**",
         "/medicine/**", "/bill/**", "/medical-examination/**",
         "/ws/**", "/chat/**", "/conversation/**",
-        "/api/v1/**", "/api/**", "/medical-requests/**"
+        "/api/v1/**", "/api/vietqr/**", "/medical-requests/**"
     };
 
     String[] SWAGGER_PUBLIC_ENDPOINT = {

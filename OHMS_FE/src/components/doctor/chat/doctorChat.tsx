@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import axios from 'axios';
+import { axiosInstance } from '../../../utils/fetchFromAPI';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faPaperPlane, 
@@ -114,16 +114,9 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
 
         console.log('📤 Uploading', base64Datas.length, 'images to Cloudinary...');
         
-        const token = localStorage.getItem('accessToken');
-        const uploadResponse = await axios.post(
-          'http://localhost:8080/conversation/upload-images',
-          base64Datas,
-          {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-          }
+        const uploadResponse = await axiosInstance.post(
+          '/conversation/upload-images',
+          base64Datas
         );
 
         if (uploadResponse.data?.results) {
@@ -247,14 +240,7 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
 
       try {
         const token = localStorage.getItem('accessToken');
-        if (!token) return;
-
-        const response = await axios.get(`http://localhost:8080/conversation/${currentRoom.roomChatID}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        });
+        const response = await axiosInstance.get(`/conversation/${currentRoom.roomChatID}`);
 
         if (response.data?.results) {
           const loadedMessages: Message[] = response.data.results.map((conv: any) => ({
@@ -298,14 +284,7 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
   const fetchChatRooms = useCallback(async () => {
     try {
       const token = localStorage.getItem('accessToken');
-      if (!token) return;
-
-      const response = await axios.get(`http://localhost:8080/chat/${currentUser.id}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      const response = await axiosInstance.get(`/chat/${currentUser.id}`);
 
       if (response.data?.results) {
         console.log('negi');
@@ -320,12 +299,7 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
             if (user.id !== currentUser.id) {
               // Fetch last message for this room
               try {
-                const conversationResponse = await axios.get(`http://localhost:8080/conversation/${room.roomChatID}`, {
-                  headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                  },
-                });
+                const conversationResponse = await axiosInstance.get(`/conversation/${room.roomChatID}`);
                 console.log('concer');
                 
 

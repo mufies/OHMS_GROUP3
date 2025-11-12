@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
+import { axiosInstance } from "../../utils/fetchFromAPI";
 import Navigator from "../../components/Navigator";
 
 interface MedicalExamination {
@@ -107,14 +107,8 @@ function BookingPreventive() {
           return;
         }
 
-        const response = await axios.get(
-          `http://localhost:8080/appointments/patient/${userId}`,
-          {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-          }
+        const response = await axiosInstance.get(
+          `/appointments/patient/${userId}`
         );
 
         console.log('Patient appointments:', response.data);
@@ -275,13 +269,8 @@ const generateDefaultSchedule = (): DaySchedule[] => {
   useEffect(() => {
     const fetchServices = async () => {
       try {
-        const token = localStorage.getItem('accessToken');
-        const response = await axios.post('http://localhost:8080/medical-examination/by-specialty', {
+        const response = await axiosInstance.post('/medical-examination/by-specialty', {
           specility: 'PREVENTIVE_MEDICINE'
-        }, {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
         });
         
         if (response.data?.results) {
@@ -397,16 +386,20 @@ const generateDefaultSchedule = (): DaySchedule[] => {
     sessionStorage.setItem('pendingBooking', JSON.stringify(bookingData));
 
     try {
+      // Generate unique order description (max 25 characters)
+      const orderDesc = `DH${Date.now().toString().slice(-10)}`;
+      
       // Use deposit amount for payment (50% of discounted price)
-      const response = await axios.get('http://localhost:8080/api/v1/payment/vn-pay', {
-        params: {
-          amount: depositAmount, // Pay deposit instead of full price
-          bankCode: 'NCB'
-        }
+      const response = await axiosInstance.post('/api/v1/payos/create', {
+        productName: 'Dich vu y te du phong',
+        description: orderDesc,
+        price: depositAmount, // Pay deposit instead of full price
+        returnUrl: `${window.location.origin}/payment-callback`,
+        cancelUrl: `${window.location.origin}/payment-cancel`
       });
 
-      if (response.data?.results?.paymentUrl) {
-        window.location.href = response.data.results.paymentUrl;
+      if (response.data?.results?.checkoutUrl) {
+        window.location.href = response.data.results.checkoutUrl;
       } else {
         alert('Không thể tạo link thanh toán. Vui lòng thử lại!');
       }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import axios from "axios";
+import { axiosInstance } from "../../utils/fetchFromAPI";
 import Navigator from "../../components/Navigator";
 
 interface MedicalExamination {
@@ -53,22 +53,6 @@ interface Appointment {
   status: string;
 }
 
-const apiClient = axios.create({
-  baseURL: 'http://localhost:8080',
-  headers: { 'Content-Type': 'application/json' },
-});
-
-apiClient.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('accessToken');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
-
 function OnlineConsultTime() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -87,7 +71,7 @@ function OnlineConsultTime() {
   useEffect(() => {
     const fetchService = async () => {
       try {
-        const response = await apiClient.post('/medical-examination/by-name', {
+        const response = await axiosInstance.post('/medical-examination/by-name', {
           name: "Tư vấn online"
         });
         
@@ -107,7 +91,7 @@ function OnlineConsultTime() {
       if (!specialty) return;
       
       try {
-        const response = await apiClient.get('/users/getListDoctor');
+        const response = await axiosInstance.get('/users/getListDoctor');
         
         if (response.data?.results) {
           const filteredDoctors = response.data.results.filter(
@@ -142,8 +126,8 @@ function OnlineConsultTime() {
         console.log('Fetching schedules for doctor:', selectedDoctor.id);
         
         const [weeklyResponse, nextWeekResponse] = await Promise.all([
-          apiClient.get(`/schedule/doctor/${selectedDoctor.id}/weekly`),
-          apiClient.get(`/schedule/doctor/${selectedDoctor.id}/next-week`)
+          axiosInstance.get(`/schedule/doctor/${selectedDoctor.id}/weekly`),
+          axiosInstance.get(`/schedule/doctor/${selectedDoctor.id}/next-week`)
         ]);
         
         console.log('Weekly response:', weeklyResponse.data);
@@ -315,7 +299,7 @@ function OnlineConsultTime() {
       
       await Promise.all(dates.map(async (date) => {
         try {
-          const response = await apiClient.get(
+          const response = await axiosInstance.get(
             `/appointments/doctor/${doctorId}/date/${date}`
           );
           const appts = Array.isArray(response.data) 
@@ -462,15 +446,19 @@ function OnlineConsultTime() {
     sessionStorage.setItem('pendingBooking', JSON.stringify(bookingData));
 
     try {
-      const response = await axios.get('http://localhost:8080/api/v1/payment/vn-pay', {
-        params: {
-          amount: amount,
-          bankCode: 'NCB'
-        }
+      // Generate unique order description (max 25 characters)
+      const orderDesc = `DH${Date.now().toString().slice(-10)}`;
+      
+      const response = await axiosInstance.post('/api/v1/payos/create', {
+        productName: 'Tu van truc tuyen',
+        description: orderDesc,
+        price: amount,
+        returnUrl: `${window.location.origin}/payment-callback`,
+        cancelUrl: `${window.location.origin}/payment-cancel`
       });
 
-      if (response.data?.results?.paymentUrl) {
-        window.location.href = response.data.results.paymentUrl;
+      if (response.data?.results?.checkoutUrl) {
+        window.location.href = response.data.results.checkoutUrl;
       } else {
         console.error('Payment init response:', response.data);
         alert('Không thể tạo link thanh toán!');

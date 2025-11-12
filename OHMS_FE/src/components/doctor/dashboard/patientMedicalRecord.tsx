@@ -1,6 +1,6 @@
 // MedicalRecord.tsx
 import { useState, useEffect } from "react";
-import axios from "axios";
+import { axiosInstance } from "../../../utils/fetchFromAPI";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTimes, faPlus, faCalendar, faUser, faStethoscope, faPills, faFileAlt, faTrash, faFlask } from '@fortawesome/free-solid-svg-icons';
 
@@ -159,14 +159,8 @@ export default function MedicalRecordModal({
         const fetchAppointmentDetails = async () => {
             try {
                 const token = localStorage.getItem('accessToken');
-                const response = await axios.get(
-                    `http://localhost:8080/appointments/${appointmentId}`,
-                    {
-                        headers: {
-                            'Authorization': `Bearer ${token}`,
-                            'Content-Type': 'application/json',
-                        },
-                    }
+                const response = await axiosInstance.get(
+                    `/appointments/${appointmentId}`
                 );
 
                 console.log('📦 Appointment response:', response.data);
@@ -213,14 +207,8 @@ export default function MedicalRecordModal({
 
         try {
             const token = localStorage.getItem('accessToken');
-            const response = await axios.get(
-                `http://localhost:8080/medical-records/patient/${patientId}`,
-                {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json',
-                    },
-                }
+            const response = await axiosInstance.get(
+                `/medical-records/patient/${patientId}`
             );
 
             console.log('Medical Records:', response.data);
@@ -237,14 +225,8 @@ export default function MedicalRecordModal({
         setLoadingMedicines(true);
         try {
             const token = localStorage.getItem('accessToken');
-            const response = await axios.get(
-                'http://localhost:8080/medicine',
-                {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json',
-                    },
-                }
+            const response = await axiosInstance.get(
+                '/medicine'
             );
 
             console.log('Medicines:', response.data);
@@ -261,14 +243,8 @@ export default function MedicalRecordModal({
         setLoadingMedicalExams(true);
         try {
             const token = localStorage.getItem('accessToken');
-            const response = await axios.get(
-                'http://localhost:8080/medical-examination',
-                {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json',
-                    },
-                }
+            const response = await axiosInstance.get(
+                '/medical-examination'
             );
 
             console.log('Medical Examinations:', response.data);
@@ -330,15 +306,9 @@ export default function MedicalRecordModal({
 
                 console.log(`📅 Creating service appointment ${index + 1}:`, appointmentData);
 
-                return axios.post(
-                    `http://localhost:8080/appointments`,
-                    appointmentData,
-                    {
-                        headers: {
-                            'Authorization': `Bearer ${token}`,
-                            'Content-Type': 'application/json',
-                        },
-                    }
+                return axiosInstance.post(
+                    `/appointments`,
+                    appointmentData
                 );
             });
 
@@ -349,14 +319,8 @@ export default function MedicalRecordModal({
             alert(`Đã tạo ${selectedMedicalExaminations.length} lịch khám dịch vụ thành công!`);
             
             // Refresh appointment details to show updated service appointments
-            const response = await axios.get(
-                `http://localhost:8080/appointments/${currentAppointment.appointmentId}`,
-                {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json',
-                    },
-                }
+            const response = await axiosInstance.get(
+                `/appointments/${currentAppointment.appointmentId}`
             );
             
             const appointment = response.data;
@@ -429,16 +393,10 @@ export default function MedicalRecordModal({
                 }
 
                 console.log('Creating prescription with medicines:', selectedMedicines);
-                const createPrescriptionResponse = await axios.post(
-                    `http://localhost:8080/prescription/${patientId}`,
+                const createPrescriptionResponse = await axiosInstance.post(
+                    `/prescription/${patientId}`,
                     {
                         medicinePrescription: selectedMedicines
-                    },
-                    {
-                        headers: {
-                            'Authorization': `Bearer ${token}`,
-                            'Content-Type': 'application/json',
-                        },
                     }
                 );
 
@@ -485,15 +443,9 @@ export default function MedicalRecordModal({
                 medicalRecordPayload.prescriptionId = prescriptionId;
             }
 
-            await axios.post(
-                'http://localhost:8080/medical-records',
-                medicalRecordPayload,
-                {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json',
-                    },
-                }
+            await axiosInstance.post(
+                '/medical-records',
+                medicalRecordPayload
             );
 
             // Reset form

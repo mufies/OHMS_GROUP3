@@ -21,6 +21,7 @@ interface CancelledAppointment {
   status: string;
   deposit: number | null;
   cancelTime: string;
+  isRemoveByChangeSchedule?: boolean;
   medicalExaminations: Array<{
     id: string;
     name: string;
@@ -43,7 +44,39 @@ export default function CancelRequestManager() {
     setLoading(true);
     try {
       const res = await axiosInstance.get("/appointments/cancelled");
-      setCancelledAppointments(res.data);
+      
+      // ← SORT: Chờ hoàn tiền lên đầu
+      const sorted = (res.data as CancelledAppointment[]).sort((a, b) => {
+        const aIsRefunded = a.deposit !== null && a.deposit < 0;
+        const bIsRefunded = b.deposit !== null && b.deposit < 0;
+        
+        const aRefund = calculateRefund(
+          Math.abs(a.deposit || 0),
+          a.cancelTime,
+          a.workDate,
+          a.isRemoveByChangeSchedule
+        );
+        
+        const bRefund = calculateRefund(
+          Math.abs(b.deposit || 0),
+          b.cancelTime,
+          b.workDate,
+          b.isRemoveByChangeSchedule
+        );
+        
+        // Priority: Chờ hoàn tiền (có refund > 0) > Đã hoàn tiền > Không hoàn
+        if (!aIsRefunded && aRefund.amount > 0 && (bIsRefunded || bRefund.amount === 0)) {
+          return -1; // a lên trước (chờ hoàn tiền)
+        }
+        if (!bIsRefunded && bRefund.amount > 0 && (aIsRefunded || aRefund.amount === 0)) {
+          return 1; // b lên trước (chờ hoàn tiền)
+        }
+        
+        // Nếu cùng trạng thái, sort theo ngày hủy (mới nhất trước)
+        return new Date(b.cancelTime).getTime() - new Date(a.cancelTime).getTime();
+      });
+      
+      setCancelledAppointments(sorted);
     } catch (error) {
       console.error("Error fetching cancelled appointments:", error);
       toast.error("Không thể tải danh sách lịch đã hủy");
@@ -52,7 +85,11 @@ export default function CancelRequestManager() {
     }
   };
 
-  const calculateRefund = (deposit: number, cancelTime: string, workDate: string): { amount: number; percentage: number } => {
+  const calculateRefund = (deposit: number, cancelTime: string, workDate: string, isRemoveByChangeSchedule?: boolean): { amount: number; percentage: number } => {
+    if (isRemoveByChangeSchedule === true) {
+      return { amount: deposit, percentage: 100 };
+    }
+    
     const cancelDate = new Date(cancelTime);
     const appointmentDate = new Date(workDate);
     
@@ -61,7 +98,7 @@ export default function CancelRequestManager() {
     
     const diffTime = appointmentDate.getTime() - cancelDate.getTime();
     const daysBetween = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
+
     if (daysBetween >= 2) {
       return { amount: deposit, percentage: 100 };
     } else if (daysBetween >= 1) {
@@ -88,7 +125,6 @@ export default function CancelRequestManager() {
       setShowBankModal(false);
       setSelectedAppointment(null);
       
-      // Refresh list
       await fetchCancelledAppointments();
     } catch (error: any) {
       console.error("Error confirming refund:", error);
@@ -131,10 +167,10 @@ export default function CancelRequestManager() {
           <div>
             <h4 className="font-semibold text-amber-900 mb-1">Hướng dẫn hoàn tiền</h4>
             <ul className="text-sm text-amber-800 space-y-1">
+              <li>• <strong>Chờ hoàn tiền</strong> sẽ hiển thị ở trên cùng</li>
               <li>• Bấm vào appointment để xem thông tin ngân hàng của bệnh nhân</li>
               <li>• Chuyển khoản số tiền refund đến tài khoản của bệnh nhân</li>
               <li>• Sau khi chuyển xong, bấm "Xác nhận đã hoàn tiền"</li>
-              <li>• <strong>Deposit sẽ chuyển thành số âm</strong> (đại diện đã trả tiền)</li>
             </ul>
           </div>
         </div>
@@ -162,7 +198,8 @@ export default function CancelRequestManager() {
               const refund = calculateRefund(
                 Math.abs(appointment.deposit || 0),
                 appointment.cancelTime,
-                appointment.workDate
+                appointment.workDate,
+                appointment.isRemoveByChangeSchedule
               );
               const isRefunded = appointment.deposit !== null && appointment.deposit < 0;
               const refundedAmount = isRefunded ? Math.abs(appointment.deposit || 0) : 0;
@@ -175,7 +212,7 @@ export default function CancelRequestManager() {
                     isRefunded 
                       ? 'border-green-300 bg-green-50 cursor-default' 
                       : refund.amount > 0
-                      ? 'border-gray-200 hover:shadow-lg hover:border-indigo-300 cursor-pointer'
+                      ? 'border-red-300 hover:shadow-lg hover:border-red-400 cursor-pointer'
                       : 'border-gray-300 cursor-default'
                   }`}
                 >
@@ -184,7 +221,7 @@ export default function CancelRequestManager() {
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                         </svg>
                         <div>
                           <h4 className="text-lg font-bold text-gray-900">{appointment.patientName}</h4>
@@ -309,9 +346,9 @@ export default function CancelRequestManager() {
         </div>
       )}
 
-      {/* Bank Info Modal */}
+      {/* Bank Info Modal - ← TRANSPARENT BACKGROUND */}
       {showBankModal && selectedAppointment && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl">
             <div className="px-6 py-4 border-b border-gray-200">
               <div className="flex items-center gap-3">
@@ -371,12 +408,22 @@ export default function CancelRequestManager() {
                 const refund = calculateRefund(
                   Math.abs(selectedAppointment.deposit || 0),
                   selectedAppointment.cancelTime,
-                  selectedAppointment.workDate
+                  selectedAppointment.workDate,
+                  selectedAppointment.isRemoveByChangeSchedule
                 );
 
                 return (
                   <div className="bg-amber-50 rounded-lg p-4 border-2 border-amber-300">
                     <p className="text-xs font-semibold text-amber-900 mb-3">💰 SỐ TIỀN CẦN HOÀN</p>
+                    
+                    {selectedAppointment.isRemoveByChangeSchedule && (
+                      <div className="mb-3 bg-red-100 border border-red-300 rounded-lg p-2">
+                        <p className="text-xs font-semibold text-red-800">
+                          ⚠️ Bác sĩ đã điều chỉnh lịch → Hoàn 100% tiền cọc
+                        </p>
+                      </div>
+                    )}
+                    
                     <div className="space-y-2">
                       <div className="flex justify-between text-sm">
                         <span className="text-amber-700">Tiền cọc:</span>
@@ -421,7 +468,8 @@ export default function CancelRequestManager() {
                   const refund = calculateRefund(
                     Math.abs(selectedAppointment.deposit || 0),
                     selectedAppointment.cancelTime,
-                    selectedAppointment.workDate
+                    selectedAppointment.workDate,
+                    selectedAppointment.isRemoveByChangeSchedule
                   );
                   handleConfirmRefund(selectedAppointment.id, refund.amount);
                 }}

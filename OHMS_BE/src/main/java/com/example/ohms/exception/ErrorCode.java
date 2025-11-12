@@ -51,7 +51,10 @@ METHOD_NOT_ALLOW(1040,"method not allow",HttpStatus.BAD_REQUEST),
    PRICE_INVALID(1041,"Price must be greater than 0",HttpStatus.BAD_REQUEST),
    UNAUTHENTICATED(1009,"UNAUTHENTICATED ERROR!!",HttpStatus.BAD_REQUEST),
    NEWPASSNOTEQUALS(1050, "PASSWORD AND NEW PASSWORD IS NOT EQUALS", HttpStatus.BAD_REQUEST),
-   CHAT_NOT_ALLOWED(1051, "Chat is not allowed at this time", HttpStatus.FORBIDDEN);
+   CHAT_NOT_ALLOWED(1051, "Chat is not allowed at this time", HttpStatus.FORBIDDEN),
+   SCHEDULE_CONFLICT(1052, "Schedule time conflict with existing schedule", HttpStatus.CONFLICT),
+   PENDING_REQUEST_CONFLICT(1053, "Schedule time conflict with pending request", HttpStatus.CONFLICT),
+   NO_TIME_CHANGE(1054, "No time change detected for UPDATE request", HttpStatus.BAD_REQUEST);
    
    private int code;
    private String message;

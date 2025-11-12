@@ -16,4 +16,5 @@ public class ScheduleRequest {
    LocalDate workDate;
    LocalTime startTime; 
    LocalTime endTime;
+   String status;
 }

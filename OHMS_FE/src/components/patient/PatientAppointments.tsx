@@ -43,6 +43,7 @@ interface Appointment {
   deposit: number | null;
   depositStatus: string | null;
   cancelTime: string | null;
+  isRemoveByChangeSchedule?: boolean; // Thêm field này
 }
 
 
@@ -58,6 +59,7 @@ export default function PatientAppointments() {
     id: string;
     deposit: number | null;
     workDate: string;
+    isRemoveByChangeSchedule?: boolean; // Thêm field này
   } | null>(null);
   
   // Reschedule modal
@@ -128,7 +130,12 @@ export default function PatientAppointments() {
   };
 
 
-  const calculateRefund = (deposit: number, daysUntil: number): { amount: number; percentage: number } => {
+  const calculateRefund = (deposit: number, daysUntil: number, isRemoveByChangeSchedule?: boolean): { amount: number; percentage: number } => {
+    // Nếu bị unassign do schedule change → hoàn 100%
+    if (isRemoveByChangeSchedule === true) {
+      return { amount: deposit, percentage: 100 };
+    }
+    
     if (daysUntil >= 2) {
       return { amount: deposit, percentage: 100 };
     } else if (daysUntil === 1) {
@@ -139,16 +146,20 @@ export default function PatientAppointments() {
   };
 
 
-  const openCancelModal = (appointmentId: string, deposit: number | null, workDate: string) => {
-    const daysUntil = getDaysUntilAppointment(workDate);
+  const openCancelModal = (appointment: Appointment) => {
+    const daysUntil = getDaysUntilAppointment(appointment.workDate);
     
     if (daysUntil < 0) {
       toast.error("Không thể hủy lịch đã qua!");
       return;
     }
 
-
-    setSelectedAppointment({ id: appointmentId, deposit, workDate });
+    setSelectedAppointment({
+      id: appointment.id,
+      deposit: appointment.deposit,
+      workDate: appointment.workDate,
+      isRemoveByChangeSchedule: appointment.isRemoveByChangeSchedule
+    });
     setShowCancelModal(true);
   };
 
@@ -162,7 +173,11 @@ export default function PatientAppointments() {
       await axiosInstance.put(`/appointments/${selectedAppointment.id}/cancel`);
       
       const daysUntil = getDaysUntilAppointment(selectedAppointment.workDate);
-      const refund = calculateRefund(selectedAppointment.deposit || 0, daysUntil);
+      const refund = calculateRefund(
+        selectedAppointment.deposit || 0, 
+        daysUntil,
+        selectedAppointment.isRemoveByChangeSchedule // Truyền thêm param
+      );
       
       setShowCancelModal(false);
       toast.success(`Hủy lịch thành công! Hoàn lại ${refund.amount.toLocaleString('vi-VN')} ₫`);
@@ -179,6 +194,13 @@ export default function PatientAppointments() {
 
 
   const openRescheduleModal = (appointment: Appointment) => {
+    // Nếu bị unassign do schedule change → cho phép dời lịch ngay lập tức
+    if (appointment.isRemoveByChangeSchedule === true) {
+      setRescheduleAppointment(appointment);
+      setShowRescheduleModal(true);
+      return;
+    }
+    
     const daysUntil = getDaysUntilAppointment(appointment.workDate);
     
     // Kiểm tra nếu còn ít hơn 2 ngày
@@ -338,31 +360,58 @@ export default function PatientAppointments() {
               {/* Action Buttons */}
               {a.status !== 'CANCELLED' && a.status !== 'COMPLETED' && (
                 <>
+                  {/* Hiển thị badge nếu bị unassign do schedule change */}
+                  {a.isRemoveByChangeSchedule && (
+                    <div className="bg-red-100 border-2 border-red-300 rounded-lg p-4">
+                      <div className="flex items-start gap-3">
+                        <svg className="w-6 h-6 text-red-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        <div className="flex-1">
+                          <p className="text-sm font-bold text-red-900 mb-1">
+                            ⚠️ Bác sĩ đã điều chỉnh lịch làm việc
+                          </p>
+                          <p className="text-xs text-red-800">
+                            Lịch hẹn của bạn đã bị ảnh hưởng. Bạn có thể:
+                          </p>
+                          <ul className="text-xs text-red-800 mt-1 ml-4 list-disc">
+                            <li><strong>Dời lịch</strong> sang thời gian khác (không giới hạn 2 ngày)</li>
+                            <li><strong>Hủy lịch</strong> và được hoàn lại 100% tiền cọc</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
                   <div className="flex gap-3">
                     <button
-                      onClick={() => openCancelModal(a.id, a.deposit, a.workDate)}
+                      onClick={() => openCancelModal(a)}
                       disabled={cancellingId === a.id}
                       className="flex-1 px-4 py-2.5 bg-red-100 hover:bg-red-200 text-red-700 font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                       </svg>
-                      {cancellingId === a.id ? 'Đang hủy...' : 'Hủy lịch'}
+                      {cancellingId === a.id ? 'Đang hủy...' : a.isRemoveByChangeSchedule ? 'Hủy lịch (Hoàn 100%)' : 'Hủy lịch'}
                     </button>
                     <button
                       onClick={() => openRescheduleModal(a)}
-                      disabled={getDaysUntilAppointment(a.workDate) < 2}
+                      disabled={!a.isRemoveByChangeSchedule && getDaysUntilAppointment(a.workDate) < 2}
                       className="flex-1 px-4 py-2.5 bg-blue-100 hover:bg-blue-200 text-blue-700 font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>
-                      {getDaysUntilAppointment(a.workDate) < 2 ? 'Không thể dời lịch' : 'Dời lịch'}
+                      {a.isRemoveByChangeSchedule 
+                        ? 'Dời lịch (Ưu tiên)' 
+                        : getDaysUntilAppointment(a.workDate) < 2 
+                        ? 'Không thể dời lịch' 
+                        : 'Dời lịch'}
                     </button>
                   </div>
                   
-                  {/* Thông báo không thể dời lịch */}
-                  {getDaysUntilAppointment(a.workDate) < 2 && getDaysUntilAppointment(a.workDate) >= 0 && (
+                  {/* Thông báo không thể dời lịch - CHỈ hiển thị khi KHÔNG phải isRemoveByChangeSchedule */}
+                  {!a.isRemoveByChangeSchedule && getDaysUntilAppointment(a.workDate) < 2 && getDaysUntilAppointment(a.workDate) >= 0 && (
                     <div className="bg-orange-50 rounded-lg p-3 border border-orange-200">
                       <div className="flex items-start gap-2">
                         <svg className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -516,10 +565,33 @@ export default function PatientAppointments() {
             <div className="px-6 py-4 space-y-4">
               {(() => {
                 const daysUntil = getDaysUntilAppointment(selectedAppointment.workDate);
-                const refund = calculateRefund(selectedAppointment.deposit || 0, daysUntil);
+                const refund = calculateRefund(
+                  selectedAppointment.deposit || 0, 
+                  daysUntil,
+                  selectedAppointment.isRemoveByChangeSchedule // Truyền thêm param
+                );
                 
                 return (
                   <>
+                    {/* Cảnh báo nếu bị unassign do schedule change */}
+                    {selectedAppointment.isRemoveByChangeSchedule && (
+                      <div className="bg-red-100 rounded-lg p-4 border-2 border-red-300">
+                        <div className="flex items-start gap-2">
+                          <svg className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                          </svg>
+                          <div className="flex-1">
+                            <p className="text-sm font-bold text-red-900">
+                              ⚠️ Bác sĩ đã điều chỉnh lịch làm việc
+                            </p>
+                            <p className="text-xs text-red-800 mt-1">
+                              Do lịch làm việc của bác sĩ thay đổi, bạn sẽ được hoàn lại <strong>100% tiền cọc</strong>.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
                     <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
                       <div className="flex items-center gap-2 mb-2">
                         <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">

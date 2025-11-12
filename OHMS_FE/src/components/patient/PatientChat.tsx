@@ -1,5 +1,5 @@
   import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-  import axios from 'axios';
+  import { axiosInstance } from '../../utils/fetchFromAPI';
   import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
   import { 
     faPaperPlane, 
@@ -129,16 +129,9 @@ interface Appointment {
 
           console.log('📤 Uploading', base64Datas.length, 'images to Cloudinary...');
           
-          const token = localStorage.getItem('accessToken');
-          const uploadResponse = await axios.post(
-            'http://localhost:8080/conversation/upload-images',
-            base64Datas,
-            {
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
-              },
-            }
+          const uploadResponse = await axiosInstance.post(
+            '/conversation/upload-images',
+            base64Datas
           );
 
           if (uploadResponse.data?.results) {
@@ -251,14 +244,8 @@ const checkOnlineConsultationAppointment = useCallback(async (doctorId: string) 
     const token = localStorage.getItem('accessToken');
     const today = new Date().toISOString().split('T')[0];
     
-    const response = await axios.get(
-      `http://localhost:8080/appointments/patient/${currentUser.id}/date/${today}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        }
-      }
+    const response = await axiosInstance.get(
+      `/appointments/patient/${currentUser.id}/date/${today}`
     );
 
     if (response.data && Array.isArray(response.data)) {
@@ -370,13 +357,7 @@ useEffect(() => {
         }
 
         try {
-          const token = localStorage.getItem('accessToken');
-          const response = await axios.get(`http://localhost:8080/conversation/${currentRoom.roomChatID}`, {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            }
-          });
+          const response = await axiosInstance.get(`/conversation/${currentRoom.roomChatID}`);
 
           if (response.data && response.data.results) {
             const loadedMessages: Message[] = response.data.results.map((conv: any) => ({
@@ -408,14 +389,9 @@ useEffect(() => {
           return;
         }
 
-        console.log('🌐 Making API call to:', `http://localhost:8080/chat/${currentUser.id}`);
+        console.log('🌐 Making API call to:', `/chat/${currentUser.id}`);
         
-        const response = await axios.get(`http://localhost:8080/chat/${currentUser.id}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          }
-        });
+        const response = await axiosInstance.get(`/chat/${currentUser.id}`);
 
         if (response.data && response.data.results) {
           setChatRooms(response.data.results);
@@ -437,12 +413,8 @@ useEffect(() => {
 
           setAvailableDoctors(Array.from(doctorsMap.values()));
         }
-      } catch (error) {
-        if (axios.isAxiosError(error)) {
-          console.error('Error fetching chat rooms:', error.response?.data ?? error.message);
-        } else {
-          console.error('Unexpected error:', error);
-        }
+      } catch (error: any) {
+        console.error('Error fetching chat rooms:', error.response?.data ?? error.message);
       }
     }, [currentUser.id]);
 

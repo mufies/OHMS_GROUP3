@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
 import { toast } from "sonner";
 import { axiosInstance } from "../../utils/fetchFromAPI";
 import Navigator from "../Navigator";
@@ -86,15 +85,13 @@ export default function PatientProfile() {
         console.log(pair[0], pair[1]);
       }
 
-      const response = await axios.patch(
-        `http://localhost:8080/users/userUpdateUser/${profile.id}`,
+      const response = await axiosInstance.patch(
+        `/users/userUpdateUser/${profile.id}`,
         formData,
         {
           headers: {
             "Content-Type": "multipart/form-data",
-            "Authorization": `Bearer ${localStorage.getItem("accessToken") || ""}`,
           },
-          withCredentials: true,
         }
       );
 

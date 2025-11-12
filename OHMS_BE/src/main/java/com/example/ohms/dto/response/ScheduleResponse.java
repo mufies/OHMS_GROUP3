@@ -17,4 +17,5 @@ public class ScheduleResponse {
    LocalDate workDate;
    LocalTime startTime;
    LocalTime endTime;
+   String status;
 }

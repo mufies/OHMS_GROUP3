@@ -5,7 +5,7 @@ import WebRTCApp from './page/WebRTCApp.tsx';
 import ChatDemo from "./page/ChatDemo.tsx";
 import PatientChatPage from './page/PatientChatPage.tsx';
 import DoctorChatPage from './page/DoctorChatPage.tsx';
-
+import CreateQR from './page/CreateQR.tsx';
 
 function App() {
     return (
@@ -18,6 +18,8 @@ function App() {
                 <Route path="/doctor/chat" element={<DoctorChatPage />} />
                 <Route path="/patient/chat" element={<PatientChatPage />} />
                 <Route path="*" element={<MainApp />} />
+                <Route path="/vietqr-test" element={<CreateQR />} />
+
             </Routes>
         </Router>
     );

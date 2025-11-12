@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import { axiosInstance } from '../../../utils/fetchFromAPI';
 import { MEDICAL_SPECIALTY_LABELS, MedicalSpecialtyType } from '../../../constant/medicalSpecialty';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
@@ -115,14 +115,8 @@ export default function DoctorProfile() {
       const decodedPayload = JSON.parse(atob(payload));
       const doctorId = decodedPayload.userId;
 
-      const response = await axios.get(
-        `http://localhost:8080/users/findUser/${doctorId}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          }
-        }
+      const response = await axiosInstance.get(
+        `/users/findUser/${doctorId}`
       );
 
       setDoctorInfo(response.data.results);
@@ -202,12 +196,11 @@ export default function DoctorProfile() {
         formData.append('avatar', selectedAvatar);
       }
 
-      const response = await axios.patch(
-        `http://localhost:8080/users/userUpdateUser/${doctorInfo!.id}`,
+      const response = await axiosInstance.patch(
+        `/users/userUpdateUser/${doctorInfo!.id}`,
         formData,
         {
           headers: {
-            'Authorization': `Bearer ${token}`,
             'Content-Type': 'multipart/form-data',
           }
         }

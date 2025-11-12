@@ -91,6 +91,7 @@ public class Appointment {
    @Enumerated(EnumType.STRING)
    @Builder.Default
    PaymentStatus depositStatus = PaymentStatus.PENDING;
-      Date cancelTime;
+   Date cancelTime;
+   Boolean isRemoveByChangeSchedule;
 
 }

@@ -305,13 +305,37 @@ public class AppointmentController {
     public ResponseEntity<List<AppointmentResponse>> getUnassignedAppointments(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate workDate,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime startTime,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime endTime) {
-        log.info("Getting unassigned appointments for date: {} time: {}-{}", workDate, startTime, endTime);
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime endTime,
+            @RequestParam(required = false) String medicalSpecialty) {
+        log.info("Getting unassigned appointments for date: {} time: {}-{} specialty: {}", 
+                 workDate, startTime, endTime, medicalSpecialty);
         
         List<AppointmentResponse> appointments = appointmentService.getUnassignedAppointments(
-            workDate, startTime, endTime
+            workDate, startTime, endTime, medicalSpecialty
         );
         return ResponseEntity.ok(appointments);
     }
-    // tạo khám cho thằng user vãng lai 
+    
+    // Get all appointments by medical specialty
+    @GetMapping("/specialty/{medicalSpecialty}")
+    public ResponseEntity<List<AppointmentResponse>> getAppointmentsByMedicalSpecialty(
+            @PathVariable String medicalSpecialty) {
+        log.info("Getting all appointments for medical specialty: {}", medicalSpecialty);
+        
+        List<AppointmentResponse> appointments = appointmentService.getAppointmentsByMedicalSpecialty(medicalSpecialty);
+        return ResponseEntity.ok(appointments);
+    }
+    
+    // Get appointments by medical specialty and date
+    @GetMapping("/specialty/{medicalSpecialty}/date/{date}")
+    public ResponseEntity<List<AppointmentResponse>> getAppointmentsByMedicalSpecialtyAndDate(
+            @PathVariable String medicalSpecialty,
+            @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        log.info("Getting appointments for medical specialty: {} on date: {}", medicalSpecialty, date);
+        
+        List<AppointmentResponse> appointments = appointmentService.getAppointmentsByMedicalSpecialtyAndDate(
+            medicalSpecialty, date
+        );
+        return ResponseEntity.ok(appointments);
+    }
 }

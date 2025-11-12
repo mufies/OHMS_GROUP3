@@ -1,6 +1,6 @@
 import React, { FormEvent, useState, useRef, useEffect } from 'react';
 import { useChatAI } from '../provider/useChatAI';
-import axios from 'axios';
+import { axiosInstance } from '../utils/fetchFromAPI';
 
 interface Doctor {
   id: string;
@@ -80,20 +80,33 @@ export default function AiChat() {
     }
   }, [lastRecommendation]);
 
-  // DEBUG: Listen for booking readiness from AI
+  // Listen for booking readiness from AI
   useEffect(() => {
     if (lastRecommendation && lastRecommendation.ready === true) {
-      console.log("✅ Payment button should show");
-      console.log("Booking data:", lastRecommendation);
       setAiBookingData(lastRecommendation);
       setShowPaymentButton(true);
       
-      // Fetch service details
+      // Fetch ALL service details (medicalExaminationIds + serviceSlots)
+      const allServiceIds = new Set<string>();
+      
+      // Add medicalExaminationIds
       if (lastRecommendation.medicalExaminationIds && lastRecommendation.medicalExaminationIds.length > 0) {
-        fetchServiceDetails(lastRecommendation.medicalExaminationIds);
+        lastRecommendation.medicalExaminationIds.forEach((id: string) => allServiceIds.add(id));
       }
-    } else {
-      console.log("Ready:", lastRecommendation?.ready);
+      
+      // Add serviceSlots IDs (for SERVICE_AND_CONSULTATION)
+      if (lastRecommendation.serviceSlots && lastRecommendation.serviceSlots.length > 0) {
+        lastRecommendation.serviceSlots.forEach((slot: any) => {
+          if (slot.serviceId) {
+            allServiceIds.add(slot.serviceId);
+          }
+        });
+      }
+      
+      // Fetch all unique service IDs
+      if (allServiceIds.size > 0) {
+        fetchServiceDetails(Array.from(allServiceIds));
+      }
     }
   }, [lastRecommendation]);
 
@@ -104,13 +117,16 @@ export default function AiChat() {
       
       for (const serviceId of serviceIds) {
         try {
-          const response = await axios.get(`http://localhost:8080/medical-examination/${serviceId}`);
+          const response = await axiosInstance.get(`/medical-examination/${serviceId}`);
+          
           if (response.data) {
+            const serviceData = response.data.results || response.data;
+            
             serviceMap.set(serviceId, {
-              id: response.data.id,
-              name: response.data.name,
-              price: response.data.price,
-              minDuration: response.data.minDuration
+              id: serviceData.id,
+              name: serviceData.name,
+              price: serviceData.price,
+              minDuration: serviceData.minDuration
             });
           }
         } catch (error) {
@@ -266,16 +282,20 @@ export default function AiChat() {
       sessionStorage.setItem('pendingBooking', JSON.stringify(bookingPayload));
       console.log('📋 Booking payload:', bookingPayload);
 
-      // Gọi API thanh toán
-      const response = await axios.get('http://localhost:8080/api/v1/payment/vn-pay', {
-        params: {
-          amount: bookingPayload.deposit,
-          bankCode: 'NCB',
-        },
+      // Generate unique order description (max 25 characters)
+      const orderDesc = `DH${Date.now().toString().slice(-10)}`;
+
+      // Gọi API thanh toán PayOS
+      const response = await axiosInstance.post('/api/v1/payos/create', {
+        productName: 'Dat lich kham benh',
+        description: orderDesc,
+        price: bookingPayload.deposit,
+        returnUrl: `${window.location.origin}/payment-callback`,
+        cancelUrl: `${window.location.origin}/payment-cancel`
       });
 
-      if (response.data?.results?.paymentUrl) {
-        window.location.href = response.data.results.paymentUrl;
+      if (response.data?.results?.checkoutUrl) {
+        window.location.href = response.data.results.checkoutUrl;
       } else {
         alert('Không thể tạo link thanh toán. Vui lòng thử lại!');
       }
@@ -376,21 +396,6 @@ export default function AiChat() {
                 </div>
               )}
 
-              {/* DEBUG: Show booking state */}
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-xs">
-                <div className="font-bold text-yellow-800 mb-2">DEBUG INFO:</div>
-                <div className="text-yellow-700 space-y-1">
-                  <div>showPaymentButton: {String(showPaymentButton)}</div>
-                  <div>aiBookingData exists: {aiBookingData ? 'YES' : 'NO'}</div>
-                  <div>bookingType: {aiBookingData?.bookingType || 'N/A'}</div>
-                  <div>ready: {String(aiBookingData?.ready)}</div>
-                  <div>doctorId: {aiBookingData?.doctorId || 'N/A'}</div>
-                  <div>workDate: {aiBookingData?.workDate || 'N/A'}</div>
-                  <div>depositAmount: {aiBookingData?.depositAmount || 'N/A'}</div>
-                  <div>medicalExaminationIds: {JSON.stringify(aiBookingData?.medicalExaminationIds)}</div>
-                </div>
-              </div>
-
               {/* Payment Button - Shows when AI confirms booking ready */}
               {showPaymentButton && aiBookingData && (
                 <div className="flex flex-col items-center mt-4">
@@ -447,16 +452,15 @@ export default function AiChat() {
                           {aiBookingData.bookingType === 'SERVICE_AND_CONSULTATION' && (
                             <>
                               {aiBookingData.serviceSlots?.map((slot: any, idx: number) => {
-                                // Tìm service name từ serviceDetails map
                                 const service = serviceDetails.get(slot.serviceId);
                                 const serviceName = service?.name || `Dịch vụ ${idx + 1}`;
                                 
                                 return (
-                                  <div key={idx} className="flex items-start gap-2 text-sm">
-                                    <div className="text-blue-600 font-medium min-w-[80px]">
+                                  <div key={idx} className="flex items-start gap-2 text-sm bg-blue-50 rounded-lg p-2">
+                                    <div className="text-blue-700 font-bold min-w-[100px] flex-shrink-0">
                                       {formatTime(slot.startTime)} - {formatTime(slot.endTime)}:
                                     </div>
-                                    <div className="text-gray-700">
+                                    <div className="text-gray-800 font-medium">
                                       {serviceName}
                                     </div>
                                   </div>
@@ -464,13 +468,12 @@ export default function AiChat() {
                               })}
                               
                               {aiBookingData.consultationSlot && (
-                                <div className="flex items-start gap-2 text-sm">
-                                  <div className="text-green-600 font-medium min-w-[80px]">
+                                <div className="flex items-start gap-2 text-sm bg-green-50 rounded-lg p-2">
+                                  <div className="text-green-700 font-bold min-w-[100px] flex-shrink-0">
                                     {formatTime(aiBookingData.consultationSlot.startTime)} - {formatTime(aiBookingData.consultationSlot.endTime)}:
                                   </div>
-                                  <div className="text-gray-700 font-semibold">
+                                  <div className="text-gray-800 font-semibold">
                                     {(() => {
-                                      // Lấy tên service khám (thường là phần tử đầu tiên trong medicalExaminationIds)
                                       const consultationServiceId = aiBookingData.medicalExaminationIds?.[0];
                                       const consultationService = serviceDetails.get(consultationServiceId);
                                       return consultationService?.name || 'Khám bác sĩ';
@@ -485,13 +488,12 @@ export default function AiChat() {
                           {(aiBookingData.bookingType === 'CONSULTATION_ONLY' || 
                             aiBookingData.bookingType === 'PREVENTIVE_SERVICE') && 
                             aiBookingData.startTime && (
-                            <div className="flex items-start gap-2 text-sm">
-                              <div className="text-blue-600 font-medium min-w-[80px]">
+                            <div className="flex items-start gap-2 text-sm bg-blue-50 rounded-lg p-2">
+                              <div className="text-blue-700 font-bold min-w-[100px] flex-shrink-0">
                                 {formatTime(aiBookingData.startTime)} - {formatTime(aiBookingData.endTime)}:
                               </div>
-                              <div className="text-gray-700 font-semibold">
+                              <div className="text-gray-800 font-semibold">
                                 {(() => {
-                                  // Lấy tên service từ medicalExaminationIds
                                   const serviceId = aiBookingData.medicalExaminationIds?.[0];
                                   const service = serviceDetails.get(serviceId);
                                   

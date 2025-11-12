@@ -6,6 +6,7 @@ import {
     faCalendar,
     faUser,
     faRightFromBracket, // Logout icon
+    faClipboardList, // Pending requests icon
 } from "@fortawesome/free-solid-svg-icons";
 import { LOGIN_USER } from "../../constant/enum";
 
@@ -16,6 +17,7 @@ interface NavigatorProps {
 function Navigator({ doctorSpecialty = "General Medicine" }: NavigatorProps) {
     const navigationItems = [
         { icon: faTableColumns, label: "Dashboard", path: "/doctor"},
+        { icon: faClipboardList, label: "Pending Requests", path: "/doctor/pending-requests" },
         { icon: faComment, label: "Chat", path: "/doctor/chat" },
         { icon: faCalendar, label: "Schedule", path: "/doctor/schedule" },
         { icon: faUser, label: "Profile", path: "/doctor/profile" },

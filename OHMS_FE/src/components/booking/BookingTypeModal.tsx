@@ -1,5 +1,5 @@
 import React from 'react';
-import axios from 'axios';
+import { axiosInstance } from '../../utils/fetchFromAPI';
 import { BookingType, MedicalExamination } from '../../types/booking.types';
 
 interface BookingTypeModalProps {
@@ -21,8 +21,8 @@ export const BookingTypeModal: React.FC<BookingTypeModalProps> = ({
 
   const handleConsultationOnly = async () => {
     try {
-      const response = await axios.post(
-        'http://localhost:8080/medical-examination/by-specialty',
+      const response = await axiosInstance.post(
+        '/medical-examination/by-specialty',
         { specility: specialty }
       );
       
@@ -39,8 +39,8 @@ export const BookingTypeModal: React.FC<BookingTypeModalProps> = ({
 
   const handleServiceAndConsultation = async () => {
     try {
-      const response = await axios.post(
-        'http://localhost:8080/medical-examination/by-specialty',
+      const response = await axiosInstance.post(
+        '/medical-examination/by-specialty',
         { specility: specialty }
       );
       

@@ -21,7 +21,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 
-import org.springframework.security.access.prepost.PostAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
@@ -70,12 +69,10 @@ int totalPrice = prescriptionRequest.getMedicinePrescription().stream()
             throw new AppException(ErrorCode.MEDICLE_NOT_FOUND);
         }
 
-        // Trừ số lượng thuốc
         medicine.setQuantity(medicine.getQuantity() - request.getAmount());
         medicineRepository.save(medicine);
 
-        // log.info("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA{}", medicine.getQuantity() - request.getAmount());
-        // Trả về tiền thuốc cho đơn này
+
         return medicine.getPrice() * request.getAmount();
     })
     .sum(); // cộng dồn tất cả

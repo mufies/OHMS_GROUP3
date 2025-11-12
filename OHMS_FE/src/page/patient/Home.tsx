@@ -1,20 +1,46 @@
 import DoctorListSection from "../../components/DoctorListSection";
 import Footer from "../../components/footer";
 import Navigator from "../../components/Navigator";
-import { useEffect, useState } from 'react'; // Thêm useState cho loading
+import { useEffect, useState } from 'react';
 
 function Home() {
-    const [isProcessingToken, setIsProcessingToken] = useState(false); // State loading khi xử lý token
-    const [role, setRole] = useState(null); // State cho role, để update sau khi xử lý token
+    const [isProcessingToken, setIsProcessingToken] = useState(true); // ← BẮT ĐẦU VỚI TRUE để check token
+    const [role, setRole] = useState<string | null>(null);
 
-    // Hàm extract role từ token (giữ nguyên code bạn)
-    const extractRoleFromToken = (token:string) => {
+    // Hàm extract role từ token
+    const extractRoleFromToken = (token: string) => {
         try {
             const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
-            return payload.scope; // Ví dụ: "ROLE_patient" hoặc "ROLE_doctor"
+            return payload.scope;
         } catch (e) {
             console.error("Invalid token");
             return null;
+        }
+    };
+
+    // Hàm redirect dựa trên role
+    const redirectByRole = (userRole: string) => {
+        console.log('Redirecting based on role:', userRole);
+        
+        switch (userRole) {
+            case 'ROLE_doctor':
+                window.location.href = '/doctor';
+                break;
+            case 'ROLE_admin':
+                window.location.href = '/admin';
+                break;
+            case 'ROLE_patient':
+                window.location.href = '/dashboard';
+                break;
+            case 'ROLE_receptionist':
+                window.location.href = '/receptionPage';
+                break;
+            case 'ROLE_staff':
+                window.location.href = '/staff';
+                break;
+            default:
+                console.log('Unknown role, staying on home');
+                setIsProcessingToken(false);
         }
     };
 
@@ -24,7 +50,6 @@ function Home() {
         const token = urlParams.get('token');
 
         if (token) {
-            setIsProcessingToken(true);
             try {
                 // Lưu token vào localStorage
                 localStorage.setItem('accessToken', token);
@@ -32,72 +57,86 @@ function Home() {
                 // Extract role
                 const newRole = extractRoleFromToken(token);
                 setRole(newRole);
-                console.log('Token từ URL đã xử lý, role:', newRole);
 
-                // Clear query param khỏi URL (tránh reload xử lý lại)
+                // Clear query param khỏi URL
                 const newUrl = window.location.pathname;
                 window.history.replaceState({}, document.title, newUrl);
 
-                // Redirect dựa trên role (sau 500ms để show loading ngắn)
-                setTimeout(() => {
-                    if (newRole === 'ROLE_doctor') { // Giả sử scope là "ROLE_doctor"
-                        window.location.href = '/doctor';
-                    } else if (newRole === 'ROLE_admin') {
-                        // Admiên ở home (không redirecn: giữ nguyt đến /admin vì route chưa được bật)
-                        // Có thể thay đổi thành redirect khác nếu cần
-                        // Không redirect, giữ nguyên ở trang home
-                    } else if (newRole === 'ROLE_patient') {
-                        // Giữ nguyên Home hoặc redirect dashboard nếu có
-                        window.location.href = '/dashboard'; // Tùy chỉnh nếu cần
-                    }
+                // Redirect dựa trên role
+                if (newRole) {
+                    redirectByRole(newRole);
+                } else {
                     setIsProcessingToken(false);
-                }, 500);
+                }
 
             } catch (error) {
                 console.error('Lỗi xử lý token:', error);
                 alert('Lỗi xác thực token. Thử lại nhé!');
                 localStorage.removeItem('accessToken');
-                // Clear URL
                 window.history.replaceState({}, document.title, window.location.pathname);
                 setIsProcessingToken(false);
             }
+            return true; // Đã xử lý token từ URL
         }
+        return false; // Không có token từ URL
     };
 
-    // Lấy token từ localStorage nếu không có từ URL
+    // ← EFFECT CHÍNH: Check token ngay khi component mount
     useEffect(() => {
-        // Đầu tiên, check token từ URL
-        handleTokenFromUrl();
 
-        // Nếu không có từ URL, lấy từ localStorage
-        if (!isProcessingToken) {
-            const token = localStorage.getItem("accessToken");
-            if (token) {
-                const payloadRole = extractRoleFromToken(token);
-                setRole(payloadRole);
+        // 1. Kiểm tra token từ URL trước
+        const hasTokenInUrl = handleTokenFromUrl();
+        
+        if (!hasTokenInUrl) {
+            // 2. Nếu không có token từ URL, check localStorage
+            const existingToken = localStorage.getItem("accessToken");
+            
+            if (existingToken) {
+                const payloadRole = extractRoleFromToken(existingToken);
+                
+                if (payloadRole) {
+                    console.log('Valid token with role:', payloadRole);
+                    setRole(payloadRole);
+                    // ← TỰ ĐỘNG REDIRECT NGAY
+                    redirectByRole(payloadRole);
+                } else {
+                    localStorage.removeItem('accessToken');
+                    setIsProcessingToken(false);
+                }
+            } else {
+                // Không có token → Show home page bình thường
+                setIsProcessingToken(false);
             }
         }
-    }, []); // Chạy 1 lần khi mount
+    }, []); // Chỉ chạy 1 lần khi mount
 
-    // Effect redirect dựa trên role (chỉ nếu không đang xử lý token)
-    useEffect(() => {
-        if (!isProcessingToken) {
-            if (role === "ROLE_doctor") {
-                window.location.href = "/doctor";
-            } else if (role === "ROLE_admin") {
-                window.location.href = "/admin";
-            }
-        }
-    }, [role, isProcessingToken]);
-
-    // Show loading nếu đang xử lý token
+    // Show loading khi đang xử lý token
     if (isProcessingToken) {
         return (
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-                <div>
-                    <h2>Đang xử lý đăng nhập...</h2>
-                    <p>Nhận token từ Google thành công! Chờ tí...</p>
-                </div>
+            <div style={{ 
+                display: 'flex', 
+                justifyContent: 'center', 
+                alignItems: 'center', 
+                height: '100vh',
+                flexDirection: 'column',
+                gap: '16px'
+            }}>
+                <div style={{
+                    width: '50px',
+                    height: '50px',
+                    border: '4px solid #f3f3f3',
+                    borderTop: '4px solid #0ea5e9',
+                    borderRadius: '50%',
+                    animation: 'spin 1s linear infinite'
+                }} />
+                <h2 style={{ margin: 0, color: '#0f172a' }}>Đang xử lý đăng nhập...</h2>
+                <p style={{ margin: 0, color: '#64748b' }}>Vui lòng chờ...</p>
+                <style>{`
+                    @keyframes spin {
+                        0% { transform: rotate(0deg); }
+                        100% { transform: rotate(360deg); }
+                    }
+                `}</style>
             </div>
         );
     }
@@ -140,8 +179,7 @@ function Home() {
                                     fontWeight: 600
                                 }}>Đặt khám ngay</a>
 
-                                <a href="/online-consult"
-                                    style={{
+                                <a href="/online-consult" style={{
                                     background: "white",
                                     color: "#0ea5e9",
                                     padding: "12px 18px",
@@ -149,10 +187,9 @@ function Home() {
                                     border: "1px solid #0ea5e9",
                                     textDecoration: "none",
                                     fontWeight: 600
-                                        }}>
+                                }}>
                                     Tư vấn Online
                                 </a>
-                                
                             </div>
                         </div>
                         <div style={{
@@ -162,11 +199,10 @@ function Home() {
                         }} />
                     </div>
                 </section>
-{/* sửa lại thành get all và filter bác sĩ, tách ra componet riêng  */}
-                <DoctorListSection/>
-              
+
+                <DoctorListSection />
             </main>
-            <Footer/>
+            <Footer />
         </div>
     );
 }

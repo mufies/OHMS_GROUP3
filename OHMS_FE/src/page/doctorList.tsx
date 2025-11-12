@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import { axiosInstance } from "../utils/fetchFromAPI";
 
 interface Role {
   name: string;
@@ -24,13 +24,7 @@ const DoctorList: React.FC = () => {
   useEffect(() => {
     const fetchDoctors = async () => {
       try {
-        const token = localStorage.getItem("accessToken");
-
-        const res = await axios.get("http://localhost:8080/users/getListUser", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        const res = await axiosInstance.get("/users/getListUser");
 
         if (res.data.code === 200 && Array.isArray(res.data.results)) {
           const filtered = res.data.results.filter((user: User) =>

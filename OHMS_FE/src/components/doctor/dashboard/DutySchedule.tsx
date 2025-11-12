@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import { axiosInstance } from "../../../utils/fetchFromAPI";
 
 interface Shift {
   time: string;
@@ -41,14 +41,8 @@ const DutySchedule: React.FC = () => {
         const doctorId = decodedPayload.userId;
 
         // Fetch schedule from API
-        const response = await axios.get(
-          `http://localhost:8080/schedule/doctor/${doctorId}/weekly`,
-          {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-          }
+        const response = await axiosInstance.get(
+          `/schedule/doctor/${doctorId}/weekly`
         );
 
         console.log('Schedule API Response:', response.data);
