@@ -14,6 +14,8 @@ import BookingScheduleNew from "./page/patient/BookingSchedule_New_BACKUP.tsx";
 import BookingPreventive from "./page/patient/BookingPreventive";
 import PaymentCallback from "./page/patient/PaymentCallback";
 import Doctor from "./page/patient/Doctor";
+import Guide from "./page/patient/Guide.tsx";
+import Policy from "./page/patient/Policy.tsx";
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import PatientChatPage from './page/patient/PatientChatPage.tsx';
@@ -44,6 +46,8 @@ function App() {
                 <Route path="/booking-schedule-new" element={<BookingScheduleNew/>}/>
                 <Route path="/booking-preventive" element={<BookingPreventive/>}/>
                 <Route path="/payment-callback" element={<PaymentCallback/>}/>
+                <Route path="/guide" element={<Guide />} />
+                <Route path="/policy" element={<Policy />} />
                 
                 {/* Doctor Routes - Protected */}
                 <Route path="/doctor/" element={

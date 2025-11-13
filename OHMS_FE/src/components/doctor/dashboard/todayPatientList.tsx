@@ -68,10 +68,10 @@ export default function TodayPatientList() {
                 setUserId(decodedPayload.userId);
             } catch (err) {
                 console.error('Error decoding token:', err);
-                setError('Invalid authentication token');
+                setError('Token xác thực không hợp lệ');
             }
         } else {
-            setError('No authentication token found');
+            setError('Không tìm thấy token xác thực');
         }
     }, []);
 
@@ -88,7 +88,7 @@ export default function TodayPatientList() {
                 const token = localStorage.getItem('accessToken');
                 
                 if (!token) {
-                    throw new Error('No authentication token');
+                    throw new Error('Không có token xác thực');
                 }
 
                 console.log('Fetching appointments for doctor:', userId);
@@ -155,7 +155,7 @@ export default function TodayPatientList() {
 
             } catch (err: any) {
                 console.error('Error fetching appointments:', err);
-                setError(err.response?.data?.message || err.message || 'Failed to fetch appointments');
+                setError(err.response?.data?.message || err.message || 'Không thể lấy danh sách lịch hẹn');
                 
                 if (isInitialMount.current) {
                     setLoading(false);
@@ -190,7 +190,7 @@ export default function TodayPatientList() {
 
         } catch (err: any) {
             console.error('Error updating status:', err);
-            alert('Failed to update appointment status');
+            alert('Không thể cập nhật trạng thái lịch hẹn');
         }
     };
 
@@ -290,7 +290,7 @@ export default function TodayPatientList() {
             <div className="bg-white rounded-xl shadow-lg max-w-[60w] mx-auto min-h-[55vh] max-h-[70vh] flex items-center justify-center">
                 <div className="text-center">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                    <p className="text-gray-600">Loading appointments...</p>
+                    <p className="text-gray-600">Đang tải danh sách bệnh nhân...</p>
                 </div>
             </div>
         );
@@ -300,7 +300,7 @@ export default function TodayPatientList() {
         return (
             <div className="bg-white rounded-xl shadow-lg max-w-[60w] mx-auto min-h-[55vh] max-h-[70vh] flex items-center justify-center">
                 <div className="text-center text-red-600">
-                    <p className="text-lg font-semibold mb-2">Error</p>
+                    <p className="text-lg font-semibold mb-2">Lỗi</p>
                     <p>{error}</p>
                 </div>
             </div>
@@ -315,9 +315,9 @@ export default function TodayPatientList() {
             >
                 <div className="px-6 py-4 sticky top-0 bg-white z-10 shadow">
                     <div className="flex items-center justify-between">
-                        <h2 className="text-lg font-semibold text-gray-800">Today's Patients</h2>
+                        <h2 className="text-lg font-semibold text-gray-800">Bệnh nhân hôm nay</h2>
                         <span className="text-sm text-gray-600 bg-blue-100 px-3 py-1 rounded-full">
-                            {data.length} {data.length === 1 ? 'appointment' : 'appointments'}
+                            {data.length} {data.length === 1 ? 'lịch hẹn' : 'lịch hẹn'}
                         </span>
                     </div>
                 </div>

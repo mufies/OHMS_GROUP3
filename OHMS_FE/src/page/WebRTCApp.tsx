@@ -4,6 +4,7 @@ import 'firebase/compat/firestore';
 import axios from 'axios';
 import { useWebSocketService } from '../services/webSocketServices';
 import { MedicalSpecialty, MedicalSpecialtyType, MEDICAL_SPECIALTY_LABELS } from '../constant/medicalSpecialty';
+import { BASE_URL } from '../utils/fetchFromAPI';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -68,10 +69,11 @@ const App: React.FC = () => {
   const [availableExaminations, setAvailableExaminations] = useState<MedicalExamination[]>([]);
   const [selectedExaminationIds, setSelectedExaminationIds] = useState<string[]>([]);
   const [isLoadingExaminations, setIsLoadingExaminations] = useState<boolean>(false);
+  const [isMicOn, setIsMicOn] = useState<boolean>(true);
 
   // Axios instance with interceptor
   const apiClient = axios.create({
-    baseURL: 'http://localhost:8080',
+    baseURL: BASE_URL,
     headers: {
       'Content-Type': 'application/json',
     },
@@ -156,6 +158,21 @@ const App: React.FC = () => {
       console.error('Error accessing media devices:', error);
     }
   };
+
+  // Toggle microphone on/off
+const toggleMicrophone = () => {
+  if (localStream) {
+    const audioTracks = localStream.getAudioTracks();
+    if (audioTracks.length > 0) {
+      const currentStatus = audioTracks[0].enabled;
+      audioTracks.forEach((track) => {
+        track.enabled = !currentStatus;
+      });
+      setIsMicOn(!currentStatus);
+    }
+  }
+};
+
 
   const createCall = async () => {
     if (!pc.current) return;
@@ -262,13 +279,11 @@ const App: React.FC = () => {
       const callData = (await callDoc.get()).data();
 
       if (!callData?.offer) {
-        console.error('No offer found');
         setConnectionStatus('Error: No offer found');
         return;
       }
 
       if (callData?.hangup) {
-        console.log('🔴 Call already ended');
         setConnectionStatus('Call already ended');
         return;
       }
@@ -291,7 +306,6 @@ const App: React.FC = () => {
         const data = snapshot.data();
         
         if (data?.hangup) {
-          console.log('🔴 Remote peer hung up');
           setConnectionStatus('Remote peer disconnected');
           hangup();
         }
@@ -310,7 +324,6 @@ const App: React.FC = () => {
         });
       });
     } catch (error) {
-      console.error('Error answering call:', error);
       setConnectionStatus('Error answering call');
     }
   };
@@ -321,9 +334,7 @@ const App: React.FC = () => {
     if (callDocRef.current) {
       try {
         await callDocRef.current.update({ hangup: true });
-        console.log('✅ Hangup signal sent to remote peer');
       } catch (error) {
-        console.error('Error signaling hangup:', error);
       }
     }
     
@@ -339,7 +350,6 @@ const App: React.FC = () => {
     
     if (localStream) {
       localStream.getTracks().forEach((track) => {
-        console.log(`🎥 Stopping ${track.kind} track`);
         track.stop();
       });
       setLocalStream(null);
@@ -352,20 +362,17 @@ const App: React.FC = () => {
     setConnectionStatus('Disconnected');
     callDocRef.current = null;
     
-    console.log('🔴 Hangup completed, media turned off');
     
     setTimeout(() => {
-      console.log('🚪 Closing window...');
       window.close();
       
       setTimeout(() => {
-        console.log('⚠️ Window close blocked, redirecting to home...');
         window.location.href = '/';
       }, 500);
     }, 1000);
   };
 
-  const webSocketUrl = 'http://localhost:8080/ws';
+  const webSocketUrl = `${BASE_URL}/ws`;
   
   const onConnected = useCallback(() => {
     console.log('WebSocket Connected!');
@@ -386,7 +393,15 @@ const App: React.FC = () => {
   useEffect(() => {
     connect();
   }, [connect]);
-  
+  useEffect(() => {
+  if (localStream) {
+    const audioTracks = localStream.getAudioTracks();
+    if (audioTracks.length > 0) {
+      setIsMicOn(audioTracks[0].enabled);
+    }
+  }
+}, [localStream]);
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     
@@ -397,7 +412,6 @@ const App: React.FC = () => {
     const urlRole = params.get('role');
     const urlAnotherUser = params.get('anotherUser');
     
-    console.log('📋 URL Parameters:', { urlRoomId, urlUser, callType, urlCallId, urlRole, urlAnotherUser });
     
     if (urlRoomId) setRoomId(urlRoomId);
     if (urlUser) setUrlCurrentUser(urlUser);
@@ -416,8 +430,7 @@ const App: React.FC = () => {
     
     const finalMediaMode: 'video' | 'audio' = (callType === 'video' || callType === 'audio') ? callType as 'video' | 'audio' : 'video';
     setMediaMode(finalMediaMode);
-    console.log('🎥 Media mode set to:', finalMediaMode);
-    console.log('👤 User role set to:', urlRole || 'patient (default)');
+
     
     if (urlCallId && !autoStartedRef.current) {
       autoStartedRef.current = true;
@@ -438,7 +451,6 @@ const App: React.FC = () => {
         video: mediaMode === 'video',
         audio: true
       };
-      console.log('📹 Starting media with constraints:', constraints);
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       setLocalStream(stream);
       setMediaStarted(true);
@@ -448,7 +460,6 @@ const App: React.FC = () => {
         await createCall();
       }, 1000);
     } catch (error) {
-      console.error('Error accessing media devices:', error);
       setConnectionStatus('Error accessing camera/microphone');
     }
   };
@@ -461,17 +472,14 @@ const App: React.FC = () => {
         video: mediaMode === 'video',
         audio: true
       };
-      console.log('📹 Starting media with constraints:', constraints);
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       setLocalStream(stream);
       setMediaStarted(true);
       
       setTimeout(async () => {
-        console.log('📞 Answering call...');
         await answerCall();
       }, 1000);
     } catch (error) {
-      console.error('Error accessing media devices:', error);
       setConnectionStatus('Error accessing camera/microphone');
     }
   };
@@ -496,13 +504,10 @@ const App: React.FC = () => {
       if (response.data && response.data.results) {
         setAvailableExaminations(response.data.results);
         setSelectedExaminationIds([]);
-        console.log('✅ Fetched examinations:', response.data.results);
       } else {
         setAvailableExaminations([]);
-        console.log('⚠️ No results found');
       }
     } catch (error) {
-      console.error('❌ Error fetching examinations:', error);
       setAvailableExaminations([]);
     } finally {
       setIsLoadingExaminations(false);
@@ -538,14 +543,12 @@ const App: React.FC = () => {
         medicalExaminationIds: selectedExaminationIds
       });
 
-      console.log('✅ Medical request created:', response.data);
       alert('Tạo yêu cầu khám bệnh thành công!');
       
       setSelectedSpecialty('');
       setAvailableExaminations([]);
       setSelectedExaminationIds([]);
     } catch (error) {
-      console.error('❌ Error creating medical request:', error);
       alert('Không thể tạo yêu cầu khám bệnh. Vui lòng thử lại.');
     }
   };
@@ -697,8 +700,29 @@ const App: React.FC = () => {
           {/* Control Bar */}
           <div className="bg-gray-800 px-4 py-3 flex items-center justify-center gap-3 border-t border-gray-700">
             <button 
+              onClick={toggleMicrophone}
+              className={`p-4 rounded-full transition shadow-lg ${
+                isMicOn 
+                  ? 'bg-gray-600 hover:bg-gray-700 text-white' 
+                  : 'bg-red-600 hover:bg-red-700 text-white'
+              }`}
+              title={isMicOn ? 'Tắt microphone' : 'Bật microphone'}
+            >
+              {isMicOn ? (
+                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clipRule="evenodd" />
+                </svg>
+              ) : (
+                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M13.477 14.89A6 6 0 015.11 6.524l8.367 8.368zm1.414-1.414L6.524 5.11a6 6 0 018.367 8.367zM18 10a8 8 0 11-16 0 8 8 0 0116 0z" clipRule="evenodd" />
+                </svg>
+              )}
+            </button>
+
+            <button 
               onClick={hangup}
               className="p-4 rounded-full bg-red-600 hover:bg-red-700 text-white transition shadow-lg"
+              title="Kết thúc cuộc gọi"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 8l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M5 3a2 2 0 00-2 2v1c0 8.284 6.716 15 15 15h1a2 2 0 002-2v-3.28a1 1 0 00-.684-.948l-4.493-1.498a1 1 0 00-1.21.502l-1.13 2.257a11.042 11.042 0 01-5.516-5.517l2.257-1.128a1 1 0 00.502-1.21L9.228 3.683A1 1 0 008.279 3H5z" />

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { axiosInstance } from '../../../utils/fetchFromAPI';
+import { axiosInstance, BASE_URL, FRONTEND_URL } from '../../../utils/fetchFromAPI';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faPaperPlane, 
@@ -75,7 +75,7 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
     ) || null;
   }, [selectedPatient, chatRooms]);
 
-  const webSocketUrl = 'http://localhost:8080/ws';
+  const webSocketUrl = `${BASE_URL}/ws`;
   
   const { connect, subscribe, send, unsubscribe } = useWebSocketService(
     webSocketUrl,
@@ -398,7 +398,7 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
           callType: type,  // Use the parameter directly instead of state
           anotherUser: selectedPatient?.id
       }
-      openCallWindow(`http://localhost:5173/video?roomId=${variable.roomId}&currentUser=${variable.currentUser}&callType=${variable.callType}&role=doctor&anotherUser=${variable.anotherUser}`)
+      openCallWindow(`${FRONTEND_URL}/video?roomId=${variable.roomId}&currentUser=${variable.currentUser}&callType=${variable.callType}&role=doctor&anotherUser=${variable.anotherUser}`)
 
   }
 
@@ -420,7 +420,7 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
           {/* Search */}
           <div className="bg-white sticky top-0 z-10">
               <div className="p-4 pb-2">
-                  <p className="text-gray-900 font-semibold text-lg">Messages</p>
+                  <p className="text-gray-900 font-semibold text-lg">Tin nhắn</p>
               </div>
               <div className="px-4 pb-4">
                   <div className="relative">
@@ -430,7 +430,7 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
                       />
                       <input
                           type="text"
-                          placeholder="Search conversations..."
+                          placeholder="Tìm kiếm cuộc trò chuyện..."
                           value={searchTerm}
                           onChange={(e) => setSearchTerm(e.target.value)}
                           className="w-full pl-10 pr-4 py-2 border border-gray-300 text-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
@@ -473,9 +473,9 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
                     <p className="text-sm text-gray-600 truncate">
                       {patient.lastMessage 
                         ? (patient.lastMessage.includes('currentUser=') && patient.lastMessage.includes('callType=')
-                            ? 'Call Request'
+                            ? 'Yêu cầu gọi'
                             : patient.lastMessage)
-                        : 'No messages yet'}
+                        : 'Chưa có tin nhắn'}
                     </p>
                   </div>
                 </div>
@@ -484,7 +484,7 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
             ))
           ) : (
             <div className="flex justify-center p-4">
-              <span className="text-gray-500">No patients available</span>
+              <span className="text-gray-500">Không có bệnh nhân nào</span>
             </div>
           )}
         </div>
@@ -516,14 +516,14 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
                   <button 
                     className="w-10 h-10 border border-gray-200 rounded-full flex items-center justify-center hover:bg-gray-50 transition-colors cursor-pointer" 
                     onClick={() => createCall('audio')}
-                    title="Audio Call"
+                    title="Gọi thoại"
                   >
                     <FontAwesomeIcon icon={faPhone} className="text-gray-600 text-sm" />
                   </button>
                   <button 
                     className="w-10 h-10 border border-gray-200 rounded-full flex items-center justify-center hover:bg-gray-50 transition-colors cursor-pointer"
                     onClick={() => createCall('video')}
-                    title="Video Call"
+                    title="Gọi video"
                   >
                     <FontAwesomeIcon icon={faVideo} className="text-gray-600 text-sm" />
                   </button>
@@ -561,7 +561,7 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
                             </div>
                             <div className="flex-1">
                               <p className="font-medium text-gray-900 text-sm">
-                                {message.content.includes('callType=video') ? 'Video call' : 'Audio call'}
+                                {message.content.includes('callType=video') ? 'Gọi video' : 'Gọi thoại'}
                               </p>
                             </div>
                           </div>
@@ -577,7 +577,7 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
                             </div>
                             <div className="flex-1">
                               <p className="font-medium text-gray-900 text-sm">
-                                {message.content.includes('callType=video') ? 'Video call' : 'Audio call'}
+                                {message.content.includes('callType=video') ? 'Gọi video' : 'Gọi thoại'}
                               </p>
                             </div>
                           </div>
@@ -594,7 +594,7 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
                                 <img
                                   key={index}
                                   src={imageUrl}
-                                  alt={`Image ${index + 1}`}
+                                  alt={`Ảnh ${index + 1}`}
                                   className="max-w-full h-auto rounded-lg cursor-pointer"
                                   onClick={() => window.open(imageUrl, '_blank')}
                                   style={{ maxHeight: '200px' }}
@@ -652,7 +652,7 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
                         handleSendMessageNoForm();
                       }
                     }}
-                    placeholder="Type your message..."
+                    placeholder="Nhập tin nhắn của bạn..."
                     autoComplete="off"
                     autoCorrect="off"
                     autoCapitalize="off"
@@ -704,8 +704,8 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
           <div className="flex-1 flex items-center justify-center bg-gray-50">
             <div className="text-center">
               <FontAwesomeIcon icon={faUserInjured} className="text-6xl text-gray-300 mb-4" />
-              <p className="text-gray-500 text-lg mb-2">Select a patient to start chatting</p>
-              <p className="text-gray-400 text-sm">Choose a patient from the list to begin your conversation</p>
+              <p className="text-gray-500 text-lg mb-2">Chọn bệnh nhân để bắt đầu trò chuyện</p>
+              <p className="text-gray-400 text-sm">Chọn một bệnh nhân từ danh sách để bắt đầu cuộc trò chuyện của bạn</p>
             </div>
           </div>
         )}

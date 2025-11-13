@@ -316,7 +316,7 @@ export default function AiChat() {
               Đặt khám bác sĩ
             </h1>
             <p className="mb-10 text-lg text-white/90 max-w-2xl mx-auto">
-              Đặt khám với hơn <strong className="font-bold">1,000</strong> bác sĩ đã kết nối chính thức với OHMS để có số thứ tự và khung giờ khám trước
+              Bạn có thể đặt khám với <strong className="font-bold">AI</strong> ở đây
             </p>
             <div className="relative mx-auto max-w-2xl">
               <input

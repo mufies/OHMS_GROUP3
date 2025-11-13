@@ -1,5 +1,5 @@
   import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-  import { axiosInstance } from '../../utils/fetchFromAPI';
+  import { axiosInstance, BASE_URL, FRONTEND_URL } from '../../utils/fetchFromAPI';
   import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
   import { 
     faPaperPlane, 
@@ -91,7 +91,7 @@ interface Appointment {
     }, [selectedDoctor, chatRooms]);
 
     // WebSocket setup 
-    const webSocketUrl = 'http://localhost:8080/ws';
+    const webSocketUrl = `${BASE_URL}/ws`;
     
     const { connect, subscribe, send, unsubscribe } = useWebSocketService(
       webSocketUrl,
@@ -462,7 +462,7 @@ useEffect(() => {
             anotherUser: selectedDoctor?.id
     // Use the parameter directly instead of state
         }
-        openCallWindow(`http://localhost:5173/video?roomId=${variable.roomId}&currentUser=${variable.currentUser}&callType=${variable.callType}&role=patient&anotherUser=${variable.anotherUser}`)
+        openCallWindow(`${FRONTEND_URL}/video?roomId=${variable.roomId}&currentUser=${variable.currentUser}&callType=${variable.callType}&role=patient&anotherUser=${variable.anotherUser}`)
 
     }
 

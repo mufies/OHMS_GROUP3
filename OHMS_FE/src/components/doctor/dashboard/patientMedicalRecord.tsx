@@ -215,7 +215,7 @@ export default function MedicalRecordModal({
             setRecords(response.data.results || []);
         } catch (err: any) {
             console.error('Error fetching medical records:', err);
-            setError(err.response?.data?.message || 'Failed to fetch medical records');
+            setError(err.response?.data?.message || 'Không thể lấy bệnh án của bệnh nhân');
         } finally {
             setLoading(false);
         }
@@ -233,7 +233,7 @@ export default function MedicalRecordModal({
             setAvailableMedicines(response.data.results || []);
         } catch (err: any) {
             console.error('Error fetching medicines:', err);
-            alert('Failed to fetch medicines');
+            alert('Không thể lấy danh sách thuốc');
         } finally {
             setLoadingMedicines(false);
         }
@@ -251,7 +251,7 @@ export default function MedicalRecordModal({
             setAvailableMedicalExaminations(response.data.results || []);
         } catch (err: any) {
             console.error('Error fetching medical examinations:', err);
-            alert('Failed to fetch medical examinations');
+            alert('Không thể lấy danh sách dịch vụ khám');
         } finally {
             setLoadingMedicalExams(false);
         }
@@ -264,7 +264,7 @@ export default function MedicalRecordModal({
             const token = localStorage.getItem('accessToken');
             
             if (selectedMedicalExaminations.length === 0) {
-                alert('Please select at least one medical examination');
+                alert('Vui lòng chọn ít nhất một dịch vụ khám');
                 return;
             }
 
@@ -343,7 +343,7 @@ export default function MedicalRecordModal({
             fetchMedicalRecords(); // Refresh records
         } catch (err: any) {
             console.error('Error creating service appointments:', err);
-            alert(err.response?.data?.message || 'Failed to create service appointments');
+            alert(err.response?.data?.message || 'Không thể tạo lịch khám dịch vụ');
         } finally {
             setUpdatingMedicalExams(false);
         }
@@ -380,7 +380,7 @@ export default function MedicalRecordModal({
             
             // Validate form
             if (!formData.appointmentId || !formData.symptoms || !formData.diagnosis) {
-                alert('Please fill in all required fields (Appointment ID, Symptoms, Diagnosis)');
+                alert('Vui lòng điền đầy đủ các trường bắt buộc (ID Lịch hẹn, Triệu chứng, Chẩn đoán)');
                 return;
             }
 
@@ -388,7 +388,7 @@ export default function MedicalRecordModal({
 
             if (selectedMedicines.length > 0) {
                 if (!selectedMedicines.every(m => m.medicineId)) {
-                    alert('Please select medicine for all prescription items');
+                    alert('Vui lòng chọn thuốc cho tất cả các mục');
                     return;
                 }
 
@@ -458,10 +458,10 @@ export default function MedicalRecordModal({
             
             setShowCreateModal(false);
             fetchMedicalRecords(); // Refresh records
-            alert('Medical record created successfully!');
+            alert('Bệnh án đã được tạo thành công!');
         } catch (err: any) {
             console.error('Error creating medical record:', err);
-            alert(err.response?.data?.message || 'Failed to create medical record');
+            alert(err.response?.data?.message || 'Không thể tạo bệnh án');
         }
     };
 
@@ -504,7 +504,7 @@ export default function MedicalRecordModal({
                                     <FontAwesomeIcon icon={faFileAlt} className="text-white text-2xl" />
                                 </div>
                                 <div>
-                                    <h2 className="text-2xl font-bold text-white">Medical Records</h2>
+                                    <h2 className="text-2xl font-bold text-white">Bệnh án</h2>
                                     <p className="text-blue-100 text-sm mt-1 flex items-center gap-2">
                                         <FontAwesomeIcon icon={faUser} className="text-xs" />
                                         {patientName}
@@ -517,7 +517,7 @@ export default function MedicalRecordModal({
                                     className="bg-white text-[#046791] px-5 py-2.5 rounded-xl hover:bg-blue-50 transition-all duration-200 flex items-center gap-2 font-semibold shadow-lg hover:shadow-xl"
                                 >
                                     <FontAwesomeIcon icon={faPlus} />
-                                    New Record
+                                    Bệnh án mới
                                 </button>
                                 <button
                                     onClick={onClose}
@@ -534,14 +534,14 @@ export default function MedicalRecordModal({
                                 <div className="flex items-center justify-center py-20">
                                     <div className="text-center">
                                         <div className="animate-spin rounded-full h-16 w-16 border-4 border-[#046791] border-t-transparent mx-auto mb-4"></div>
-                                        <p className="text-gray-600 font-medium">Loading medical records...</p>
+                                        <p className="text-gray-600 font-medium">Đang tải bệnh án...</p>
                                     </div>
                                 </div>
                             ) : error ? (
                                 <div className="text-center py-20">
                                     <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-8 max-w-md mx-auto">
                                         <div className="text-red-500 text-5xl mb-4">⚠️</div>
-                                        <p className="text-xl font-semibold text-red-700 mb-2">Error Loading Records</p>
+                                        <p className="text-xl font-semibold text-red-700 mb-2">Lỗi tải bệnh án</p>
                                         <p className="text-red-600">{error}</p>
                                     </div>
                                 </div>
@@ -549,8 +549,8 @@ export default function MedicalRecordModal({
                                 <div className="text-center py-20">
                                     <div className="bg-white border-2 border-dashed border-gray-300 rounded-2xl p-12 max-w-md mx-auto">
                                         <FontAwesomeIcon icon={faStethoscope} className="text-7xl mb-6 text-gray-300" />
-                                        <p className="text-xl font-semibold text-gray-700 mb-2">No Medical Records Found</p>
-                                        <p className="text-gray-500">Create a new record to get started</p>
+                                        <p className="text-xl font-semibold text-gray-700 mb-2">Không tìm thấy bệnh án</p>
+                                        <p className="text-gray-500">Tạo bệnh án mới để bắt đầu</p>
                                     </div>
                                 </div>
                             ) : (
@@ -728,7 +728,7 @@ export default function MedicalRecordModal({
                                                                 ? 'bg-blue-100 text-blue-700'
                                                                 : 'bg-yellow-100 text-yellow-700'
                                                         }`}>
-                                                            {serviceApp.status}
+                                                            {serviceApp.status === 'Schedule' ? 'Đã lên lịch' : serviceApp.status === 'Completed' ? 'Đã hoàn thành' : 'Chờ xử lý'}
                                                         </span>
                                                     </div>
                                                     {serviceApp.medicalExaminations && serviceApp.medicalExaminations.length > 0 && (

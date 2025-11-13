@@ -175,7 +175,7 @@ function BookingSchedule() {
   const waitServices = servicesArray.filter(s => !s.type || s.type === 'WAIT');
   const stayServices = servicesArray.filter(s => s.type === 'STAY');
   
-  return [...waitServices, ...stayServices];  
+    return [...waitServices, ...stayServices];  
 };
 
 
@@ -193,10 +193,8 @@ function BookingSchedule() {
           `/appointments/patient/${userId}`
         );
 
-        console.log('Patient appointments:', response.data);
         setPatientAppointments(Array.isArray(response.data) ? response.data : []);
       } catch (error) {
-        console.error('Error fetching patient appointments:', error);
         setPatientAppointments([]);
       }
     };
@@ -204,7 +202,6 @@ function BookingSchedule() {
     fetchPatientAppointments();
   }, []);
 
-  // Fetch appointments for the selected date to check conflicts
   useEffect(() => {
     const fetchDateAppointments = async () => {
       if (weekSchedule.length === 0 || !weekSchedule[selectedDay]) return;
@@ -219,7 +216,6 @@ function BookingSchedule() {
         const appointments: Appointment[] = Array.isArray(response.data) ? response.data : [];
         setDateAppointments(appointments);
       } catch (error) {
-        console.error('Error fetching date appointments:', error);
         setDateAppointments([]);
       }
     };
@@ -228,31 +224,22 @@ function BookingSchedule() {
   }, [selectedDay, weekSchedule]);
 
 const isSlotConflictingWithPatient = (startTime: string, endTime: string): boolean => {
-  // Check conflicts in dateAppointments (all appointments for selected date)
   const hasDateConflict = dateAppointments.some(apt => {
-    // Only check parent appointments (not service appointments)
     if (apt.parentAppointmentId !== null) return false;
     
-    // Skip cancelled appointments
     if (apt.status === 'CANCELLED') return false;
     
-    // Check only the parent appointment's time range
     return startTime < apt.endTime && endTime > apt.startTime;
   });
 
-  // Check conflicts in patientAppointments (patient's own appointments across all dates)
   const selectedDate = weekSchedule[selectedDay]?.date;
   const hasPatientConflict = patientAppointments.some(apt => {
-    // Only check parent appointments (not service appointments)
     if (apt.parentAppointmentId !== null) return false;
     
-    // Only check appointments on the selected date
     if (apt.workDate !== selectedDate) return false;
     
-    // Skip cancelled appointments
     if (apt.status === 'CANCELLED') return false;
     
-    // Check only the parent appointment's time range
     return startTime < apt.endTime && endTime > apt.startTime;
   });
 
@@ -271,7 +258,6 @@ const isSlotConflictingWithPatient = (startTime: string, endTime: string): boole
     return slotDate < now;
   };
 
-  // Helper: Phân loại dịch vụ theo category
   const categorizeServices = () => {
     const diagnosticServices: MedicalExamination[] = [];
     const clinicalServices: MedicalExamination[] = [];
@@ -304,7 +290,6 @@ const isSlotConflictingWithPatient = (startTime: string, endTime: string): boole
     return { diagnosticServices, clinicalServices };
   };
 
-  // Helper: Tính toán time slot sau khoảng thời gian chờ
   const getSlotAfterWaitTime = (startSlot: TimeSlot, waitMinutes: number, daySlots: TimeSlot[]): TimeSlot | null => {
     const [startHour, startMin] = startSlot.startTime.split(':').map(Number);
     const startTotalMinutes = startHour * 60 + startMin;
@@ -388,7 +373,6 @@ const isSlotConflictingWithPatient = (startTime: string, endTime: string): boole
     setMultiStepSchedules(schedules.slice(0, 5));
   };
 
-  // Helper: Tính toán slots cho các dịch vụ cận lâm sàng
 const calculateDiagnosticSlots = (
   startSlot: TimeSlot,
   servicesArray: MedicalExamination[]
@@ -2198,7 +2182,6 @@ const calculateDiagnosticSlots = (
                           setSelectedServices([khamBenhService.id]);
                           setBookingType('CONSULTATION_ONLY');
                           setShowBookingTypeModal(false);
-                          console.log('Auto-assigned Khám bệnh service:', khamBenhService);
                         } else {
                           alert('Không tìm thấy dịch vụ "Khám bệnh" cho chuyên khoa này. Vui lòng liên hệ quản trị viên.');
                           return;
@@ -2208,7 +2191,6 @@ const calculateDiagnosticSlots = (
                         return;
                       }
                     } catch (error) {
-                      console.error('Error fetching Khám bệnh service:', error);
                       alert('Lỗi khi tải dịch vụ khám bệnh. Vui lòng thử lại.');
                       return;
                     }

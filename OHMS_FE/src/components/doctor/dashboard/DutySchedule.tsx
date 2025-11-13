@@ -164,14 +164,14 @@ const DutySchedule: React.FC = () => {
     <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 w-full">
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-lg font-semibold text-gray-800">
-          This Week&apos;s Duty Schedule
+          Lịch làm việc tuần này
         </h3>
         <span className="text-sm text-gray-600 border border-gray-200 rounded-full px-3 py-1">
           {currentWeek}
         </span>
       </div>
       <p className="text-sm text-gray-500 mb-5">
-        Your work schedule assigned by staff
+        Lịch làm việc được giao bởi nhân viên
       </p>
 
       <div className="grid grid-cols-7 gap-3">
@@ -202,7 +202,7 @@ const DutySchedule: React.FC = () => {
 
               {day.off ? (
                 <div className="text-xs text-gray-600 bg-gray-100 rounded-full py-1">
-                  Off
+                  Nghỉ
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -216,7 +216,7 @@ const DutySchedule: React.FC = () => {
                       }`}
                     >
                       <div>{s.time}</div>
-                      <div className="text-[11px]">{s.location}</div>
+                      <div className="text-[11px]">Phòng khám chính</div>
                     </div>
                   ))}
                 </div>

@@ -3,6 +3,7 @@ import axios from "axios";
 import { LOGIN_USER } from "../constant/enum";
 
 export const BASE_URL = "http://localhost:8080";
+export const FRONTEND_URL = "http://localhost:5173";
 
 export const axiosInstance = axios.create({
    baseURL: `${BASE_URL}`,

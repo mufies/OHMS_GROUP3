@@ -16,11 +16,11 @@ interface NavigatorProps {
 
 function Navigator({ doctorSpecialty = "General Medicine" }: NavigatorProps) {
     const navigationItems = [
-        { icon: faTableColumns, label: "Dashboard", path: "/doctor"},
-        { icon: faClipboardList, label: "Pending Requests", path: "/doctor/pending-requests" },
-        { icon: faComment, label: "Chat", path: "/doctor/chat" },
-        { icon: faCalendar, label: "Schedule", path: "/doctor/schedule" },
-        { icon: faUser, label: "Profile", path: "/doctor/profile" },
+        { icon: faTableColumns, label: "Bảng điều khiển", path: "/doctor"},
+        { icon: faClipboardList, label: "Yêu cầu chờ", path: "/doctor/pending-requests" },
+        { icon: faComment, label: "Tin nhắn", path: "/doctor/chat" },
+        { icon: faCalendar, label: "Lịch làm việc", path: "/doctor/schedule" },
+        { icon: faUser, label: "Hồ sơ", path: "/doctor/profile" },
     ];
 
     const handleNavigation = (path: string) => {
@@ -49,14 +49,14 @@ function Navigator({ doctorSpecialty = "General Medicine" }: NavigatorProps) {
                         <FontAwesomeIcon icon={faStethoscope} className="text-2xl" />
                     </div>
                     <div>
-                        <h2 className="text-l font-bold text-black ">Doctor Portal</h2>
+                        <h2 className="text-l font-bold text-black ">Cổng Bác sĩ</h2>
                     </div>
                 </div>
             </div>
 
             {/* Navigation Items */}
             <nav className="flex-1 py-6">
-                <p className="text-gray-500 px-3 font-bold mb-2 text-sm">GENERAL</p>
+                <p className="text-gray-500 px-3 font-bold mb-2 text-sm">CHUNG</p>
                 <ul className="space-y-1 px-3">
                     {navigationItems.map((item, index) => (
                         <li key={index}>
@@ -90,7 +90,7 @@ function Navigator({ doctorSpecialty = "General Medicine" }: NavigatorProps) {
                             icon={faRightFromBracket}
                             className="text-base text-red-500"
                         />
-                        <span className="text-sm font-medium">Logout</span>
+                        <span className="text-sm font-medium">Đăng xuất</span>
                     </button>
                 </div>
             </nav>
@@ -98,10 +98,10 @@ function Navigator({ doctorSpecialty = "General Medicine" }: NavigatorProps) {
             {/* Footer */}
             <div className="p-4 border-t border-gray-200 bg-gray-50">
                 <p className="text-xs text-gray-500 text-center">
-                    OAHCS Doctor Portal v1.0
+                    OACHS Cổng Bác sĩ v1.0
                 </p>
                 <p className="text-xs text-gray-400 text-center mt-1">
-                    © 2025 Healthcare System
+                    © 2025 Hệ thống Y tế
                 </p>
             </div>
         </div>

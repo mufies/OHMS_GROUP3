@@ -96,13 +96,13 @@ export default function ScheduleCalendar() {
     }
     
     const decodedToken = decodeJWT(token);
-    return decodedToken?.userId || '36e0290a-53de-4333-b7e0-26f9ae8b967f';
+    return decodedToken?.userId;
   };
   
   const doctorId = getDoctorId();
 
-  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-  const weekDays = ['S','M','T','W','T','F','S'];
+  const months = ['Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6','Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12'];
+  const weekDays = ['CN','T2','T3','T4','T5','T6','T7'];
 
   // Format date to YYYY-MM-DD for API call
   const formatDateForAPI = (date: Date): string => {
@@ -147,7 +147,7 @@ export default function ScheduleCalendar() {
       );
 
       if (!response.ok) {
-        throw new Error('Failed to fetch appointments');
+        throw new Error('Không thể lấy lịch hẹn');
       }
 
       const data: AppointmentResponse[] = await response.json();
@@ -214,7 +214,7 @@ export default function ScheduleCalendar() {
         <div className="px-6 py-4 bg-white rounded-t-2xl shadow-sm">
           {/* Navigator */}
           <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-gray-900">Calendar</h2>
+            <h2 className="font-semibold text-gray-900">Lịch làm việc</h2>
 
             <div className="flex items-center gap-2">
               <button
@@ -289,7 +289,7 @@ export default function ScheduleCalendar() {
       <div className="bg-white rounded-lg shadow">
         <div className="p-4 border-b flex items-center justify-between">
           <h3 className="text-lg font-semibold text-gray-800">
-            {selectedDate.toLocaleDateString('en-US', { 
+            {selectedDate.toLocaleDateString('vi-VN', { 
               weekday: 'long', 
               year: 'numeric', 
               month: 'long', 
@@ -301,12 +301,12 @@ export default function ScheduleCalendar() {
         <div className="p-4">
           {loading ? (
             <div className="text-center py-8 text-gray-500">
-              <p>Loading appointments...</p>
+              <p>Đang tải lịch hẹn...</p>
             </div>
           ) : appointments.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
               <FontAwesomeIcon icon={faClock} className="text-4xl mb-4 text-gray-300" />
-              <p>No appointments scheduled for this day</p>
+              <p>Không có lịch hẹn nào cho ngày này</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -345,7 +345,7 @@ export default function ScheduleCalendar() {
   return (
     <div className="space-y-6 items-center justify-center">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-800">Schedule</h2>
+        <h2 className="text-2xl font-bold text-gray-800">Lịch làm việc</h2>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 w-full justify-center">
