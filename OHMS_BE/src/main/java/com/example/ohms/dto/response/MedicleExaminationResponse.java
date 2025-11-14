@@ -1,5 +1,6 @@
 package com.example.ohms.dto.response;
 
+import com.example.ohms.enums.MedicalSpecialty;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Data;
