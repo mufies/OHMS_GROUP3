@@ -44,7 +44,7 @@ public ConversationResponse createMessage(String roomId, ConversationRequest con
     User user = userRepository.findByIdWithRoles(conversationRequest.getUser()).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
     conversation.setUser(user);
     
-    conversation.setCreatedAt(LocalDateTime.now());
+    conversation.setCreatedAt(LocalDateTime.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh")));
     
     // Set list image URLs nếu có (từ Cloudinary)
     if (imageUrls != null && !imageUrls.isEmpty()) {
@@ -74,13 +74,13 @@ public ConversationResponse createMessage(String roomId, ConversationRequest con
    }
 public ConversationResponse update(String messageId,ConversationRequest conversationRequest){
    // kiểm tra message quá 30p là không thể xóa
-   LocalDateTime now = LocalDateTime.now();
+   LocalDateTime now = LocalDateTime.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
    Conversation conversation = conversationRepository.findById(messageId).orElseThrow(()-> new AppException(ErrorCode.MESSAGE_NOT_FOUND));
    LocalDateTime converSationChat = conversation.getCreatedAt();
    if(converSationChat.plusMinutes(30).isBefore(now)){
       throw new AppException(ErrorCode.MESSAGE_CANNOT_DELETE);
    }
-   conversation.setCreatedAt(LocalDateTime.now());
+   conversation.setCreatedAt(LocalDateTime.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh")));
    conversation.setMessage(conversationRequest.getMessage());
      return conversationMapper.toConversationResponse(conversationRepository.save(conversation));
    }

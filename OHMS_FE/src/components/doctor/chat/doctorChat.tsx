@@ -196,7 +196,7 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
         id: message.id || Date.now().toString(),
         senderId: message.user?.id ?? 'unknown',
         content: message.message,
-        timestamp: new Date(message.createdAt ?? Date.now()),
+        timestamp: parseTimestamp(message.createdAt ?? new Date()),
         isRead: false,
         imageUrls: message.imageUrls || undefined
       };
@@ -248,7 +248,7 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
             id: conv.id ?? Date.now().toString(),
             senderId: conv.user?.id ?? 'unknown',
             content: conv.message,
-            timestamp: new Date(conv.createdAt ?? new Date()),
+            timestamp: parseTimestamp(conv.createdAt ?? new Date()),
             isRead: true,
             imageUrls: conv.imageUrls || undefined
           }));
@@ -381,7 +381,12 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
     });
   }, [patients, searchTerm]);
 
-  const formatTime = (date: Date) => date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  // Parse timestamp string from API
+  const parseTimestamp = (timestampStr: string | Date): Date => {
+    return new Date(timestampStr);
+  };
+
+  const formatTime = (date: Date) => date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' });
 
   const formatLastMessageTime = (date: Date) => {
     const now = new Date();

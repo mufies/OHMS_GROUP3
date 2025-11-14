@@ -327,7 +327,7 @@ useEffect(() => {
           id: message.id || Date.now().toString(),
           senderId: message.user?.id || 'unknown',
           content: message.message,
-          timestamp: new Date(message.createdAt || Date.now()),
+          timestamp: parseTimestamp(message.createdAt || new Date()),
           isRead: false,
           imageUrls: message.imageUrls || undefined
         };
@@ -365,7 +365,7 @@ useEffect(() => {
               id: conv.id || Date.now().toString(),
               senderId: conv.user?.id || 'unknown',
               content: conv.message,
-              timestamp: new Date(conv.createdAt || new Date()),
+              timestamp: parseTimestamp(conv.createdAt || new Date()),
               isRead: true,
               imageUrls: conv.imageUrls || undefined
             }));
@@ -434,6 +434,11 @@ useEffect(() => {
     }, [messages, scrollToBottom]);
 
     // Format helpers
+    // Parse timestamp string from API
+    const parseTimestamp = (timestampStr: string | Date): Date => {
+      return new Date(timestampStr);
+    };
+
     const formatTime = (date: Date) => {
       return date.toLocaleTimeString('vi-VN', { 
         hour: '2-digit', 
