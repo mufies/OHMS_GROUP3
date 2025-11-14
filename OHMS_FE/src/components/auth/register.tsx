@@ -58,9 +58,8 @@ const Register = ({ onClose }: AuthProps) => {
 
     try {
       const res = await fetchRegisterUser(formData);
-      console.log('Register successful:', res.data);
       onClose();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Register failed:', err);
       setError(err.response?.data?.message || 'Đăng ký thất bại. Vui lòng thử lại.');
     } finally {

@@ -20,8 +20,14 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
+        // Read from environment variable, fallback to defaults
+        String allowedOrigins = System.getenv().getOrDefault(
+            "CORS_ALLOWED_ORIGINS", 
+            "http://localhost:5173,http://localhost:4173,http://localhost:3000"
+        );
+        
         registry.addEndpoint("/ws")
-                .setAllowedOrigins("http://localhost:5173", "http://localhost:5174", "http://localhost:3000")
+                .setAllowedOrigins(allowedOrigins.split(","))
                 .withSockJS();
     }
 }

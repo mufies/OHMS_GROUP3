@@ -4,7 +4,7 @@ import type React from "react"
 import { useState } from "react"
 import { X, Mail, Lock, Loader2 } from "lucide-react"
 import { toast } from "react-toastify"
-import { axiosInstance, fetchGetProfile, fetchLoginUser } from "../../utils/fetchFromAPI"
+import {  fetchGetProfile, fetchLoginUser } from "../../utils/fetchFromAPI"
 import { useNavigate } from "react-router-dom"
 import ForgotPasswordModal from "./ForgotPasswordModal"
 import ResetPasswordModal from "./ResetPasswordModal" // 👈 thêm dòng này

@@ -2,8 +2,8 @@ import axios from "axios";
 // để nguyên đây, không được xóa
 import { LOGIN_USER } from "../constant/enum";
 
-export const BASE_URL = "http://localhost:8080";
-export const FRONTEND_URL = "http://localhost:5173";
+export const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+export const FRONTEND_URL = import.meta.env.VITE_FRONTEND_URL || "http://localhost:5173";
 
 export const axiosInstance = axios.create({
    baseURL: `${BASE_URL}`,

@@ -84,7 +84,6 @@ public class MedicalRecordService {
         }
         
         MedicalRecord savedRecord = medicalRecordRepository.save(medicalRecord);
-        log.info("Medical record created successfully with id: {}", savedRecord.getId());
         
         return medicalRecordMapper.toResponse(savedRecord);
     }

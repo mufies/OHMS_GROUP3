@@ -90,7 +90,6 @@ public class AppointmentService {
             }
             
             // Thêm query thủ công để xem appointment nào đang match
-            log.error("Running manual overlap check for NEW appointment: {}-{}", request.getStartTime(), request.getEndTime());
             List<Appointment> allAppointments = appointmentRepository.findByWorkDate(request.getWorkDate());
             for (Appointment apt : allAppointments) {
                 boolean doctorMatch = apt.getDoctor() != null && apt.getDoctor().getId().equals(request.getDoctorId());
@@ -99,16 +98,12 @@ public class AppointmentService {
                 if (doctorMatch || patientMatch) {
                     boolean overlap = request.getStartTime().isBefore(apt.getEndTime()) && 
                                     request.getEndTime().isAfter(apt.getStartTime());
-                    log.error("  - Appointment {}: Time {}-{}, Doctor={}, Patient={}, Overlap={}", 
-                             apt.getId(), apt.getStartTime(), apt.getEndTime(),
-                             doctorMatch ? "MATCH" : "no", patientMatch ? "MATCH" : "no", overlap);
                 }
             }
             
             throw new RuntimeException("Time slot already booked for doctor or patient!");
         }
         
-        log.info("✅ No conflict, proceeding with appointment creation");
     }
         
         // Lấy thông tin doctor và patient
@@ -156,15 +151,12 @@ public class AppointmentService {
             
             // Set medical examinations - JPA sẽ tự tạo records trong bảng junction
             appointment.setMedicalExamnination(medicalExaminations);
-            log.info("Added {} medical examinations to appointment", medicalExaminations.size());
         }
 
         Appointment savedAppointment = appointmentRepository.save(appointment);
-        log.info("Appointment created successfully with id: {}", savedAppointment.getId());
 
         // Kiểm tra nếu có dịch vụ "Tư vấn online" thì tạo chat room
         if (request.getMedicalExaminationIds() != null && !request.getMedicalExaminationIds().isEmpty()) {
-            log.info("tao chat rom");
             boolean isOnlineConsult = request.getMedicalExaminationIds().stream()
                 .anyMatch(id -> {
                     Optional<MedicalExamination> exam = medicleExaminatioRepository.findById(id);
@@ -173,18 +165,25 @@ public class AppointmentService {
             
             if (isOnlineConsult && request.getDoctorId() != null && !request.getDoctorId().isBlank()) {
                 try {
-                    // Tạo chat room cho patient và doctor
-                    com.example.ohms.dto.request.RoomChatRequest roomChatRequest = 
-                        com.example.ohms.dto.request.RoomChatRequest.builder()
-                            .user(Set.of(request.getPatientId(), request.getDoctorId()))
-                            .build();
-                    
-                    roomChatService.createRoomChat(roomChatRequest);
-                    
-                    log.info("✅ Chat room created for online consultation appointment: {}", savedAppointment.getId());
+                    // Kiểm tra xem đã có room chat giữa 2 user này chưa
+                    try {
+                        roomChatService.getExistingRoomChat(request.getPatientId(), request.getDoctorId());
+                        log.info("Room chat already exists between patient {} and doctor {}", 
+                                 request.getPatientId(), request.getDoctorId());
+                    } catch (Exception e) {
+                        // Chưa có room chat -> tạo mới
+                        com.example.ohms.dto.request.RoomChatRequest roomChatRequest = 
+                            com.example.ohms.dto.request.RoomChatRequest.builder()
+                                .user(Set.of(request.getPatientId(), request.getDoctorId()))
+                                .build();
+                        
+                        roomChatService.createRoomChat(roomChatRequest);
+                        log.info("Created new room chat between patient {} and doctor {}", 
+                                 request.getPatientId(), request.getDoctorId());
+                    }
                 } catch (Exception e) {
-                    log.error("❌ Failed to create chat room for appointment: {}", savedAppointment.getId(), e);
                     // Không throw exception để không rollback appointment
+                    log.error("Failed to create/check room chat", e);
                 }
             }
         }

@@ -69,7 +69,7 @@ int totalPrice = prescriptionRequest.getMedicinePrescription().stream()
             throw new AppException(ErrorCode.MEDICLE_NOT_FOUND);
         }
 
-        medicine.setQuantity(medicine.getQuantity() - request.getAmount());
+        // medicine.setQuantity(medicine.getQuantity() - request.getAmount());
         medicineRepository.save(medicine);
 
 
@@ -96,19 +96,17 @@ prescriptionRequest.getMedicinePrescription().forEach(request -> {
     pm.setAmount(request.getAmount());
     pm.setInstruction(request.getInstruction());
     prescriptionMedicineRepository.save(pm);
-    log.error("AAAAAAAAAAAAAA{}",pm);
     setPrescriptionMedicine.add(pm);
     prescriptionMedicineRepository.save(pm); // save từng cái
 });
 
 // gán vào prescription
-prescription.setMedicinePrescription(setPrescriptionMedicine);
-log.info("RRRRRRRRRRRRRRRRRRRRR{}", prescription);
-// Lưu vào DB
-Prescription saved = prescriptionRepository.save(prescription);
+    prescription.setMedicinePrescription(setPrescriptionMedicine);
+    // Lưu vào DB
+    Prescription saved = prescriptionRepository.save(prescription);
 
-// Trả về response DTO
-return prescriptionMapper.toPrescriptionResponse(saved);
+    // Trả về response DTO
+    return prescriptionMapper.toPrescriptionResponse(saved);
 
 }
 // view đơn thuốc từng dùng của từng bệnh nhân

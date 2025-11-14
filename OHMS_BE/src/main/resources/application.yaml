@@ -47,7 +47,7 @@ spring:
       max-file-size: 10MB
       max-request-size: 10MB
   config:
-    import: optional:file:OHMS_BE/.env[.properties]
+    import: optional:file:.env[.properties]
 
 app:
   signal-key: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"

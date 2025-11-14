@@ -21,9 +21,7 @@ interface StaffListProps {
 }
 
 const StaffList: React.FC<StaffListProps> = ({ users, onEdit, onDelete }) => {
-  const getRoleDisplayName = (roles: User['roles']) => {
-    return roles.map(role => role.name).join(', ');
-  };
+
 
   const getRoleBadgeColor = (roleName: string) => {
     switch (roleName) {
