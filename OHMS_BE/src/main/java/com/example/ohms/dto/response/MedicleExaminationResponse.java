@@ -1,6 +1,5 @@
 package com.example.ohms.dto.response;
 
-import com.example.ohms.enums.MedicalSpecialty;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Data;
@@ -17,5 +16,5 @@ public class MedicleExaminationResponse {
    int price;
    Integer minDuration; // Thời gian tối thiểu để hoàn thành (phút)
    String type; // Loại dịch vụ
-   Boolean stay; // Dịch vụ cần chờ để lấy kết quả
+   String stay; // Dịch vụ cần chờ để lấy kết quả
 }

@@ -11,5 +11,7 @@ import com.example.ohms.entity.MedicalExamination;
 public interface MedicalExaminationMappers {
    @Mapping(target = "id", ignore = true)
    MedicalExamination toMedicalExamination(MedicleExaminationRequest medicleExaminationRequest);
+   
+   @Mapping(target = "stay", expression = "java(medicalExamination.getStay() != null && medicalExamination.getStay() ? \"true\" : \"false\")")
    MedicleExaminationResponse toMedicleExaminationResponse(MedicalExamination medicalExamination);
 }
