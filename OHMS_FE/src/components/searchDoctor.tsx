@@ -151,6 +151,9 @@ export default function AiChat() {
         await sendMessage(searchInput);
         setSearchInput('');
       }, 100);
+    } else if (messages.length > 0) {
+      console.log("click");
+      setShowChatModal(true);
     }
   };
 
@@ -183,6 +186,7 @@ export default function AiChat() {
 
   const closeModal = () => {
     setSearchInput('');
+    setShowChatModal(false);
   };
 
   const cleanAIMessage = (text: string): string => {
@@ -325,6 +329,7 @@ export default function AiChat() {
                 value={searchInput}
                 onChange={handleSearchInput}
                 onKeyPress={handleKeyPress}
+                onFocus={() => messages.length > 0 && setShowChatModal(true)}
                 className="w-full rounded-2xl border-2 border-white/30 bg-white/95 px-6 py-4 pr-14 text-base text-gray-800 placeholder-gray-500 shadow-lg focus:border-white focus:outline-none focus:ring-4 focus:ring-white/30 transition-all"
               />
               <button

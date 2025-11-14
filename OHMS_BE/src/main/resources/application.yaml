@@ -46,6 +46,8 @@ spring:
     multipart:
       max-file-size: 10MB
       max-request-size: 10MB
+  config:
+    import: optional:file:OHMS_BE/.env[.properties]
 
 app:
   signal-key: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
@@ -54,7 +56,10 @@ gemini:
   api:
     key: ${GEMINI_API_KEY}
     model: gemini-2.5-flash
-
+vietqr:
+  clientId: ${VIETQR_CLIENT_ID}
+  clientSecret: ${VIETQR_CLIENT_SECRET}
+  checksumKey: ${VIETQR_CHECKSUM_KEY}
 payment:
   vn-pay:
     url: https://sandbox.vnpayment.vn/paymentv2/vpcpay.html

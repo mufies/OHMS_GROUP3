@@ -224,26 +224,39 @@ function BookingSchedule() {
   }, [selectedDay, weekSchedule]);
 
 const isSlotConflictingWithPatient = (startTime: string, endTime: string): boolean => {
-  const hasDateConflict = dateAppointments.some(apt => {
-    if (apt.parentAppointmentId !== null) return false;
-    
-    if (apt.status === 'CANCELLED') return false;
-    
-    return startTime < apt.endTime && endTime > apt.startTime;
-  });
-
   const selectedDate = weekSchedule[selectedDay]?.date;
-  const hasPatientConflict = patientAppointments.some(apt => {
-    if (apt.parentAppointmentId !== null) return false;
+  
+  const doctorAppointments = dateAppointments.filter(apt => 
+    apt.doctorId === selectedDoctor?.id && apt.status !== 'CANCELLED'
+  );
+  
+  const patientDayAppointments = patientAppointments.filter(apt => 
+    apt.workDate === selectedDate && apt.status !== 'CANCELLED'
+  );
+  
+  // Helper function to check if two time ranges overlap
+  const hasTimeOverlap = (start1: string, end1: string, start2: string, end2: string): boolean => {
+    return start1 < end2 && end1 > start2;
+  };
+  
+  const hasDoctorConflict = doctorAppointments.some(apt => 
+    hasTimeOverlap(startTime, endTime, apt.startTime, apt.endTime)
+  );
+  
+  const hasPatientConflict = patientDayAppointments.some(apt => {
+    // Check parent appointment time
+    const parentConflict = hasTimeOverlap(startTime, endTime, apt.startTime, apt.endTime);
     
-    if (apt.workDate !== selectedDate) return false;
+    // Check service appointments (children) times if exist
+    const serviceConflicts = apt.serviceAppointments?.some((child: any) => 
+      child.status !== 'CANCELLED' && 
+      hasTimeOverlap(startTime, endTime, child.startTime, child.endTime)
+    ) || false;
     
-    if (apt.status === 'CANCELLED') return false;
-    
-    return startTime < apt.endTime && endTime > apt.startTime;
+    return parentConflict || serviceConflicts;
   });
 
-  return hasDateConflict || hasPatientConflict;
+  return hasDoctorConflict || hasPatientConflict;
 };
 
 
