@@ -16,5 +16,4 @@ public class MedicleExaminationResponse {
    int price;
    Integer minDuration; // Thời gian tối thiểu để hoàn thành (phút)
    String type; // Loại dịch vụ
-   String stay; // Dịch vụ cần chờ để lấy kết quả
 }

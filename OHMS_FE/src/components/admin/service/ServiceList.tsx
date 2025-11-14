@@ -6,7 +6,6 @@ interface Service {
   price: number;
   minDuration: number | null;
   type: string | null;
-  stay: boolean | null;
 }
 
 interface ServiceListProps {
@@ -49,9 +48,6 @@ const ServiceList: React.FC<ServiceListProps> = ({ services, onEdit, onDelete })
                 Loại dịch vụ
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Chờ kết quả
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Thao tác
               </th>
             </tr>
@@ -59,7 +55,7 @@ const ServiceList: React.FC<ServiceListProps> = ({ services, onEdit, onDelete })
           <tbody className="bg-white divide-y divide-gray-200">
             {services.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
+                <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
                   Không có dịch vụ nào
                 </td>
               </tr>
@@ -84,19 +80,6 @@ const ServiceList: React.FC<ServiceListProps> = ({ services, onEdit, onDelete })
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900">
                       {service.type || 'Không xác định'}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm">
-                      {service.stay ? (
-                        <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                          Có
-                        </span>
-                      ) : (
-                        <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
-                          Không
-                        </span>
-                      )}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">

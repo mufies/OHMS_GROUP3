@@ -6,7 +6,6 @@ interface Service {
   price: number;
   minDuration: number | null;
   type: string | null;
-  stay: boolean | null;
 }
 
 interface ServiceFormProps {
@@ -21,7 +20,6 @@ const ServiceForm: React.FC<ServiceFormProps> = ({ service, onSubmit, onCancel }
     price: '',
     minDuration: '',
     type: '',
-    stay: false,
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -35,7 +33,6 @@ const ServiceForm: React.FC<ServiceFormProps> = ({ service, onSubmit, onCancel }
         price: service.price.toString(),
         minDuration: service.minDuration?.toString() || '',
         type: service.type || '',
-        stay: service.stay ?? false,
       });
     } else {
       setFormData({
@@ -43,7 +40,6 @@ const ServiceForm: React.FC<ServiceFormProps> = ({ service, onSubmit, onCancel }
         price: '',
         minDuration: '',
         type: '',
-        stay: false,
       });
     }
   }, [service]);
@@ -76,12 +72,10 @@ const ServiceForm: React.FC<ServiceFormProps> = ({ service, onSubmit, onCancel }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value, type } = e.target;
-    const checked = (e.target as HTMLInputElement).checked;
-    
+    const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value,
+      [name]: value,
     }));
     
     // Clear error when user starts typing
@@ -108,7 +102,6 @@ const ServiceForm: React.FC<ServiceFormProps> = ({ service, onSubmit, onCancel }
             ? parseInt(formData.minDuration) 
             : null,
           type: formData.type.trim() || null,
-          stay: formData.stay,
         };
 
         await onSubmit(submitData);
@@ -217,24 +210,6 @@ const ServiceForm: React.FC<ServiceFormProps> = ({ service, onSubmit, onCancel }
             </select>
             <p className="text-gray-500 text-xs mt-1">
               Để trống nếu không xác định
-            </p>
-          </div>
-
-          <div>
-            <label className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                name="stay"
-                checked={formData.stay}
-                onChange={handleInputChange}
-                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-              />
-              <span className="text-sm font-medium text-gray-700">
-                Dịch vụ cần chờ để lấy kết quả
-              </span>
-            </label>
-            <p className="text-gray-500 text-xs mt-1 ml-6">
-              Ví dụ: Xét nghiệm, chụp X-quang, siêu âm...
             </p>
           </div>
 

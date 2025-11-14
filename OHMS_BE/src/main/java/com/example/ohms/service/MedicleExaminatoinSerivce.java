@@ -28,12 +28,6 @@ public class MedicleExaminatoinSerivce{
   @PreAuthorize("hasRole('admin')")
    public MedicleExaminationResponse createMedicleExamination(MedicleExaminationRequest medicleExaminationRequest){
       MedicalExamination medicalExamination = medicalExaminationMapper.toMedicalExamination(medicleExaminationRequest);
-      
-      // Nếu stay = true thì tự động set type = "STAY"
-      if(Boolean.TRUE.equals(medicleExaminationRequest.getStay())){
-         medicalExamination.setType("STAY");
-      }
-      
       medicleExaminationRepository.save(medicalExamination);
       return medicalExaminationMapper.toMedicleExaminationResponse(medicalExamination);
    }
@@ -62,13 +56,6 @@ public class MedicleExaminatoinSerivce{
       }
       if(medicleExaminationRequest.getMinDuration() != null){
          medicalExamination.setMinDuration(medicleExaminationRequest.getMinDuration());
-      }
-      if(medicleExaminationRequest.getStay() != null){
-         medicalExamination.setStay(medicleExaminationRequest.getStay());
-         // Nếu stay = true thì tự động set type = "STAY"
-         if(Boolean.TRUE.equals(medicleExaminationRequest.getStay())){
-            medicalExamination.setType("STAY");
-         }
       }
       if(medicleExaminationRequest.getType() != null){
          medicalExamination.setType(medicleExaminationRequest.getType());
