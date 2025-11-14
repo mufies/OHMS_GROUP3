@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import DoctorList from './DoctorList';
 import DoctorForm from './DoctorForm';
-import { fetchCreateUser } from '../../../utils/fetchFromAPI';
+import { axiosInstance, fetchCreateUser } from '../../../utils/fetchFromAPI';
 
 interface Doctor {
   id: string;
@@ -38,33 +38,15 @@ const DoctorManagement: React.FC = () => {
   const fetchDoctors = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('accessToken');
-      
-      if (!token) {
-        throw new Error('No access token found');
-      }
-
-      const response = await fetch('http://localhost:8080/users/getListDoctor', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data: ApiResponse = await response.json();
+      const { data } = await axiosInstance.get<ApiResponse>('/users/getListDoctor');
       
       if (data.code === 200) {
         setDoctors(data.results);
       } else {
         throw new Error('Failed to fetch doctors');
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+    } catch (err: any) {
+      setError(err.response?.data?.message || err.message || 'An error occurred');
       console.error('Error fetching doctors:', err);
     } finally {
       setLoading(false);
@@ -88,28 +70,11 @@ const DoctorManagement: React.FC = () => {
   const handleDeleteDoctor = async (doctorId: string) => {
     if (window.confirm('Bạn có chắc chắn muốn xóa bác sĩ này?')) {
       try {
-        const token = localStorage.getItem('accessToken');
-        
-        if (!token) {
-          throw new Error('No access token found');
-        }
-
-        const response = await fetch(`http://localhost:8080/users/${doctorId}`, {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        });
-
-        if (response.ok) {
-          // Refresh the list after successful deletion
-          fetchDoctors();
-        } else {
-          throw new Error('Failed to delete doctor');
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred');
+        await axiosInstance.delete(`/users/${doctorId}`);
+        // Refresh the list after successful deletion
+        fetchDoctors();
+      } catch (err: any) {
+        setError(err.response?.data?.message || err.message || 'An error occurred');
         console.error('Error deleting doctor:', err);
       }
     }
@@ -117,74 +82,11 @@ const DoctorManagement: React.FC = () => {
 
   const handleFormSubmit = async (doctorData: Partial<Doctor>) => {
     try {
-      const token = localStorage.getItem('accessToken');
-      
-      if (!token) {
-        throw new Error('No access token found');
-      }
-
-      if (editingDoctor) {
-        // Update existing doctor using PATCH API
+      // Helper function to build FormData
+      const buildFormData = (data: Partial<Doctor>): FormData => {
         const formData = new FormData();
         
-        // Add all doctor data fields to FormData
-        Object.entries(doctorData).forEach(([key, value]) => {
-          if (value !== null && value !== undefined) {
-            if (key === 'avatar' && value instanceof File) {
-              // Handle avatar file
-              formData.append('avatar', value);
-            } else if (key === 'medicleSpecially' && Array.isArray(value)) {
-              // Handle medicleSpecially array - send each enum value as separate form field
-              value.forEach((specialty) => {
-                formData.append('medicleSpecially', String(specialty));
-              });
-            } else if (key === 'roles' && Array.isArray(value)) {
-              // Handle roles array - send each role name as separate form field
-              value.forEach((role) => {
-                if (typeof role === 'object' && role.name) {
-                  formData.append('roles', role.name);
-                } else if (typeof role === 'string') {
-                formData.append('roles', role);
-                }
-              });
-            } else if (Array.isArray(value)) {
-              // Handle other arrays
-              formData.append(key, JSON.stringify(value));
-            } else if (typeof value === 'object') {
-              // Handle objects
-              formData.append(key, JSON.stringify(value));
-            } else {
-              // Handle primitive values
-              formData.append(key, String(value));
-            }
-          }
-        });
-
-        const response = await fetch(`http://localhost:8080/users/adminUpdateUser/${editingDoctor.id}`, {
-          method: 'PATCH',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            // Remove Content-Type header to let browser set it with boundary for FormData
-          },
-          body: formData,
-        });
-
-        if (response.ok) {
-          const result: UpdateResponse = await response.json();
-          console.log('Update successful:', result);
-          setShowForm(false);
-          setEditingDoctor(null);
-          fetchDoctors(); // Refresh the list
-        } else {
-          const errorData = await response.json();
-          throw new Error(errorData.message || 'Failed to update doctor');
-        }
-      } else {
-        // Create new doctor using POST API
-        const formData = new FormData();
-        
-        // Add all doctor data fields to FormData
-        Object.entries(doctorData).forEach(([key, value]) => {
+        Object.entries(data).forEach(([key, value]) => {
           if (value !== null && value !== undefined) {
             if (key === 'avatar' && value instanceof File) {
               // Handle avatar file
@@ -201,7 +103,7 @@ const DoctorManagement: React.FC = () => {
                   formData.append('roles', role.name);
                 } else if (typeof role === 'string') {
                   formData.append('roles', role);
-      }
+                }
               });
             } else if (Array.isArray(value)) {
               // Handle other arrays
@@ -215,7 +117,32 @@ const DoctorManagement: React.FC = () => {
             }
           }
         });
+        
+        return formData;
+      };
 
+      if (editingDoctor) {
+        // Update existing doctor using PATCH API
+        const formData = buildFormData(doctorData);
+        
+        const { data: result } = await axiosInstance.patch<UpdateResponse>(
+          `/users/adminUpdateUser/${editingDoctor.id}`,
+          formData,
+          {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+            },
+          }
+        );
+        
+        console.log('Update successful:', result);
+        setShowForm(false);
+        setEditingDoctor(null);
+        fetchDoctors(); // Refresh the list
+      } else {
+        // Create new doctor using POST API
+        const formData = buildFormData(doctorData);
+        
         const result = await fetchCreateUser(formData);
         console.log('Create successful:', result);
         setShowForm(false);
@@ -225,7 +152,8 @@ const DoctorManagement: React.FC = () => {
     } catch (err: any) {
       console.error('Error submitting form:', err);
       // Re-throw error to be caught by DoctorForm
-      throw new Error(err.response?.data?.message || err.message || 'Có lỗi xảy ra khi tạo bác sĩ');
+      const errorMessage = err.response?.data?.message || err.message || 'Có lỗi xảy ra khi tạo/cập nhật bác sĩ';
+      throw new Error(errorMessage);
     }
   };
 

@@ -20,7 +20,7 @@ spring:
               - email
               - profile
   datasource:
-    url: jdbc:mysql://localhost:3306/swpbackend?useSSL=false&serverTimezone=UTC
+    url: jdbc:mysql://localhost:3306/swpbackend?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
     username: root
     password: "root"
 

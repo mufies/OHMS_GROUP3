@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import StaffList from './StaffList';
 import StaffForm from './StaffForm';
-import { fetchCreateUser } from '../../../utils/fetchFromAPI';
+import { axiosInstance, fetchCreateUser } from '../../../utils/fetchFromAPI';
 
 interface User {
   id: string;
@@ -37,25 +37,7 @@ const StaffManagement: React.FC = () => {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('accessToken');
-      
-      if (!token) {
-        throw new Error('No access token found');
-      }
-
-      const response = await fetch('http://localhost:8080/users/getListUser', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data: ApiResponse = await response.json();
+      const { data } = await axiosInstance.get<ApiResponse>('/users/getListUser');
       
       if (data.code === 200) {
         // Filter only users with STAFF role
@@ -66,8 +48,8 @@ const StaffManagement: React.FC = () => {
       } else {
         throw new Error('Failed to fetch users');
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+    } catch (err: any) {
+      setError(err.response?.data?.message || err.message || 'An error occurred');
       console.error('Error fetching users:', err);
     } finally {
       setLoading(false);
@@ -91,28 +73,11 @@ const StaffManagement: React.FC = () => {
   const handleDeleteUser = async (userId: string) => {
     if (window.confirm('Bạn có chắc chắn muốn xóa người dùng này?')) {
       try {
-        const token = localStorage.getItem('accessToken');
-        
-        if (!token) {
-          throw new Error('No access token found');
-        }
-
-        const response = await fetch(`http://localhost:8080/users/${userId}`, {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        });
-
-        if (response.ok) {
-          // Refresh the list after successful deletion
-          fetchUsers();
-        } else {
-          throw new Error('Failed to delete user');
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred');
+        await axiosInstance.delete(`/users/${userId}`);
+        // Refresh the list after successful deletion
+        fetchUsers();
+      } catch (err: any) {
+        setError(err.response?.data?.message || err.message || 'An error occurred');
         console.error('Error deleting user:', err);
       }
     }
@@ -120,109 +85,75 @@ const StaffManagement: React.FC = () => {
 
   const handleFormSubmit = async (userData: Partial<User>) => {
     try {
-      const token = localStorage.getItem('accessToken');
-      
-      if (!token) {
-        throw new Error('No access token found');
-      }
+      // Helper function to build FormData
+      const buildFormData = (data: Partial<User>): FormData => {
+        const formData = new FormData();
+        
+        Object.entries(data).forEach(([key, value]) => {
+          if (value !== null && value !== undefined) {
+            if (key === 'medicleSpecially' && Array.isArray(value)) {
+              // Handle medicleSpecially array (used for staff positions) - send each value as separate form field
+              value.forEach((position) => {
+                formData.append('medicleSpecially', String(position));
+              });
+            } else if (key === 'roles' && Array.isArray(value)) {
+              // Handle roles array - send each role name as separate form field
+              value.forEach((role) => {
+                if (typeof role === 'object' && role.name) {
+                  formData.append('roles', role.name);
+                } else if (typeof role === 'string') {
+                  formData.append('roles', role);
+                }
+              });
+            } else if (Array.isArray(value)) {
+              // Handle other arrays
+              formData.append(key, JSON.stringify(value));
+            } else if (typeof value === 'object') {
+              // Handle objects
+              formData.append(key, JSON.stringify(value));
+            } else {
+              // Handle primitive values
+              formData.append(key, String(value));
+            }
+          }
+        });
+        
+        return formData;
+      };
 
       if (editingUser) {
         // Update existing user using PATCH API
-        const formData = new FormData();
+        const formData = buildFormData(userData);
         
-        // Add all user data fields to FormData
-        Object.entries(userData).forEach(([key, value]) => {
-          if (value !== null && value !== undefined) {
-            if (key === 'medicleSpecially' && Array.isArray(value)) {
-              // Handle medicleSpecially array (used for staff positions) - send each value as separate form field
-              value.forEach((position) => {
-                formData.append('medicleSpecially', String(position));
-              });
-            } else if (key === 'roles' && Array.isArray(value)) {
-              // Handle roles array - send each role name as separate form field
-              value.forEach((role) => {
-                if (typeof role === 'object' && role.name) {
-                  formData.append('roles', role.name);
-                } else if (typeof role === 'string') {
-                formData.append('roles', role);
-                }
-              });
-            } else if (Array.isArray(value)) {
-              // Handle other arrays
-              formData.append(key, JSON.stringify(value));
-            } else if (typeof value === 'object') {
-              // Handle objects
-              formData.append(key, JSON.stringify(value));
-            } else {
-              // Handle primitive values
-              formData.append(key, String(value));
-            }
+        const { data: result } = await axiosInstance.patch<UpdateResponse>(
+          `/users/adminUpdateUser/${editingUser.id}`,
+          formData,
+          {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+            },
           }
-        });
-
-        const response = await fetch(`http://localhost:8080/users/adminUpdateUser/${editingUser.id}`, {
-          method: 'PATCH',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            // Remove Content-Type header to let browser set it with boundary for FormData
-          },
-          body: formData,
-        });
-
-        if (response.ok) {
-          const result: UpdateResponse = await response.json();
-          console.log('Update successful:', result);
-          setShowForm(false);
-          setEditingUser(null);
-          fetchUsers(); // Refresh the list
-        } else {
-          const errorData = await response.json();
-          throw new Error(errorData.message || 'Failed to update user');
-        }
+        );
+        
+        console.log('Update successful:', result);
+        setShowForm(false);
+        setEditingUser(null);
+        fetchUsers(); // Refresh the list
       } else {
         // Create new user using POST API
-        const formData = new FormData();
+        const formData = buildFormData(userData);
         
-        // Add all user data fields to FormData
-        Object.entries(userData).forEach(([key, value]) => {
-          if (value !== null && value !== undefined) {
-            if (key === 'medicleSpecially' && Array.isArray(value)) {
-              // Handle medicleSpecially array (used for staff positions) - send each value as separate form field
-              value.forEach((position) => {
-                formData.append('medicleSpecially', String(position));
-              });
-            } else if (key === 'roles' && Array.isArray(value)) {
-              // Handle roles array - send each role name as separate form field
-              value.forEach((role) => {
-                if (typeof role === 'object' && role.name) {
-                  formData.append('roles', role.name);
-                } else if (typeof role === 'string') {
-                formData.append('roles', role);
-                }
-              });
-            } else if (Array.isArray(value)) {
-              // Handle other arrays
-              formData.append(key, JSON.stringify(value));
-            } else if (typeof value === 'object') {
-              // Handle objects
-              formData.append(key, JSON.stringify(value));
-            } else {
-              // Handle primitive values
-              formData.append(key, String(value));
-            }
-          }
-        });
-
         const result = await fetchCreateUser(formData);
-          console.log('Create successful:', result);
-          setShowForm(false);
-          setEditingUser(null);
-          fetchUsers(); // Refresh the list
+        console.log('Create successful:', result);
+        setShowForm(false);
+        setEditingUser(null);
+        fetchUsers(); // Refresh the list
       }
     } catch (err: any) {
       console.error('Error submitting form:', err);
       // Re-throw error to be caught by StaffForm
-      throw new Error(err.response?.data?.message || err.message || 'Có lỗi xảy ra khi tạo nhân viên');
+      const errorMessage = err.response?.data?.message || err.message || 'Có lỗi xảy ra khi tạo/cập nhật nhân viên';
+      throw new Error(errorMessage);
     }
   };
 
