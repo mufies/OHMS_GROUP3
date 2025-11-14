@@ -17,4 +17,6 @@ public class MedicleExaminationRequest {
    int price;
    MedicalSpecialty medicalSpecialty;
    Integer minDuration; // Thời gian tối thiểu để hoàn thành dịch vụ (phút)
+   String type; // Loại dịch vụ
+   Boolean stay; // Dịch vụ cần chờ để lấy kết quả
 }

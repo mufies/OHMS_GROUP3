@@ -5,6 +5,8 @@ interface Service {
   name: string;
   price: number;
   minDuration: number | null;
+  type: string | null;
+  stay: boolean | null;
 }
 
 interface ServiceFormProps {
@@ -18,6 +20,8 @@ const ServiceForm: React.FC<ServiceFormProps> = ({ service, onSubmit, onCancel }
     name: '',
     price: '',
     minDuration: '',
+    type: '',
+    stay: false,
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -30,12 +34,16 @@ const ServiceForm: React.FC<ServiceFormProps> = ({ service, onSubmit, onCancel }
         name: service.name,
         price: service.price.toString(),
         minDuration: service.minDuration?.toString() || '',
+        type: service.type || '',
+        stay: service.stay ?? false,
       });
     } else {
       setFormData({
         name: '',
         price: '',
         minDuration: '',
+        type: '',
+        stay: false,
       });
     }
   }, [service]);
@@ -67,11 +75,13 @@ const ServiceForm: React.FC<ServiceFormProps> = ({ service, onSubmit, onCancel }
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target;
+    const checked = (e.target as HTMLInputElement).checked;
+    
     setFormData(prev => ({
       ...prev,
-      [name]: value,
+      [name]: type === 'checkbox' ? checked : value,
     }));
     
     // Clear error when user starts typing
@@ -97,6 +107,8 @@ const ServiceForm: React.FC<ServiceFormProps> = ({ service, onSubmit, onCancel }
           minDuration: formData.minDuration.trim() 
             ? parseInt(formData.minDuration) 
             : null,
+          type: formData.type.trim() || null,
+          stay: formData.stay,
         };
 
         await onSubmit(submitData);
@@ -181,6 +193,48 @@ const ServiceForm: React.FC<ServiceFormProps> = ({ service, onSubmit, onCancel }
             )}
             <p className="text-gray-500 text-xs mt-1">
               Để trống nếu không xác định
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Loại dịch vụ
+            </label>
+            <select
+              name="type"
+              value={formData.type}
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Chọn loại dịch vụ</option>
+              <option value="ONLINE">Online</option>
+              <option value="OFFLINE">Offline</option>
+              <option value="PREVENTIVE">Dự phòng</option>
+              <option value="TREATMENT">Điều trị</option>
+              <option value="EXAMINATION">Xét nghiệm</option>
+              <option value="IMAGING">Chẩn đoán hình ảnh</option>
+              <option value="CONSULTATION">Tư vấn</option>
+            </select>
+            <p className="text-gray-500 text-xs mt-1">
+              Để trống nếu không xác định
+            </p>
+          </div>
+
+          <div>
+            <label className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                name="stay"
+                checked={formData.stay}
+                onChange={handleInputChange}
+                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-sm font-medium text-gray-700">
+                Dịch vụ cần chờ để lấy kết quả
+              </span>
+            </label>
+            <p className="text-gray-500 text-xs mt-1 ml-6">
+              Ví dụ: Xét nghiệm, chụp X-quang, siêu âm...
             </p>
           </div>
 

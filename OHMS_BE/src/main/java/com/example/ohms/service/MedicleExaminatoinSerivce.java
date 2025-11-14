@@ -57,6 +57,15 @@ public class MedicleExaminatoinSerivce{
       if(medicleExaminationRequest.getMinDuration() != null){
          medicalExamination.setMinDuration(medicleExaminationRequest.getMinDuration());
       }
+      if(medicleExaminationRequest.getType() != null){
+         medicalExamination.setType(medicleExaminationRequest.getType());
+      }
+      if(medicleExaminationRequest.getStay() != null){
+         medicalExamination.setStay(medicleExaminationRequest.getStay());
+      }
+      if(medicleExaminationRequest.getMedicalSpecialty() != null){
+         medicalExamination.setMedicalSpecialty(medicleExaminationRequest.getMedicalSpecialty());
+      }
       medicleExaminationRepository.save(medicalExamination);
       return medicalExaminationMapper.toMedicleExaminationResponse(medicalExamination);
    }

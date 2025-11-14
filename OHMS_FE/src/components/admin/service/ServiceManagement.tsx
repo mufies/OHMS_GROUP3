@@ -8,6 +8,8 @@ interface Service {
   name: string;
   price: number;
   minDuration: number | null;
+  type: string | null;
+  stay: boolean | null;
 }
 
 interface ApiResponse {
@@ -78,6 +80,8 @@ const ServiceManagement: React.FC = () => {
         name: serviceData.name,
         price: serviceData.price,
         minDuration: serviceData.minDuration || null,
+        type: serviceData.type || null,
+        stay: serviceData.stay ?? false,
       };
 
       if (editingService) {

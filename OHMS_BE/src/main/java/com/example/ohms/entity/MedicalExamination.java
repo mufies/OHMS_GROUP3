@@ -38,6 +38,11 @@ public class MedicalExamination {
    
    @Enumerated(EnumType.STRING)
    MedicalSpecialty medicalSpecialty;
+   
+   String type; // Loại dịch vụ (VD: ONLINE, OFFLINE, PREVENTIVE, TREATMENT, etc.)
+   
+   @Builder.Default
+   Boolean stay = false; // Dịch vụ cần chờ để lấy kết quả (VD: xét nghiệm, chụp X-quang)
 
    @Override
    public boolean equals(Object o) {
