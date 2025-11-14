@@ -1,10 +1,13 @@
 import React from 'react';
+import { MEDICAL_SPECIALTY_LABELS, MedicalSpecialtyType } from '../../../constant/medicalSpecialty';
 
 interface Service {
   id: string;
   name: string;
   price: number;
   minDuration: number | null;
+  medicalSpecialty?: MedicalSpecialtyType;
+  type?: 'STAY' | null;
 }
 
 interface ServiceListProps {
@@ -44,6 +47,12 @@ const ServiceList: React.FC<ServiceListProps> = ({ services, onEdit, onDelete })
                 Thời gian tối thiểu
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Chuyên khoa
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Loại dịch vụ
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Thao tác
               </th>
             </tr>
@@ -51,7 +60,7 @@ const ServiceList: React.FC<ServiceListProps> = ({ services, onEdit, onDelete })
           <tbody className="bg-white divide-y divide-gray-200">
             {services.length === 0 ? (
               <tr>
-                <td colSpan={4} className="px-6 py-4 text-center text-gray-500">
+                <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
                   Không có dịch vụ nào
                 </td>
               </tr>
@@ -72,6 +81,22 @@ const ServiceList: React.FC<ServiceListProps> = ({ services, onEdit, onDelete })
                     <div className="text-sm text-gray-900">
                       {formatDuration(service.minDuration)}
                     </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">
+                      {service.medicalSpecialty 
+                        ? MEDICAL_SPECIALTY_LABELS[service.medicalSpecialty as MedicalSpecialtyType]
+                        : 'Không xác định'}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                      service.type === 'STAY'
+                        ? 'bg-yellow-100 text-yellow-800'
+                        : 'bg-green-100 text-green-800'
+                    }`}>
+                      {service.type === 'STAY' ? '✓ STAY' : 'NO_STAY'}
+                    </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex space-x-2">

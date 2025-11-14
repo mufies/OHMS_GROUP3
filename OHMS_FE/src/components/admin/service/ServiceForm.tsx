@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import { MedicalSpecialty, MedicalSpecialtyType, MEDICAL_SPECIALTY_LABELS } from '../../../constant/medicalSpecialty';
 
 interface Service {
   id: string;
   name: string;
   price: number;
   minDuration: number | null;
+  medicalSpecialty?: MedicalSpecialtyType;
+  type?: 'STAY' | null;
 }
 
 interface ServiceFormProps {
@@ -18,6 +21,8 @@ const ServiceForm: React.FC<ServiceFormProps> = ({ service, onSubmit, onCancel }
     name: '',
     price: '',
     minDuration: '',
+    medicalSpecialty: '',
+    requiresStay: false,
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -30,12 +35,16 @@ const ServiceForm: React.FC<ServiceFormProps> = ({ service, onSubmit, onCancel }
         name: service.name,
         price: service.price.toString(),
         minDuration: service.minDuration?.toString() || '',
+        medicalSpecialty: service.medicalSpecialty || '',
+        requiresStay: service.type === 'STAY',
       });
     } else {
       setFormData({
         name: '',
         price: '',
         minDuration: '',
+        medicalSpecialty: '',
+        requiresStay: false,
       });
     }
   }, [service]);
@@ -67,8 +76,17 @@ const ServiceForm: React.FC<ServiceFormProps> = ({ service, onSubmit, onCancel }
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const target = e.target;
+    const { name } = target;
+    
+    let value: string | boolean;
+    if (target instanceof HTMLInputElement && target.type === 'checkbox') {
+      value = target.checked;
+    } else {
+      value = target.value;
+    }
+    
     setFormData(prev => ({
       ...prev,
       [name]: value,
@@ -97,6 +115,8 @@ const ServiceForm: React.FC<ServiceFormProps> = ({ service, onSubmit, onCancel }
           minDuration: formData.minDuration.trim() 
             ? parseInt(formData.minDuration) 
             : null,
+          medicalSpecialty: formData.medicalSpecialty as MedicalSpecialtyType || undefined,
+          type: formData.requiresStay ? 'STAY' : null,
         };
 
         await onSubmit(submitData);
@@ -182,6 +202,44 @@ const ServiceForm: React.FC<ServiceFormProps> = ({ service, onSubmit, onCancel }
             <p className="text-gray-500 text-xs mt-1">
               Để trống nếu không xác định
             </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Chuyên khoa *
+            </label>
+            <select
+              name="medicalSpecialty"
+              value={formData.medicalSpecialty}
+              onChange={handleInputChange}
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                errors.medicalSpecialty ? 'border-red-500' : 'border-gray-300'
+              }`}
+            >
+              <option value="">-- Chọn chuyên khoa --</option>
+              {Object.entries(MedicalSpecialty).map(([key, value]) => (
+                <option key={key} value={value}>
+                  {MEDICAL_SPECIALTY_LABELS[value as MedicalSpecialtyType]}
+                </option>
+              ))}
+            </select>
+            {errors.medicalSpecialty && (
+              <p className="text-red-500 text-sm mt-1">{errors.medicalSpecialty}</p>
+            )}
+          </div>
+
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              id="requiresStay"
+              name="requiresStay"
+              checked={formData.requiresStay}
+              onChange={handleInputChange}
+              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+            />
+            <label htmlFor="requiresStay" className="ml-3 text-sm font-medium text-gray-700">
+              Dịch vụ này yêu cầu nằm lại (STAY)
+            </label>
           </div>
 
           {submitError && (

@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  # Frontend Service
+  ohms-frontend:
+    build:
+      context: ./OHMS_FE
+      dockerfile: Dockerfile
+    container_name: ohms-frontend
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:8080
+    depends_on:
+      - ohms-backend
+    networks:
+      - ohms-network
+    restart: unless-stopped
+
+  # Backend Service
+  ohms-backend:
+    build:
+      context: ./OHMS_BE
+      dockerfile: Dockerfile
+    container_name: ohms-backend
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://ohms-db:3306/ohms_db
+      - SPRING_DATASOURCE_USERNAME=ohms_user
+      - SPRING_DATASOURCE_PASSWORD=ohms_password
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+      - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
+      - FIREBASE_PRIVATE_KEY=${FIREBASE_PRIVATE_KEY}
+      - FIREBASE_CLIENT_EMAIL=${FIREBASE_CLIENT_EMAIL}
+    depends_on:
+      ohms-db:
+        condition: service_healthy
+    networks:
+      - ohms-network
+    restart: unless-stopped
+
+  # MySQL Database
+  ohms-db:
+    image: mysql:8.0-alpine
+    container_name: ohms-db
+    environment:
+      - MYSQL_ROOT_PASSWORD=root_password
+      - MYSQL_DATABASE=ohms_db
+      - MYSQL_USER=ohms_user
+      - MYSQL_PASSWORD=ohms_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - ohms-db-data:/var/lib/mysql
+    networks:
+      - ohms-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  ohms-network:
+    driver: bridge
+
+volumes:
+  ohms-db-data:
+    driver: local

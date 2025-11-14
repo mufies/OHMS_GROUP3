@@ -2,12 +2,15 @@ import React, { useState, useEffect } from 'react';
 import ServiceList from './ServiceList';
 import ServiceForm from './ServiceForm';
 import { axiosInstance } from '../../../utils/fetchFromAPI';
+import { MedicalSpecialtyType } from '../../../constant/medicalSpecialty';
 
 interface Service {
   id: string;
   name: string;
   price: number;
   minDuration: number | null;
+  medicalSpecialty?: MedicalSpecialtyType;
+  type?: 'STAY' | null;
 }
 
 interface ApiResponse {
@@ -78,6 +81,8 @@ const ServiceManagement: React.FC = () => {
         name: serviceData.name,
         price: serviceData.price,
         minDuration: serviceData.minDuration || null,
+        medicalSpecialty: serviceData.medicalSpecialty || null,
+        type: serviceData.type || null
       };
 
       if (editingService) {
@@ -92,11 +97,10 @@ const ServiceManagement: React.FC = () => {
         fetchServices(); // Refresh the list
       } else {
         // Create new service using POST API
-        const { data: result } = await axiosInstance.post<UpdateResponse>(
+        await axiosInstance.post<UpdateResponse>(
           '/medical-examination',
           payload
         );
-        console.log('Create successful:', result);
         setShowForm(false);
         setEditingService(null);
         fetchServices(); // Refresh the list
