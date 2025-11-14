@@ -31,6 +31,7 @@ interface Patient {
   unreadCount?: number;
   isOnline?: boolean;
   condition?: string;
+  imageUrl?: string;
 }
 
 interface User {
@@ -283,11 +284,9 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
   // Fetch chat rooms and extract patients list
   const fetchChatRooms = useCallback(async () => {
     try {
-      const token = localStorage.getItem('accessToken');
       const response = await axiosInstance.get(`/chat/${currentUser.id}`);
 
       if (response.data?.results) {
-        console.log('negi');
         
         setChatRooms(response.data.results);
 
@@ -322,7 +321,8 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
                   isOnline: Math.random() > 0.3, // 70% chance of being online
                   condition: 'General Consultation',
                   lastMessage,
-                  lastMessageTime
+                  lastMessageTime,
+                  imageUrl: user.imageUrl || undefined
                 });
               } catch (msgError) {
                 console.warn('Error fetching messages for room:', room.roomChatID, msgError);
@@ -334,7 +334,8 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
                   patientId: `P${user.id.substring(0, 3).toUpperCase()}`,
                   condition: 'General Consultation',
                   lastMessage: 'No messages yet',
-                  lastMessageTime: new Date(Date.now() - Math.random() * 86400000)
+                  lastMessageTime: new Date(Date.now() - Math.random() * 86400000),
+                  imageUrl: user.imageUrl || undefined
                 });
               }
             }
@@ -441,7 +442,7 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
         </div>
         <div className="space-y-0 flex-1 overflow-y-auto">
           {filteredPatients.length ? (
-            filteredPatients.map(patient => (
+            filteredPatients.map((patient: Patient) => (
               <div
                 key={patient.id}
                 onClick={() => {
@@ -452,11 +453,19 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
                 }`}
               >
                 <div className="relative flex-shrink-0">
-                  <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
-                    <span className="text-white font-semibold text-xs">
-                      {patient.username.split(' ').map(n => n[0]).join('').toUpperCase()}
-                    </span>
-                  </div>
+                  {patient.imageUrl ? (
+                    <img
+                      src={patient.imageUrl}
+                      alt={patient.username}
+                      className="w-10 h-10 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
+                      <span className="text-white font-semibold text-xs">
+                        {patient.username.split(' ').map(n => n[0]).join('').toUpperCase()}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex-1 min-w-0">
@@ -500,14 +509,22 @@ const DoctorChat = ({ currentUser }: DoctorChatProps) => {
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
                   <div className="relative">
-                    <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                      <FontAwesomeIcon icon={faUserInjured} className="text-green-600" />
-                    </div>
+                    {selectedPatient.imageUrl ? (
+                      <img
+                        src={selectedPatient.imageUrl}
+                        alt={selectedPatient.username}
+                        className="w-10 h-10 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                        <FontAwesomeIcon icon={faUserInjured} className="text-green-600" />
+                      </div>
+                    )}
                   </div>
                   <div>
                     <h3 className="font-medium text-black">{selectedPatient.username}</h3>
                     <p className="text-sm text-black">
-                      ID: {selectedPatient.patientId}
+                      {/* ID: {selectedPatient.patientId} */}
                     </p>
 
                   </div>

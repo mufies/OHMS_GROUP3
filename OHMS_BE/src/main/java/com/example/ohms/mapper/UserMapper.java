@@ -21,7 +21,7 @@ public interface UserMapper {
    User toUser(UserRequest userRequestDto);
    UserResponse toUserResponseDto(User user);
    
-   HideUserResponse toUserHideResponse(User user);
+   // HideUserResponse toUserHideResponse(User user);
    
    // Offline user mappings
    @Mapping(target = "id", ignore = true)

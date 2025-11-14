@@ -29,6 +29,7 @@
     isOnline?: boolean;
     lastSeen?: Date;
     specialization?: string;
+    imageUrl?: string;
   }
 
   interface RoomChatResponse {
@@ -406,6 +407,7 @@ useEffect(() => {
                   username: user.username,
                   email: user.email,
                   specialization: user.specialization || '',
+                  imageUrl: user.imageUrl || undefined,
                 });
               }
             }
@@ -432,7 +434,13 @@ useEffect(() => {
     }, [messages, scrollToBottom]);
 
     // Format helpers
-    const formatTime = (date: Date) => date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const formatTime = (date: Date) => {
+      return date.toLocaleTimeString('vi-VN', { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        timeZone: 'Asia/Ho_Chi_Minh'
+      });
+    };
 
     const formatLastSeen = (date: Date) => {
       const now = new Date();
@@ -515,11 +523,19 @@ useEffect(() => {
                   }`}
                 >
                   <div className="relative flex-shrink-0">
-                    <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
-                      <span className="text-white font-semibold text-xs">
-                        {doctor.username?.split(' ').map(n => n[0]).join('').toUpperCase() || 'DR'}
-                      </span>
-                    </div>
+                    {doctor.imageUrl ? (
+                      <img
+                        src={doctor.imageUrl}
+                        alt={doctor.username}
+                        className="w-10 h-10 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
+                        <span className="text-white font-semibold text-xs">
+                          {doctor.username?.split(' ').map(n => n[0]).join('').toUpperCase() || 'DR'}
+                        </span>
+                      </div>
+                    )}
                     {/* <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${
                       doctor.isOnline ? 'bg-green-500' : 'bg-gray-400'
                     }`}></div> */}
@@ -560,9 +576,17 @@ useEffect(() => {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
                     <div className="relative">
-                      <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                        <FontAwesomeIcon icon={faUserMd} className="text-blue-600" />
-                      </div>
+                      {selectedDoctor.imageUrl ? (
+                        <img
+                          src={selectedDoctor.imageUrl}
+                          alt={selectedDoctor.username}
+                          className="w-10 h-10 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                          <FontAwesomeIcon icon={faUserMd} className="text-blue-600" />
+                        </div>
+                      )}
                       <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${
                         selectedDoctor.isOnline ? 'bg-green-500' : 'bg-gray-400'
                       }`}></div>

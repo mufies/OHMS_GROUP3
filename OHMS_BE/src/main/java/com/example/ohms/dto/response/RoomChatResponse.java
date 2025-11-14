@@ -13,5 +13,5 @@ import lombok.experimental.FieldDefaults;
 @FieldDefaults(level = AccessLevel.PRIVATE,makeFinal = true)
 public class RoomChatResponse {
    String roomChatID;
-   Set<HideUserResponse> user;
+   Set<UserResponse> user;
 }
