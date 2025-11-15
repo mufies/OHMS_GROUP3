@@ -1,23 +1,5 @@
-version: '3.8'
 
 services:
-  # Frontend Service
-  ohms-frontend:
-    image: mufies14/ohms-frontend:latest
-    container_name: ohms-frontend
-    ports:
-      - "4173:4173"
-    env_file:
-      - ./.env
-    environment:
-      - VITE_API_URL=${VITE_API_URL:-http://3.27.104.73:8080}
-    depends_on:
-      - ohms-backend
-    networks:
-      - ohms-network
-    restart: unless-stopped
-
-  # Backend Service
   ohms-backend:
     image: mufies14/ohms-backend:latest
     container_name: ohms-backend
@@ -26,41 +8,21 @@ services:
     env_file:
       - ./.env
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:mysql://ohms-db:3306/swpbackend?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
-      - SPRING_DATASOURCE_USERNAME=root
-      - SPRING_DATASOURCE_PASSWORD=root
-      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
-    depends_on:
-      ohms-db:
-        condition: service_healthy
+      SPRING_DATASOURCE_URL: ${DATABASE_URL}
+      SPRING_DATASOURCE_USERNAME: ${DATABASE_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${DATABASE_PASSWORD}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      VIETQR_CLIENT_ID: ${VIETQR_CLIENT_ID}
+      VIETQR_CLIENT_SECRET: ${VIETQR_CLIENT_SECRET}
+      VIETQR_CHECKSUM_KEY: ${VIETQR_CHECKSUM_KEY}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
     networks:
       - ohms-network
     restart: unless-stopped
-
-  # MySQL Database
-  ohms-db:
-    image: mysql:8.0
-    container_name: ohms-db
-    environment:
-      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-root}
-      - MYSQL_DATABASE=${MYSQL_DATABASE:-swpbackend}
-    ports:
-      - "3306:3306"
-    volumes:
-      - ohms-db-data:/var/lib/mysql
-    networks:
-      - ohms-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
 networks:
   ohms-network:
     driver: bridge
-
-volumes:
-  ohms-db-data:
-    driver: local

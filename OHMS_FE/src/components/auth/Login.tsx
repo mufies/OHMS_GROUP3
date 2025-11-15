@@ -4,7 +4,7 @@ import type React from "react"
 import { useState } from "react"
 import { X, Mail, Lock, Loader2 } from "lucide-react"
 import { toast } from "react-toastify"
-import {  fetchGetProfile, fetchLoginUser } from "../../utils/fetchFromAPI"
+import {  fetchGetProfile, fetchLoginUser, BASE_URL } from "../../utils/fetchFromAPI"
 import { useNavigate } from "react-router-dom"
 import ForgotPasswordModal from "./ForgotPasswordModal"
 import ResetPasswordModal from "./ResetPasswordModal" // 👈 thêm dòng này
@@ -59,7 +59,7 @@ const handleSubmit = async (e: React.FormEvent) => {
 
 
   const handleGoogleLogin = () => {
-    window.location.href = "http://localhost:8080/oauth2/authorization/google"
+    window.location.href = `${BASE_URL}/oauth2/authorization/google`
   }
 
   return (

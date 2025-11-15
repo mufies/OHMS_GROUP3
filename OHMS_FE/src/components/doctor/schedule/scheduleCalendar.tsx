@@ -6,6 +6,7 @@ import {
   faClock,
   faUser,
 } from '@fortawesome/free-solid-svg-icons';
+import { axiosInstance } from '../../../utils/fetchFromAPI';
 
 // Interface matching your API response
 interface MedicalExamination {
@@ -135,22 +136,9 @@ export default function ScheduleCalendar() {
     setLoading(true);
     try {
       const formattedDate = formatDateForAPI(date);
-      const response = await fetch(
-        `http://localhost:8080/appointments/doctor/${doctorId}/date/${formattedDate}`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-          }
-        }
+      const { data } = await axiosInstance.get<AppointmentResponse[]>(
+        `/appointments/doctor/${doctorId}/date/${formattedDate}`
       );
-
-      if (!response.ok) {
-        throw new Error('Không thể lấy lịch hẹn');
-      }
-
-      const data: AppointmentResponse[] = await response.json();
       const transformedData = transformAppointments(data)
         // sort by time ascending (HH:mm works lexicographically)
         .sort((a, b) => a.time.localeCompare(b.time));

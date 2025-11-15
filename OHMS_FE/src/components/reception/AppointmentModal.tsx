@@ -43,7 +43,7 @@ export default function AppointmentModal({
     const fetchDoctors = async () => {
       try {
         const res = await axiosInstance.get(
-          "http://localhost:8080/users/getListDoctor"
+          "/users/getListDoctor"
         )
         const data = Array.isArray(res.data)
           ? res.data

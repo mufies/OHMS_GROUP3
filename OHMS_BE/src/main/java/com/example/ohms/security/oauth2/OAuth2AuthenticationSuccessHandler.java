@@ -64,7 +64,7 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
         String token = authenticationService.generateTokenFromOAuth2(user);
         httpCookieOAuth2AuthorizationRequestRepository.removeAuthorizationRequestCookies(request, response);
         // Redirect về FE kèm token
-        String redirectUrl = "http://localhost:5173/oauth2/redirect?token=" +
+        String redirectUrl = "http://oachs-bucket.s3-website-ap-southeast-2.amazonaws.com/oauth2/redirect?token=" +
                 URLEncoder.encode(token, StandardCharsets.UTF_8);
 
         log.info("Redirecting to frontend: {}", redirectUrl);
